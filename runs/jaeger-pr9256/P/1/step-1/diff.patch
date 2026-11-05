@@ -1,0 +1,72 @@
+diff --git a/internal/storage/v2/api/tracestore/reader.go b/internal/storage/v2/api/tracestore/reader.go
+index 125c1de..dec6108 100644
+--- a/internal/storage/v2/api/tracestore/reader.go
++++ b/internal/storage/v2/api/tracestore/reader.go
+@@ -75,6 +75,17 @@ type Reader interface {
+ 	// summaries, and implementations may yield incrementally rather than buffering all
+ 	// results first.
+ 	FindTraceSummaries(ctx context.Context, query TraceQueryParams) iter.Seq2[[]TraceSummary, error]
++
++	// SearchCapabilities reports how this reader's search methods behave.
++	//
++	// A reader that cannot tell, for example because its backend sits behind an
++	// API that cannot be asked, returns an error that wraps errors.ErrUnsupported
++	// rather than a value that a caller might trust. The context is there because
++	// the answer may come over the network.
++	//
++	// A Reader that wraps another Reader must forward this call to it, and must
++	// not answer for it.
++	SearchCapabilities(ctx context.Context) (SearchCapabilities, error)
+ }
+ 
+ // GetTraceParams contains single-trace parameters for a GetTraces request.
+diff --git a/internal/storage/v2/api/tracestore/search_capabilities.go b/internal/storage/v2/api/tracestore/search_capabilities.go
+new file mode 100644
+index 0000000..b2746d6
+--- /dev/null
++++ b/internal/storage/v2/api/tracestore/search_capabilities.go
+@@ -0,0 +1,17 @@
++// Copyright (c) 2026 The Jaeger Authors.
++// SPDX-License-Identifier: Apache-2.0
++
++package tracestore
++
++// SearchCapabilities describes how a Reader's search methods behave where
++// backends differ. Reader.SearchCapabilities returns it.
++//
++// The zero value is the least capable reader: every field is false. A field
++// added later is therefore false for every implementation that does not set
++// it, so a reader never claims a capability it was not written for.
++type SearchCapabilities struct {
++	// WithoutServiceName is true when FindTraces, FindTraceIDs and
++	// FindTraceSummaries accept a TraceQueryParams whose ServiceName is empty
++	// and read it as "any service", rather than as an error or an empty result.
++	WithoutServiceName bool
++}
+diff --git a/internal/storage/v2/api/tracestore/search_capabilities_test.go b/internal/storage/v2/api/tracestore/search_capabilities_test.go
+new file mode 100644
+index 0000000..9f540ce
+--- /dev/null
++++ b/internal/storage/v2/api/tracestore/search_capabilities_test.go
+@@ -0,0 +1,21 @@
++// Copyright (c) 2026 The Jaeger Authors.
++// SPDX-License-Identifier: Apache-2.0
++
++package tracestore
++
++import (
++	"reflect"
++	"testing"
++
++	"github.com/stretchr/testify/assert"
++)
++
++// TestSearchCapabilities_FieldCount fails when a field is added to
++// SearchCapabilities. When it fails, extend the forwarding tests of every
++// Reader decorator, which enumerate each field, then update the count here:
++//   - tracestoremetrics/reader_metrics_test.go
++//   - cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator_test.go
++func TestSearchCapabilities_FieldCount(t *testing.T) {
++	assert.Equal(t, 1, reflect.TypeFor[SearchCapabilities]().NumField(),
++		"SearchCapabilities gained a field: extend the decorators' forwarding tests")
++}
