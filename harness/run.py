@@ -89,7 +89,6 @@ def agent_env(task, arm, offline=True):
         "LANG": "en_US.UTF-8",
         "PATH": ":".join(path),
         "GOTOOLCHAIN": "go" + task["go"] if task.get("go") else "local",
-        "GOFLAGS": "-mod=mod",
         "GOSUMDB": "off",
     }
     if offline:
@@ -147,8 +146,14 @@ def warm(task, ws):
     """
     env = agent_env(task, "A", offline=False)
     md = module_dir(task, ws)
+    # Warming must not edit go.mod or go.sum: upstream's patches assume
+    # upstream's files. -mod=mod once let go list add lines to go.sum.
+    before = {f: (md / f).read_bytes() for f in ("go.mod", "go.sum") if (md / f).exists()}
     sh(["go", "mod", "download"], cwd=md, env=env)
     sh(["go", "list", "-e", "-deps", "-test", "./" + task["package"]], cwd=md, env=env)
+    after = {f: (md / f).read_bytes() for f in before}
+    if after != before:
+        raise RuntimeError("warming changed " + ", ".join(f for f in before if before[f] != after[f]))
 
 
 def setup_guardrail(task, ws):
