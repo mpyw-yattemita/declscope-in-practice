@@ -239,7 +239,36 @@ NET = re.compile(r"(^|[\s;&|(])(gh|curl|wget)\s|git\s+(fetch|clone|pull|ls-remot
 ABS = re.compile(r"(?<![\w.-])(/(?:Users|private|tmp|var|opt|etc|home|Volumes)/[^\s'\"`;|&)]*)")
 
 
-def audit(transcript_gz, ws, arm, allowed_extra=()):
+REL = re.compile(r"(?<![\w/.-])((?:\.\./)+[^\s'\"`;|&)]*|\.\.(?=$|[\s;|&)]))")
+CD = re.compile(r"(?:^|[;&|(]\s*|&&\s*)cd\s+([^\s;&|)]+)")
+
+
+def escapes(cmd, ws, start):
+    """Relative paths in a shell command that leave the workspace.
+
+    The command starts in `start`; each `cd` moves it, in order. A path like
+    ../../../../.declscope-baseline.yaml from inside the package stays in the
+    workspace and is fine.
+    """
+    cwd, out = Path(start), []
+    for part in re.split(r"(?=(?:^|[;&|(]\s*|&&\s*)cd\s)", cmd):
+        m = CD.search(part)
+        if m:
+            target = os.path.expanduser(m.group(1).strip("'\""))
+            cwd = Path(os.path.normpath(target if target.startswith("/") else cwd / target))
+        for r in REL.findall(part):
+            p = os.path.normpath(cwd / r)
+            if not (p == str(ws) or p.startswith(str(ws) + "/")):
+                out.append(p)
+        if not (str(cwd) == str(ws) or str(cwd).startswith(str(ws) + "/")):
+            out.append(str(cwd))
+    return out
+
+
+def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
+    # Claude Code keeps per-session files for this workspace, named after its
+    # path (background output, saved tool results); those belong to the run.
+    session_tag = "-" + str(ws).strip("/").replace("/", "-").replace(".", "-")
     allowed = [str(ws), str(mod_cache()), str(go_root()), "/dev/null", "/tmp/go-build", "/private/var/folders"]
     allowed += [str(a) for a in allowed_extra]
     issues = []
@@ -257,10 +286,12 @@ def audit(transcript_gz, ws, arm, allowed_extra=()):
                     if name == "Bash" and NET.search(block["input"].get("command", "")):
                         issues.append({"kind": "network", "tool": name, "input": inp[:300]})
                     for p in ABS.findall(inp):
-                        if not any(p.startswith(a) for a in allowed):
+                        if not any(p.startswith(a) for a in allowed) and session_tag not in p:
                             issues.append({"kind": "outside-path", "tool": name, "path": p})
-                    if re.search(r"(^|[\s'\"=])\.\./\.\.|cd \.\.(\s|$|/)", inp):
-                        issues.append({"kind": "parent-ref", "tool": name, "input": inp[:300]})
+                    if name == "Bash":
+                        for p in escapes(block["input"].get("command", ""), ws, start or ws):
+                            if not any(p.startswith(a) for a in allowed):
+                                issues.append({"kind": "parent-ref", "tool": name, "path": p})
                 if arm in ("A", "P"):
                     text = json.dumps(block, ensure_ascii=False)
                     if "declscope" in text.lower():
@@ -541,7 +572,7 @@ def main():
             "directives": len(re.findall(r"^\+.*//declscope:", diff, re.M)),
         }
         result["score"] = score(task, task_dir, step, n, ws, sdir, args.model)
-        result["audit"] = audit(sdir / "agent.jsonl.gz", ws, arm)
+        result["audit"] = audit(sdir / "agent.jsonl.gz", ws, arm, start=module_dir(task, ws))
         if (sdir / "rename.jsonl.gz").exists():
             result["audit_rename"] = audit(sdir / "rename.jsonl.gz", WS_ROOT, "A")
         (sdir / "metrics.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
