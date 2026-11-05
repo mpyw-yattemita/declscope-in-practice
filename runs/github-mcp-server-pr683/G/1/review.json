@@ -1,0 +1,167 @@
+{
+  "arm": "G",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/sub_issue.go",
+      "line": 92,
+      "problem": "ListSubIssues declares its own `page` and `per_page` parameters, with no min/max, and reads them with `OptionalIntParamWithDefault(..., 30)`. Every other REST list tool uses `WithPagination()`, which exposes `perPage` with min 1 and max 100. So this new tool uses a different argument name (`per_page` instead of `perPage`) and accepts any number.",
+      "fix": "Replace the two `mcp.WithNumber` options with `WithPagination()`. In the handler, use `pagination, err := OptionalPaginationParams(request)` and set `ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`. Change the test arguments from `per_page` to `perPage` and update the toolsnap."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 20,
+      "problem": "Nothing outside the tests calls `WithUnifiedPagination`, `PaginationParams.After` or `PaginationParams.ToGraphQLParams`. The only GraphQL tools that page (discussions) use `WithCursorPagination` and `CursorPaginationParams`. Because of this unused path, every REST tool built with `OptionalPaginationParams` also reads an `after` argument that its schema never declares.",
+      "fix": "Delete `WithUnifiedPagination`, the `After` field of `PaginationParams`, the `after` read in `OptionalPaginationParams`, and `PaginationParams.ToGraphQLParams`. Remove the matching cases from `pagination_test.go`: the after cases in TestOptionalPaginationParams, the REST loop in TestToGraphQLParams, and the WithUnifiedPagination row in TestPaginationToolOptions. Add them back when a tool actually needs them."
+    },
+    {
+      "file": "pkg/graphql.go",
+      "line": 1,
+      "problem": "This new 13-line file holds only `DefaultGraphQLPageSize` and `GraphQLPaginationParams`. Its own comment says pagination.go builds the type. That splits one concept across two files, and `OptionalPaginationParams` still hard-codes its own `30` (`pagination.go:59`) next to the new constant.",
+      "fix": "Move both declarations into pagination.go and delete graphql.go. Add one `DefaultPerPage = 30` constant and use it in both `OptionalPaginationParams` and `OptionalCursorPaginationParams`. Keep a separate GraphQL default only if the two defaults are meant to differ."
+    },
+    {
+      "file": "pkg/issues.go",
+      "line": 410,
+      "problem": "ListIssues declares `WithPagination()` but reads `page` and `perPage` straight from `GetArguments()` with type assertions. That skips the shared helper, so values of the wrong type are silently ignored and the default page and perPage are not applied.",
+      "fix": "Replace the two `if ... .(float64)` blocks with `pagination, err := OptionalPaginationParams(request)`, return a tool error if it fails, then set `opts.ListOptions = github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`."
+    },
+    {
+      "file": "pkg/repositories.go",
+      "line": 143,
+      "problem": "This `if perPage == 0 { perPage = 30 }` block can never run, because `OptionalPaginationParams` already replaces 0 with 30.",
+      "fix": "Delete the `perPage` local variable and the block, and use `PerPage: pagination.PerPage` directly."
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 597,
+      "problem": "GetJobLogs sets the 500 default twice: once in the schema with `mcp.DefaultNumber(500)` and again by hand with `OptionalIntParam` and `if tailLines == 0`. The two copies can drift apart.",
+      "fix": "Use `tailLines, err := OptionalIntParamWithDefault(request, \"tail_lines\", 500)` and remove the manual check. Better still, put 500 in a named constant that both the schema and the handler use."
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 19,
+      "problem": "`DescriptionRepositoryOwner` and `DescriptionRepositoryName` are package-wide constants, but they are declared in actions.go and only actions.go uses them. The new and changed files (sub_issue.go:26,82,151,205 and discussions.go:25,186,259) still hard-code \"Repository owner\" and \"Repository name\".",
+      "fix": "Move the constants to a shared file, such as server.go or a new params file. Use them for the `owner` and `repo` descriptions in sub_issue.go and discussions.go."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/sub_issue.go",
+      "line": 92,
+      "problem": "ListSubIssues declares its own `page` and `per_page` parameters, with no min/max, and reads them with `OptionalIntParamWithDefault(..., 30)`. Every other REST list tool uses `WithPagination()`, which exposes `perPage` with min 1 and max 100. So this new tool uses a different argument name (`per_page` instead of `perPage`) and accepts any number.",
+      "fix": "Replace the two `mcp.WithNumber` options with `WithPagination()`. In the handler, use `pagination, err := OptionalPaginationParams(request)` and set `ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`. Change the test arguments from `per_page` to `perPage` and update the toolsnap.",
+      "category": "naming",
+      "why": "Confirmed. sub_issue.go:92-97 declares its own `page` and `per_page` parameters with no min or max, and line 116 reads `per_page` with a default of 30. Every other REST list tool uses WithPagination, which calls the argument `perPage` and limits it to 1-100. The test (sub_issue_test.go:157,174,183) and list_sub_issues.snap also use `per_page`. So the same argument has two names, and this tool has no limit.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 20,
+      "problem": "Nothing outside the tests calls `WithUnifiedPagination`, `PaginationParams.After` or `PaginationParams.ToGraphQLParams`. The only GraphQL tools that page (discussions) use `WithCursorPagination` and `CursorPaginationParams`. Because of this unused path, every REST tool built with `OptionalPaginationParams` also reads an `after` argument that its schema never declares.",
+      "fix": "Delete `WithUnifiedPagination`, the `After` field of `PaginationParams`, the `after` read in `OptionalPaginationParams`, and `PaginationParams.ToGraphQLParams`. Remove the matching cases from `pagination_test.go`: the after cases in TestOptionalPaginationParams, the REST loop in TestToGraphQLParams, and the WithUnifiedPagination row in TestPaginationToolOptions. Add them back when a tool actually needs them.",
+      "category": "dead",
+      "why": "Confirmed. WithUnifiedPagination and PaginationParams.ToGraphQLParams are defined only in pagination.go and are called nowhere outside the tests. The only GraphQL tools that page (discussions.go:70,275) use OptionalCursorPaginationParams and CursorPaginationParams.ToGraphQLParams. No production code reads PaginationParams.After, yet OptionalPaginationParams still reads an `after` argument for every REST tool, and those tools do not declare it in their schema.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/graphql.go",
+      "line": 1,
+      "problem": "This new 13-line file holds only `DefaultGraphQLPageSize` and `GraphQLPaginationParams`. Its own comment says pagination.go builds the type. That splits one concept across two files, and `OptionalPaginationParams` still hard-codes its own `30` (`pagination.go:59`) next to the new constant.",
+      "fix": "Move both declarations into pagination.go and delete graphql.go. Add one `DefaultPerPage = 30` constant and use it in both `OptionalPaginationParams` and `OptionalCursorPaginationParams`. Keep a separate GraphQL default only if the two defaults are meant to differ.",
+      "category": "duplication",
+      "why": "Confirmed. graphql.go holds only DefaultGraphQLPageSize and GraphQLPaginationParams, and its own comment says pagination.go builds the type. Meanwhile OptionalPaginationParams hard-codes 30 (pagination.go:59) while OptionalCursorPaginationParams uses DefaultGraphQLPageSize, which is also 30. That is the same default written twice. Nothing suggests the two defaults are meant to differ.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/issues.go",
+      "line": 410,
+      "problem": "ListIssues declares `WithPagination()` but reads `page` and `perPage` straight from `GetArguments()` with type assertions. That skips the shared helper, so values of the wrong type are silently ignored and the default page and perPage are not applied.",
+      "fix": "Replace the two `if ... .(float64)` blocks with `pagination, err := OptionalPaginationParams(request)`, return a tool error if it fails, then set `opts.ListOptions = github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`.",
+      "category": "duplication",
+      "why": "Confirmed. issues.go:410-416 reads `page` and `perPage` with bare `.(float64)` type assertions even though the tool declares WithPagination. This repeats what OptionalPaginationParams already does, but worse: a value of the wrong type is silently dropped instead of returning an error, and the defaults of 1 and 30 are never applied. Other tools in the same file (issues.go:626) already use the helper.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/repositories.go",
+      "line": 143,
+      "problem": "This `if perPage == 0 { perPage = 30 }` block can never run, because `OptionalPaginationParams` already replaces 0 with 30.",
+      "fix": "Delete the `perPage` local variable and the block, and use `PerPage: pagination.PerPage` directly.",
+      "category": "dead",
+      "why": "Confirmed. repositories.go:137 gets `pagination` from OptionalPaginationParams, which already defaults perPage to 30 when it is unset. So the `if perPage == 0 { perPage = 30 }` block at lines 141-145 can only run if a caller passes 0 explicitly, which the schema's min of 1 rules out. The block is unreachable and repeats the helper's default.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 597,
+      "problem": "GetJobLogs sets the 500 default twice: once in the schema with `mcp.DefaultNumber(500)` and again by hand with `OptionalIntParam` and `if tailLines == 0`. The two copies can drift apart.",
+      "fix": "Use `tailLines, err := OptionalIntParamWithDefault(request, \"tail_lines\", 500)` and remove the manual check. Better still, put 500 in a named constant that both the schema and the handler use.",
+      "category": "duplication",
+      "why": "Confirmed. The 500 default is written twice: once in the schema with `mcp.DefaultNumber(500)` (actions.go:562) and again in the handler with OptionalIntParam plus `if tailLines == 0 { tailLines = 500 }` (actions.go:592-599). OptionalIntParamWithDefault, which the package already uses elsewhere, together with one named constant would remove the second copy.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 19,
+      "problem": "`DescriptionRepositoryOwner` and `DescriptionRepositoryName` are package-wide constants, but they are declared in actions.go and only actions.go uses them. The new and changed files (sub_issue.go:26,82,151,205 and discussions.go:25,186,259) still hard-code \"Repository owner\" and \"Repository name\".",
+      "fix": "Move the constants to a shared file, such as server.go or a new params file. Use them for the `owner` and `repo` descriptions in sub_issue.go and discussions.go.",
+      "category": "duplication",
+      "why": "Confirmed. DescriptionRepositoryOwner and DescriptionRepositoryName are exported package-level constants, but they are declared in actions.go (lines 20-21) and only actions.go uses them. sub_issue.go (26,30,82,86,151,155,205,209) and discussions.go (25,29,186,190,259,260,340,344) still hard-code the same strings \"Repository owner\" and \"Repository name\".",
+      "on_changed_lines": false
+    }
+  ],
+  "counted": 3,
+  "changed_lines": 1783,
+  "per_kloc": 1.68,
+  "by_category": {
+    "naming": 1,
+    "duplication": 1,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 1,
+    "other": 0
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 3,
+    "tokens": 533567,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 166415,
+      "cache_read_input_tokens": 364238,
+      "output_tokens": 2908,
+      "output_tokens_details": {
+        "thinking_tokens": 923
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 166415,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1695,
+          "cache_read_input_tokens": 177594,
+          "cache_creation_input_tokens": 578,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 578
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 1.4623516,
+    "duration_s": 44.4
+  }
+}

@@ -1,0 +1,362 @@
+{
+  "task": "github-mcp-server-pr683",
+  "comparisons": [
+    {
+      "x": "A/1",
+      "y": "P/1",
+      "winner": "P",
+      "first": {
+        "better": "y",
+        "reasons": [
+          "y moves the pagination options and parameter types (WithPagination, PaginationParams, CursorPaginationParams, GraphQLPaginationParams) out of server.go into their own pagination.go, with matching tests in pagination_test.go. In x all of this is added to server.go, which grows to 334 lines and mixes request-parameter helpers with pagination.",
+          "y puts the sub-issue feature in its own files, sub_issue.go and sub_issue_test.go, including a small subIssueTarget type for the parent issue. In x the four sub-issue tools, subIssueResult and their test scaffolding go into issues.go and issues_test.go, which are already more than 900 and 1,600 lines.",
+          "In x, discussions.go adds general-sounding GraphQL helpers (pageInfoFragment, paginationVars) next to discussion-specific code, so it is unclear whether they are shared or local. y gives them discussion-scoped names (discussionsPageInfo, discussionsPaginationVars), which makes clear they belong to that feature.",
+          "x adds five types for list_discussions (four query structs, a discussionsQuery interface and newDiscussionsQuery). y keeps the same job inside one function, queryListDiscussions, using inline structs, so the variant handling stays in one place.",
+          "y has weak spots: graphql.go is a file holding a single constant, and sub_issue_test.go re-creates helpers that helper_test.go and server_test.go already provide (subIssueClientFn duplicates stubGetClientFn). These are small next to x's choice to grow server.go and issues.go."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 354114,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 341538,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 817,
+            "output_tokens_details": {
+              "thinking_tokens": 280
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 341538,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 817,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 341538,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 341538
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 2.7510034,
+          "duration_s": 17.2
+        }
+      },
+      "second": {
+        "better": "x",
+        "reasons": [
+          "x keeps the pagination options and parameter types (WithPagination, WithCursorPagination, PaginationParams, CursorPaginationParams, GraphQLPaginationParams) in a dedicated pagination.go, with matching tests in pagination_test.go. y adds all of this, plus pageParam, perPageParam, afterParam and maxPerPage, to server.go, which already held the server constructor and the request-parameter helpers.",
+          "x puts the sub-issue feature in its own sub_issue.go and sub_issue_test.go, which matches the one-file-per-feature pattern of dependabot.go and secret_scanning.go. It also gives the shared owner/repo/issue_number parsing a type, subIssueTarget. y adds four tools and their helpers to issues.go (920 to 1218 lines) and about 480 lines of tests to issues_test.go.",
+          "In y, discussions.go declares helpers with generic names (pageInfoFragment, paginationVars) that are not specific to discussions, so pagination code is split between server.go and discussions.go. In x, the discussion-only helpers are named after discussions (discussionsPageInfo, discussionsPaginationVars), and the general pagination code stays in pagination.go.",
+          "y does have a cleaner type layout for the list_discussions queries: the discussionsQuery interface has four named query types, while x uses a single queryListDiscussions switch. This is a small gain next to y's file-level placement problems.",
+          "x's graphql.go holds only one constant, which is a thin file. This is a small flaw compared with y putting new features into files that already had other jobs."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 354141,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 341538,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 844,
+            "output_tokens_details": {
+              "thinking_tokens": 302
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 341538,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 844,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 341538,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 341538
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 2.7515434,
+          "duration_s": 17.4
+        }
+      }
+    },
+    {
+      "x": "P/1",
+      "y": "G/1",
+      "winner": "tie",
+      "first": {
+        "better": "x",
+        "reasons": [
+          "In x/discussions.go the four query structs for the category and ordering combinations live in queryListDiscussions, and building the cursor variables lives in discussionsPaginationVars. The ListDiscussions handler only reads parameters and maps results. y/discussions.go writes the 4-way query switch inside the handler and repeats the First/After conversion in both ListDiscussions and GetDiscussionComments.",
+          "x/sub_issue.go defines subIssueTarget as only the parent issue (owner, repo, issue_number), so all four tools can use it, including ListSubIssues. y adds subIssueID to subIssueTarget, so ListSubIssues cannot use it and reads owner, repo and issue_number again by hand.",
+          "x/sub_issue.go's subIssueResult handles both the API error and the status check, and reuses the existing MarshalledTextResult from server.go. y's subIssueResult writes its own JSON marshalling and leaves the error branch repeated in every handler.",
+          "x/pagination.go keeps every pagination type together, including GraphQLPaginationParams, and graphql.go holds only the default page size. y moves GraphQLPaginationParams into graphql.go, even though only pagination.go builds and returns it. On the other side, y's paginationPageParam, paginationPerPageParam and paginationAfterParam helpers remove the repeated parameter definitions that x has.",
+          "Against x: x/sub_issue_test.go adds its own subIssueClientFn, subIssueHandler and subIssueQueryHandler. These copy what stubGetClientFn (server_test.go) and expectRequestBody, expectQueryParams and mockResponse (helper_test.go) already do. y/sub_issue_test.go reuses those helpers and fits the existing test structure better."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 330180,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 317228,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 1193,
+            "output_tokens_details": {
+              "thinking_tokens": 586
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 317228,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 1193,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 317228,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 317228
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 2.5640434,
+          "duration_s": 21.8
+        }
+      },
+      "second": {
+        "better": "x",
+        "reasons": [
+          "y/sub_issue_test.go defines its own subIssueClientFn, subIssueHandler, subIssueQueryHandler and callSubIssueTool. These copy helpers the package already has (stubGetClientFn in server_test.go; expectRequestBody, expectQueryParams, mockResponse and createMCPRequest in helper_test.go). x/sub_issue_test.go uses those existing helpers and adds only one small callSubIssueHandler.",
+          "x/pagination.go puts each tool parameter in one private helper (paginationPageParam, paginationPerPageParam, paginationAfterParam). WithPagination, WithUnifiedPagination and WithCursorPagination are built from these. y/pagination.go repeats the same mcp.WithNumber and mcp.WithString blocks in all three option functions.",
+          "y/discussions.go adds discussionsPaginationVars, which turns cursor pagination into githubv4 variables. This is general GraphQL pagination code, but y keeps it in the discussions file under a discussions-specific name rather than next to CursorPaginationParams.",
+          "y does split the list_discussions query switch into queryListDiscussions, which x leaves inside the handler. y's subIssueResult also reuses MarshalledTextResult from server.go. These are real gains for y, but they are local and smaller than the duplicated test helpers.",
+          "Neither GraphQL split is clean. x/graphql.go holds GraphQLPaginationParams away from the converters in pagination.go that build it. y/graphql.go is left holding one constant that only pagination.go uses."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 330238,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 317228,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 1251,
+            "output_tokens_details": {
+              "thinking_tokens": 713
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 317228,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 1251,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 317228,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 317228
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 2.5652034,
+          "duration_s": 24.9
+        }
+      }
+    },
+    {
+      "x": "A/1",
+      "y": "G/1",
+      "winner": "G",
+      "first": {
+        "better": "y",
+        "reasons": [
+          "y moves the sub-issue tools, their shared `subIssueTarget`/`requiredSubIssueTarget`/`subIssueResult` helpers, and their tests into `sub_issue.go` and `sub_issue_test.go`. In x, `issues.go` grows to 1218 lines and `issues_test.go` to 2108, holding sub-issue endpoint patterns and test harnesses.",
+          "y puts all pagination options, param types and conversions in `pagination.go`, with matching `pagination_test.go`. x leaves them in `server.go` and `server_test.go`, which mixes pagination with the server constructor and generic request-param helpers.",
+          "x keeps general GraphQL pagination helpers (`pageInfoFragment`, `paginationVars`) in `discussions.go`, so the boundary between the shared code and the discussions feature is blurred. y names its page-info type `discussionsPageInfo`, scoping it to the feature that uses it.",
+          "x organises the discussions query types better: `discussionConnection`, the `discussionsQuery` interface and `newDiscussionsQuery`. y repeats four anonymous query structs inside the `ListDiscussions` switch, a weakness within one file.",
+          "y's split of `graphql.go` from `pagination.go` is slightly odd, since `GraphQLPaginationParams` is built only in `pagination.go`. It is still a cleaner file-per-concern layout than x's."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 352222,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 339721,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 742,
+            "output_tokens_details": {
+              "thinking_tokens": 253
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 339721,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 742,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 339721,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 339721
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 2.7349674,
+          "duration_s": 16.5
+        }
+      },
+      "second": {
+        "better": "x",
+        "reasons": [
+          "x moves the pagination options, param types and ToGraphQLParams into their own pagination.go, with tests in pagination_test.go. y adds all of this to server.go, which grows from 184 to 334 lines and now mixes server construction and request-param helpers with pagination.",
+          "In x, sub_issue.go and sub_issue_test.go keep the four sub-issue tools together with their shared helpers (subIssueTarget, requiredSubIssueTarget, subIssueResult). y adds about 300 lines to issues.go and about 480 to issues_test.go, so a separate feature ends up inside an already large file.",
+          "y's discussions.go defines generic GraphQL helpers (pageInfoFragment, paginationVars) in a feature file even though they work on GraphQLPaginationParams from server.go. x names its page-info type discussionsPageInfo and keeps the generic GraphQL pagination type in graphql.go next to pagination.go.",
+          "One point for y: its discussions.go uses named query types behind a discussionsQuery interface with newDiscussionsQuery, which is tidier than x's four inline anonymous structs in ListDiscussions. It does not outweigh the file-level problems in server.go and issues.go.",
+          "x's graphql.go holds only one constant and one type, and the type is closely tied to pagination.go. That split is thin, but the boundary is still clearer than y putting pagination inside server.go."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 352320,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 339723,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 838,
+            "output_tokens_details": {
+              "thinking_tokens": 354
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 339723,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 838,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 339723,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 339723
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 2.7369034,
+          "duration_s": 16.5
+        }
+      }
+    }
+  ]
+}

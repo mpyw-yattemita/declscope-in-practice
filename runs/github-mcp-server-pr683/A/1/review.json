@@ -1,0 +1,248 @@
+{
+  "arm": "A",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/server.go",
+      "line": 218,
+      "problem": "WithUnifiedPagination is not used by any tool. It also declares a \"page\" parameter that ToGraphQLParams ignores (\"Page is not converted to a cursor\"), so a tool that used it would accept a page number and then drop it without telling the caller.",
+      "fix": "Delete WithUnifiedPagination. GraphQL tools should use WithCursorPagination."
+    },
+    {
+      "file": "pkg/server.go",
+      "line": 271,
+      "problem": "PaginationParams.ToGraphQLParams and the new PaginationParams.After field are only used by server_test.go. REST tools never declare an \"after\" parameter, and GraphQL tools use CursorPaginationParams. This leaves two ways to build GraphQL pagination, and one of them silently drops Page.",
+      "fix": "Remove the After field and PaginationParams.ToGraphQLParams. Stop reading \"after\" in OptionalPaginationParams. Remove the PaginationParams subtest in TestToGraphQLParams and the \"after parameter\" cases in TestOptionalPaginationParams."
+    },
+    {
+      "file": "pkg/server.go",
+      "line": 254,
+      "problem": "OptionalPaginationParams hardcodes a default perPage of 30, while the new DefaultGraphQLPageSize constant (also 30) is used for cursor pagination. The REST default is a magic number.",
+      "fix": "Add a `defaultPerPage = 30` constant next to maxPerPage. Use it in OptionalPaginationParams, ListSubIssues and ListCommits (repositories.go:142)."
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 16,
+      "problem": "pageInfoFragment, toMap and paginationVars are general GraphQL pagination helpers that take *GraphQLPaginationParams. They are defined in discussions.go, but the type they work on lives in server.go.",
+      "fix": "Move pageInfoFragment, its toMap method and paginationVars to server.go, next to GraphQLPaginationParams. Consider making paginationVars a method: `func (p *GraphQLPaginationParams) Vars() map[string]any`."
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 272,
+      "problem": "GetDiscussion, GetDiscussionComments (line 339) and ListDiscussionCategories (line 422) decode arguments with mapstructure.Decode. That does not check that required owner/repo/discussionNumber are present, so a missing value is sent as \"\" or 0. The rewritten ListDiscussions uses RequiredParam/OptionalParam.",
+      "fix": "Replace mapstructure.Decode with RequiredParam[string] for owner and repo, and RequiredInt for discussionNumber, as ListDiscussions does. Then drop the mapstructure import if nothing else uses it."
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 133,
+      "problem": "The discussion tools hardcode the strings \"Repository owner\" and \"Repository name\" (also at lines 254, 327 and 409), while the package now has DescriptionRepositoryOwner and DescriptionRepositoryName in actions.go.",
+      "fix": "Use DescriptionRepositoryOwner and DescriptionRepositoryName, and move the constants from actions.go to server.go or tools.go so they are shared by the whole package."
+    },
+    {
+      "file": "pkg/issues.go",
+      "line": 707,
+      "problem": "The new ListSubIssues declares its own \"page\" and \"per_page\" parameters and reads them with OptionalIntParamWithDefault. Every other paginated tool uses WithPagination() and OptionalPaginationParams with \"perPage\". The tool's schema is therefore inconsistent, and it has no min/max validation.",
+      "fix": "Replace the two mcp.WithNumber options with WithPagination(), and read the values with OptionalPaginationParams(request). Update the test to use \"perPage\" and regenerate the toolsnap."
+    },
+    {
+      "file": "pkg/search.go",
+      "line": 243,
+      "problem": "userOrOrgHandler already sets TotalCount and IncompleteResults with result.GetTotal() and result.GetIncompleteResults(). It then sets them again with nil-checked dereferences, which is redundant.",
+      "fix": "Delete the two `if result.Total != nil` / `if result.IncompleteResults != nil` blocks."
+    },
+    {
+      "file": "pkg/search_utils.go",
+      "line": 70,
+      "problem": "searchHandler returns a Go error (`return nil, fmt.Errorf(...)`) on API failure. The other search tools in search.go use ghErrors.NewGitHubAPIErrorResponse and return a tool error result, so failures in search_issues and search_pull_requests are reported differently. The comment at line 55 says sort defaults to \"created\", but no default is set.",
+      "fix": "Return `ghErrors.NewGitHubAPIErrorResponse(ctx, errorPrefix, resp, err), nil` and delete the misleading comment. Update the expectError cases in Test_SearchIssues and Test_SearchPullRequests to check result.IsError."
+    },
+    {
+      "file": "pkg/notifications.go",
+      "line": 504,
+      "problem": "ManageRepositoryNotificationSubscription wraps resp in `if resp != nil` checks (lines 504 and 509). Its sibling ManageNotificationSubscription (line 413) does not, even though the code is the same. resp is never nil when apiErr is nil.",
+      "fix": "Remove the resp != nil guards so the code matches ManageNotificationSubscription. Consider extracting the shared switch, status check and marshal steps into one helper."
+    },
+    {
+      "file": "pkg/notifications.go",
+      "line": 432,
+      "problem": "RepositorySubscriptionActionWatch, RepositorySubscriptionActionIgnore and RepositorySubscriptionActionDelete duplicate NotificationActionWatch, NotificationActionIgnore and NotificationActionDelete (line 401) with the same values.",
+      "fix": "Keep a single set of subscription action constants (for example SubscriptionActionIgnore, SubscriptionActionWatch, SubscriptionActionDelete) and use it in both tools."
+    },
+    {
+      "file": "pkg/pullrequests.go",
+      "line": 1234,
+      "problem": "AddCommentToPendingReview, SubmitPendingPullRequestReview (line 1371) and DeletePendingPullRequestReview (line 1495) repeat the same steps word for word: query the viewer, query the latest review, then check that it is pending. Each copy also runs the review query with context.Background() instead of ctx (lines 1268, 1405 and 1529), so request cancellation is ignored.",
+      "fix": "Extract `getLatestPendingReview(ctx, client, owner, repo string, prNum int32) (githubv4.ID, *mcp.CallToolResult)` and call it from all three tools, passing ctx to every Query."
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 432,
+      "problem": "Strings are built by concatenating with fmt.Sprintf(\"%d\", runID) (also at line 520).",
+      "fix": "Use a single fmt.Sprintf for the whole message, for example `fmt.Sprintf(\"Use: get_job_logs with parameters {run_id: %d, failed_only: true} ...\", runID)`."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/server.go",
+      "line": 218,
+      "problem": "WithUnifiedPagination is not used by any tool. It also declares a \"page\" parameter that ToGraphQLParams ignores (\"Page is not converted to a cursor\"), so a tool that used it would accept a page number and then drop it without telling the caller.",
+      "fix": "Delete WithUnifiedPagination. GraphQL tools should use WithCursorPagination.",
+      "category": "dead",
+      "why": "No file in pkg/ calls WithUnifiedPagination outside its definition at server.go:218. It declares a \"page\" parameter that PaginationParams.ToGraphQLParams does not use, and GraphQL tools (the discussion tools) already use WithCursorPagination.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/server.go",
+      "line": 271,
+      "problem": "PaginationParams.ToGraphQLParams and the new PaginationParams.After field are only used by server_test.go. REST tools never declare an \"after\" parameter, and GraphQL tools use CursorPaginationParams. This leaves two ways to build GraphQL pagination, and one of them silently drops Page.",
+      "fix": "Remove the After field and PaginationParams.ToGraphQLParams. Stop reading \"after\" in OptionalPaginationParams. Remove the PaginationParams subtest in TestToGraphQLParams and the \"after parameter\" cases in TestOptionalPaginationParams.",
+      "category": "dead",
+      "why": "The only callers of PaginationParams.ToGraphQLParams are in server_test.go (line 686). The GraphQL tools in discussions.go call CursorPaginationParams.ToGraphQLParams. No REST tool declares \"after\", so the After field and the \"after\" read in OptionalPaginationParams are unused, and they create a second GraphQL pagination path that drops Page.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/server.go",
+      "line": 254,
+      "problem": "OptionalPaginationParams hardcodes a default perPage of 30, while the new DefaultGraphQLPageSize constant (also 30) is used for cursor pagination. The REST default is a magic number.",
+      "fix": "Add a `defaultPerPage = 30` constant next to maxPerPage. Use it in OptionalPaginationParams, ListSubIssues and ListCommits (repositories.go:142).",
+      "category": "other",
+      "why": "OptionalPaginationParams uses a literal 30 (server.go:254), and ListSubIssues (issues.go:731) and ListCommits (repositories.go:142) repeat it, while the GraphQL default has the named constant DefaultGraphQLPageSize. This is a magic number; a defaultPerPage constant next to maxPerPage fixes it.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 16,
+      "problem": "pageInfoFragment, toMap and paginationVars are general GraphQL pagination helpers that take *GraphQLPaginationParams. They are defined in discussions.go, but the type they work on lives in server.go.",
+      "fix": "Move pageInfoFragment, its toMap method and paginationVars to server.go, next to GraphQLPaginationParams. Consider making paginationVars a method: `func (p *GraphQLPaginationParams) Vars() map[string]any`.",
+      "category": "other",
+      "why": "pageInfoFragment, toMap and paginationVars are general GraphQL pagination helpers that work on GraphQLPaginationParams, which is defined in server.go, but they live in discussions.go. That makes them hard to find and reuse. It is a misplaced definition, not a function doing two jobs.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 272,
+      "problem": "GetDiscussion, GetDiscussionComments (line 339) and ListDiscussionCategories (line 422) decode arguments with mapstructure.Decode. That does not check that required owner/repo/discussionNumber are present, so a missing value is sent as \"\" or 0. The rewritten ListDiscussions uses RequiredParam/OptionalParam.",
+      "fix": "Replace mapstructure.Decode with RequiredParam[string] for owner and repo, and RequiredInt for discussionNumber, as ListDiscussions does. Then drop the mapstructure import if nothing else uses it.",
+      "category": "other",
+      "why": "GetDiscussion, GetDiscussionComments and ListDiscussionCategories use mapstructure.Decode, which does not check that required arguments are present. A missing owner, repo or discussionNumber is sent to GitHub as \"\" or 0 instead of being rejected. ListDiscussions in the same file already uses RequiredParam. The mapstructure import must stay after the fix, because the same file still uses it in other places? No: only these three calls use it in discussions.go, so the import can go there; issues.go and pullrequests.go keep their own.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 133,
+      "problem": "The discussion tools hardcode the strings \"Repository owner\" and \"Repository name\" (also at lines 254, 327 and 409), while the package now has DescriptionRepositoryOwner and DescriptionRepositoryName in actions.go.",
+      "fix": "Use DescriptionRepositoryOwner and DescriptionRepositoryName, and move the constants from actions.go to server.go or tools.go so they are shared by the whole package.",
+      "category": "duplication",
+      "why": "discussions.go hardcodes \"Repository owner\" and \"Repository name\" (lines 133, 137, 254, 258, 327, 328, 409, 413), while DescriptionRepositoryOwner and DescriptionRepositoryName in actions.go:20-21 hold the same strings. Constants used by the whole package belong in a shared file, not actions.go.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/issues.go",
+      "line": 707,
+      "problem": "The new ListSubIssues declares its own \"page\" and \"per_page\" parameters and reads them with OptionalIntParamWithDefault. Every other paginated tool uses WithPagination() and OptionalPaginationParams with \"perPage\". The tool's schema is therefore inconsistent, and it has no min/max validation.",
+      "fix": "Replace the two mcp.WithNumber options with WithPagination(), and read the values with OptionalPaginationParams(request). Update the test to use \"perPage\" and regenerate the toolsnap.",
+      "category": "duplication",
+      "why": "ListSubIssues writes its own \"page\" and \"per_page\" parameters and reads them with OptionalIntParamWithDefault, instead of using WithPagination and OptionalPaginationParams. Its schema therefore uses a different name (per_page instead of perPage) and has no min/max limits.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/search.go",
+      "line": 243,
+      "problem": "userOrOrgHandler already sets TotalCount and IncompleteResults with result.GetTotal() and result.GetIncompleteResults(). It then sets them again with nil-checked dereferences, which is redundant.",
+      "fix": "Delete the two `if result.Total != nil` / `if result.IncompleteResults != nil` blocks.",
+      "category": "duplication",
+      "why": "In search.go:240-248, TotalCount and IncompleteResults are first set with result.GetTotal() and result.GetIncompleteResults(). The two nil-checked blocks after that set the same values again, so they can be deleted.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/search_utils.go",
+      "line": 70,
+      "problem": "searchHandler returns a Go error (`return nil, fmt.Errorf(...)`) on API failure. The other search tools in search.go use ghErrors.NewGitHubAPIErrorResponse and return a tool error result, so failures in search_issues and search_pull_requests are reported differently. The comment at line 55 says sort defaults to \"created\", but no default is set.",
+      "fix": "Return `ghErrors.NewGitHubAPIErrorResponse(ctx, errorPrefix, resp, err), nil` and delete the misleading comment. Update the expectError cases in Test_SearchIssues and Test_SearchPullRequests to check result.IsError.",
+      "category": "other",
+      "why": "On an API failure, searchHandler returns a Go error (`return nil, fmt.Errorf(...)`). The other search tools in search.go return ghErrors.NewGitHubAPIErrorResponse, so search_issues and search_pull_requests report failures differently. The comment says sort defaults to \"created\", but the code passes sort through unchanged.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/notifications.go",
+      "line": 504,
+      "problem": "ManageRepositoryNotificationSubscription wraps resp in `if resp != nil` checks (lines 504 and 509). Its sibling ManageNotificationSubscription (line 413) does not, even though the code is the same. resp is never nil when apiErr is nil.",
+      "fix": "Remove the resp != nil guards so the code matches ManageNotificationSubscription. Consider extracting the shared switch, status check and marshal steps into one helper.",
+      "category": "duplication",
+      "why": "ManageRepositoryNotificationSubscription repeats the switch, status check and marshal steps of ManageNotificationSubscription. It also adds `resp != nil` guards that the sibling does not have and that are not needed, because resp is never nil when apiErr is nil. Removing the guards and sharing one helper fixes both points.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/notifications.go",
+      "line": 432,
+      "problem": "RepositorySubscriptionActionWatch, RepositorySubscriptionActionIgnore and RepositorySubscriptionActionDelete duplicate NotificationActionWatch, NotificationActionIgnore and NotificationActionDelete (line 401) with the same values.",
+      "fix": "Keep a single set of subscription action constants (for example SubscriptionActionIgnore, SubscriptionActionWatch, SubscriptionActionDelete) and use it in both tools.",
+      "category": "naming",
+      "why": "RepositorySubscriptionActionWatch, RepositorySubscriptionActionIgnore and RepositorySubscriptionActionDelete have the same values (\"watch\", \"ignore\", \"delete\") as NotificationActionWatch, NotificationActionIgnore and NotificationActionDelete. One idea has two sets of names.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/pullrequests.go",
+      "line": 1234,
+      "problem": "AddCommentToPendingReview, SubmitPendingPullRequestReview (line 1371) and DeletePendingPullRequestReview (line 1495) repeat the same steps word for word: query the viewer, query the latest review, then check that it is pending. Each copy also runs the review query with context.Background() instead of ctx (lines 1268, 1405 and 1529), so request cancellation is ignored.",
+      "fix": "Extract `getLatestPendingReview(ctx, client, owner, repo string, prNum int32) (githubv4.ID, *mcp.CallToolResult)` and call it from all three tools, passing ctx to every Query.",
+      "category": "duplication",
+      "why": "AddCommentToPendingReview, SubmitPendingPullRequestReview and DeletePendingPullRequestReview each repeat the same steps: query the viewer, query the latest review, then check that it is pending. Each copy runs the review query with context.Background() (lines 1268, 1405, 1529), so request cancellation is ignored. A shared helper that takes ctx fixes both.",
+      "on_changed_lines": false
+    }
+  ],
+  "counted": 4,
+  "changed_lines": 1707,
+  "per_kloc": 2.34,
+  "by_category": {
+    "naming": 0,
+    "duplication": 1,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 2,
+    "other": 1
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 5,
+    "tokens": 1017201,
+    "usage": {
+      "input_tokens": 10,
+      "cache_creation_input_tokens": 192471,
+      "cache_read_input_tokens": 820315,
+      "output_tokens": 4405,
+      "output_tokens_details": {
+        "thinking_tokens": 1054
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 192471,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2484,
+          "cache_read_input_tokens": 203591,
+          "cache_creation_input_tokens": 637,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 637
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 1.7919710000000002,
+    "duration_s": 57.1
+  }
+}
