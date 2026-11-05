@@ -1,0 +1,602 @@
+diff --git a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+index 69364c7..ffeb7dc 100644
+--- a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
++++ b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+@@ -671,6 +671,51 @@ For more information on service-level middlewares, see [service middlewares](../
+         prefix: /api
+     ```
+ 
++#### Retries
++
++The `retry` field of an `HTTPRoute` rule retries the request to the backend, as defined by [GEP-1731](https://gateway-api.sigs.k8s.io/geps/gep-1731/).
++Traefik adds a [Retry](../http/middlewares/retry.md) middleware to the routers of the rule, after the middlewares of the route-level filters, so that only the call to the backend is retried.
++
++| Field | Behavior |
++| --- | --- |
++| `attempts` | Number of retries after the first request. Defaults to `1`. |
++| `codes` | Response status codes that trigger a retry. Traefik also retries on connection errors. |
++| `backoff` | Wait time before the first retry. Later waits grow up to twice this value. |
++
++Traefik does not retry `POST`, `PATCH`, and `LOCK` requests, because they are not idempotent.
++
++Traefik buffers the request body to send it again.
++A request with a body larger than [`retryMaxRequestBodyBytes`](../../install-configuration/providers/kubernetes/kubernetes-gateway.md#opt-providers-kubernetesGateway-retryMaxRequestBodyBytes) (2 MB by default) is forwarded without retry.
++
++```yaml tab="HTTPRoute"
++---
++apiVersion: gateway.networking.k8s.io/v1
++kind: HTTPRoute
++metadata:
++  name: whoami-http
++  namespace: default
++spec:
++  parentRefs:
++    - name: traefik
++      sectionName: http
++      kind: Gateway
++
++  hostnames:
++    - whoami.localhost
++
++  rules:
++    - backendRefs:
++        - name: whoami
++          namespace: default
++          port: 80
++      retry:
++        attempts: 3
++        codes:
++          - 502
++          - 503
++        backoff: 100ms
++```
++
+ ### GRPC
+ 
+ The `GRPCRoute` is an extended resource in the Gateway API specification, designed to define how GRPC traffic should be routed within a Kubernetes cluster. 
+diff --git a/pkg/provider/kubernetes/gateway/features.go b/pkg/provider/kubernetes/gateway/features.go
+index a8cb7bb..8e607fb 100644
+--- a/pkg/provider/kubernetes/gateway/features.go
++++ b/pkg/provider/kubernetes/gateway/features.go
+@@ -73,6 +73,8 @@ func extendedHTTPRouteFeatures() sets.Set[features.Feature] {
+ 		features.HTTPRouteCORS,
+ 		features.HTTPRouteRequestTimeoutFeature,
+ 		features.HTTPRouteBackendTimeoutFeature,
++		features.HTTPRouteRetryCodesFeature,
++		features.HTTPRouteRetryConnectionErrorFeature,
+ 	)
+ }
+ 
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/httproute/with_empty_retry.yml b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_empty_retry.yml
+new file mode 100644
+index 0000000..9d25dc8
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_empty_retry.yml
+@@ -0,0 +1,53 @@
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  listeners: # Use GatewayClass defaults for listener definition.
++    - name: http
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        kinds:
++          - kind: HTTPRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - "foo.com"
++  rules:
++    - matches:
++        - path:
++            type: Exact
++            value: /bar
++      retry: {}
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++          kind: Service
++          group: ""
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/httproute/with_retry.yml b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_retry.yml
+new file mode 100644
+index 0000000..cfe3f9a
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_retry.yml
+@@ -0,0 +1,82 @@
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  listeners: # Use GatewayClass defaults for listener definition.
++    - name: http
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        kinds:
++          - kind: HTTPRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - "foo.com"
++  rules:
++    - matches:
++        - path:
++            type: Exact
++            value: /bar
++      filters:
++        - type: RequestHeaderModifier
++          requestHeaderModifier:
++            set:
++              - name: X-Foo
++                value: Bar
++      retry:
++        codes:
++          - 500
++          - 503
++        attempts: 3
++        backoff: 100ms
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++          kind: Service
++          group: ""
++    - matches:
++        - path:
++            type: Exact
++            value: /baz
++      filters:
++        - type: ExtensionRef
++          extensionRef:
++            group: traefik.io
++            kind: Middleware
++            name: unknown-middleware
++      retry:
++        attempts: 3
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++          kind: Service
++          group: ""
+diff --git a/pkg/provider/kubernetes/gateway/httproute.go b/pkg/provider/kubernetes/gateway/httproute.go
+index 2bcf09f..98dfb98 100644
+--- a/pkg/provider/kubernetes/gateway/httproute.go
++++ b/pkg/provider/kubernetes/gateway/httproute.go
+@@ -169,6 +169,11 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 			}
+ 		}
+ 
++		var retry *dynamic.Retry
++		if routeRule.Retry != nil {
++			retry = buildHTTPRouteRetry(ctx, routeRule.Retry, p.RetryMaxRequestBodyBytes)
++		}
++
+ 		for _, match := range routeRule.Matches {
+ 			rule, priority := buildMatchRule(hostnames, match)
+ 			router := dynamic.Router{
+@@ -234,6 +239,14 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 				}
+ 			}
+ 
++			// The retry middleware comes after the filter middlewares, so that only the call to the backend is retried.
++			// A router whose filters failed to load answers with an error, which must not be retried.
++			if retry != nil && err == nil {
++				retryName := routerName + "-retry"
++				routerConf.HTTP.Middlewares[retryName] = &dynamic.Middleware{Retry: retry}
++				router.Middlewares = append(router.Middlewares, retryName)
++			}
++
+ 			p.applyRouterTransform(ctx, &router, route)
+ 
+ 			routerConf.HTTP.Routers[routerName] = &router
+@@ -244,6 +257,31 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 	return routers, condition
+ }
+ 
++// buildHTTPRouteRetry converts the retry of an HTTPRoute rule into a Retry middleware configuration.
++func buildHTTPRouteRetry(ctx context.Context, routeRetry *gatev1.HTTPRouteRetry, maxRequestBodyBytes int64) *dynamic.Retry {
++	retry := &dynamic.Retry{
++		// Traefik counts the initial request as an attempt, while the Gateway API counts only the retries.
++		// An unset attempts takes the Gateway API default of 1.
++		Attempts:            ptr.Deref(routeRetry.Attempts, 1) + 1,
++		MaxRequestBodyBytes: new(maxRequestBodyBytes),
++	}
++
++	for _, code := range routeRetry.Codes {
++		retry.Status = append(retry.Status, strconv.Itoa(int(code)))
++	}
++
++	if routeRetry.Backoff != nil {
++		// The CRD CEL validation guarantees a valid GEP-2257 duration string.
++		if d, err := time.ParseDuration(string(*routeRetry.Backoff)); err != nil {
++			log.Ctx(ctx).Error().Err(err).Msg("Ignoring HTTPRoute retry.backoff: invalid duration")
++		} else {
++			retry.InitialInterval = ptypes.Duration(d)
++		}
++	}
++
++	return retry
++}
++
+ func (p *Provider) loadWRRService(ctx context.Context, gatewayName, gatewayNamespace string, listener gatewayListener, conf *dynamic.Configuration, routerName string, routeRule gatev1.HTTPRouteRule, backendRequestTimeout time.Duration, route *gatev1.HTTPRoute, pathMatch *gatev1.HTTPPathMatch, statusReport *statusReport) (string, *metav1.Condition) {
+ 	name := routerName + "-wrr"
+ 	if _, ok := conf.HTTP.Services[name]; ok {
+diff --git a/pkg/provider/kubernetes/gateway/kubernetes.go b/pkg/provider/kubernetes/gateway/kubernetes.go
+index 7971d11..81a4af8 100644
+--- a/pkg/provider/kubernetes/gateway/kubernetes.go
++++ b/pkg/provider/kubernetes/gateway/kubernetes.go
+@@ -99,6 +99,8 @@ type Provider struct {
+ 	StatusAddress           *StatusAddress   `description:"Defines the Kubernetes Gateway status address." json:"statusAddress,omitempty" toml:"statusAddress,omitempty" yaml:"statusAddress,omitempty" export:"true"`
+ 	NativeLBByDefault       bool             `description:"Defines whether to use Native Kubernetes load-balancing by default." json:"nativeLBByDefault,omitempty" toml:"nativeLBByDefault,omitempty" yaml:"nativeLBByDefault,omitempty" export:"true"`
+ 	CrossProviderNamespaces []string         `description:"List of namespaces from which Gateway API routes are allowed to declare TraefikService backendRef references." json:"crossProviderNamespaces,omitempty" toml:"crossProviderNamespaces,omitempty" yaml:"crossProviderNamespaces,omitempty" export:"true"`
++	// RetryMaxRequestBodyBytes is read by httproute.go, which builds the HTTPRoute retry middlewares.
++	RetryMaxRequestBodyBytes int64 `description:"Defines the maximum request body size (in bytes) buffered for HTTPRoute retries. If negative, the limit is disabled." json:"retryMaxRequestBodyBytes,omitempty" toml:"retryMaxRequestBodyBytes,omitempty" yaml:"retryMaxRequestBodyBytes,omitempty" export:"true"`
+ 
+ 	EntryPoints map[string]Entrypoint `json:"-" toml:"-" yaml:"-" label:"-" file:"-"`
+ 
+@@ -114,6 +116,7 @@ type Provider struct {
+ func (p *Provider) SetDefaults() {
+ 	p.QPS = 50    // the default value for the QPS is 10x the default Kubernetes client QPS value.
+ 	p.Burst = 100 // the default value for the Burst is 10x the default Kubernetes client Burst value.
++	p.RetryMaxRequestBodyBytes = dynamic.RetryDefaultMaxRequestBodyBytes
+ }
+ 
+ // Entrypoint defines the available entry points.
+diff --git a/pkg/provider/kubernetes/gateway/kubernetes_test.go b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+index 2857eb2..5583f59 100644
+--- a/pkg/provider/kubernetes/gateway/kubernetes_test.go
++++ b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+@@ -202,12 +202,13 @@ func TestGatewayScoping(t *testing.T) {
+ 
+ func TestLoadHTTPRoutes(t *testing.T) {
+ 	testCases := []struct {
+-		desc         string
+-		ingressClass string
+-		paths        []string
+-		expected     *dynamic.Configuration
+-		entryPoints  map[string]Entrypoint
+-		nativeLB     bool
++		desc                     string
++		ingressClass             string
++		paths                    []string
++		expected                 *dynamic.Configuration
++		entryPoints              map[string]Entrypoint
++		nativeLB                 bool
++		retryMaxRequestBodyBytes int64
+ 	}{
+ 		{
+ 			desc: "Empty",
+@@ -1519,6 +1520,263 @@ func TestLoadHTTPRoutes(t *testing.T) {
+ 				},
+ 			},
+ 		},
++		{
++			desc:                     "HTTPRoute with retry",
++			paths:                    []string{"services.yml", "httproute/with_retry.yml"},
++			retryMaxRequestBodyBytes: dynamic.RetryDefaultMaxRequestBodyBytes,
++			entryPoints: map[string]Entrypoint{"web": {
++				Address: ":80",
++			}},
++			expected: &dynamic.Configuration{
++				UDP: &dynamic.UDPConfiguration{
++					Routers:  map[string]*dynamic.UDPRouter{},
++					Services: map[string]*dynamic.UDPService{},
++				},
++				TCP: &dynamic.TCPConfiguration{
++					Routers:           map[string]*dynamic.TCPRouter{},
++					Middlewares:       map[string]*dynamic.TCPMiddleware{},
++					Services:          map[string]*dynamic.TCPService{},
++					ServersTransports: map[string]*dynamic.TCPServersTransport{},
++				},
++				HTTP: &dynamic.HTTPConfiguration{
++					Routers: map[string]*dynamic.Router{
++						"listener-web-http-5b3226d4ebd42b7200f1": {
++							EntryPoints: []string{"web"},
++							Rule:        `Host("*")`,
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93": {
++							ParentRefs:  []string{"listener-web-http-5b3226d4ebd42b7200f1"},
++							Service:     "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-wrr",
++							Rule:        `Host("foo.com") && Path("/bar")`,
++							Priority:    100009,
++							RuleSyntax:  "default",
++							Middlewares: []string{"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-requestheadermodifier-0", "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-retry"},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74": {
++							ParentRefs: []string{"listener-web-http-5b3226d4ebd42b7200f1"},
++							Service:    "httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74-err-wrr",
++							Rule:       `Host("foo.com") && Path("/baz")`,
++							Priority:   100008,
++							RuleSyntax: "default",
++						},
++					},
++					Middlewares: map[string]*dynamic.Middleware{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-requestheadermodifier-0": {
++							RequestHeaderModifier: &dynamic.HeaderModifier{
++								Set: map[string]string{"X-Foo": "Bar"},
++								Add: map[string]string{},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-retry": {
++							Retry: &dynamic.Retry{
++								Attempts:            4,
++								Status:              []string{"500", "503"},
++								InitialInterval:     ptypes.Duration(100 * time.Millisecond),
++								MaxRequestBodyBytes: new(dynamic.RetryDefaultMaxRequestBodyBytes),
++							},
++						},
++					},
++					Services: map[string]*dynamic.Service{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-wrr": {
++							Weighted: &dynamic.WeightedRoundRobin{
++								Services: []dynamic.WRRService{
++									{
++										Name:   "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0",
++										Weight: new(1),
++									},
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.1:80",
++									},
++									{
++										URL: "http://10.10.0.2:80",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74-err-wrr": {
++							Weighted: &dynamic.WeightedRoundRobin{
++								Services: []dynamic.WRRService{
++									{
++										Name:   "invalid-httproute-filter",
++										Status: new(500),
++										Weight: new(1),
++									},
++								},
++							},
++						},
++					},
++					ServersTransports: map[string]*dynamic.ServersTransport{},
++				},
++				TLS: &dynamic.TLSConfiguration{
++					Options: map[string]tls.Options{},
++				},
++			},
++		},
++		{
++			desc:                     "HTTPRoute with empty retry",
++			paths:                    []string{"services.yml", "httproute/with_empty_retry.yml"},
++			retryMaxRequestBodyBytes: dynamic.RetryDefaultMaxRequestBodyBytes,
++			entryPoints: map[string]Entrypoint{"web": {
++				Address: ":80",
++			}},
++			expected: &dynamic.Configuration{
++				UDP: &dynamic.UDPConfiguration{
++					Routers:  map[string]*dynamic.UDPRouter{},
++					Services: map[string]*dynamic.UDPService{},
++				},
++				TCP: &dynamic.TCPConfiguration{
++					Routers:           map[string]*dynamic.TCPRouter{},
++					Middlewares:       map[string]*dynamic.TCPMiddleware{},
++					Services:          map[string]*dynamic.TCPService{},
++					ServersTransports: map[string]*dynamic.TCPServersTransport{},
++				},
++				HTTP: &dynamic.HTTPConfiguration{
++					Routers: map[string]*dynamic.Router{
++						"listener-web-http-5b3226d4ebd42b7200f1": {
++							EntryPoints: []string{"web"},
++							Rule:        `Host("*")`,
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93": {
++							ParentRefs:  []string{"listener-web-http-5b3226d4ebd42b7200f1"},
++							Service:     "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-wrr",
++							Rule:        `Host("foo.com") && Path("/bar")`,
++							Priority:    100008,
++							RuleSyntax:  "default",
++							Middlewares: []string{"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-retry"},
++						},
++					},
++					Middlewares: map[string]*dynamic.Middleware{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-retry": {
++							Retry: &dynamic.Retry{
++								Attempts:            2,
++								MaxRequestBodyBytes: new(dynamic.RetryDefaultMaxRequestBodyBytes),
++							},
++						},
++					},
++					Services: map[string]*dynamic.Service{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-wrr": {
++							Weighted: &dynamic.WeightedRoundRobin{
++								Services: []dynamic.WRRService{
++									{
++										Name:   "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0",
++										Weight: new(1),
++									},
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.1:80",
++									},
++									{
++										URL: "http://10.10.0.2:80",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++						},
++					},
++					ServersTransports: map[string]*dynamic.ServersTransport{},
++				},
++				TLS: &dynamic.TLSConfiguration{
++					Options: map[string]tls.Options{},
++				},
++			},
++		},
++		{
++			desc:                     "HTTPRoute with retry and custom retryMaxRequestBodyBytes",
++			paths:                    []string{"services.yml", "httproute/with_empty_retry.yml"},
++			retryMaxRequestBodyBytes: -1,
++			entryPoints: map[string]Entrypoint{"web": {
++				Address: ":80",
++			}},
++			expected: &dynamic.Configuration{
++				UDP: &dynamic.UDPConfiguration{
++					Routers:  map[string]*dynamic.UDPRouter{},
++					Services: map[string]*dynamic.UDPService{},
++				},
++				TCP: &dynamic.TCPConfiguration{
++					Routers:           map[string]*dynamic.TCPRouter{},
++					Middlewares:       map[string]*dynamic.TCPMiddleware{},
++					Services:          map[string]*dynamic.TCPService{},
++					ServersTransports: map[string]*dynamic.TCPServersTransport{},
++				},
++				HTTP: &dynamic.HTTPConfiguration{
++					Routers: map[string]*dynamic.Router{
++						"listener-web-http-5b3226d4ebd42b7200f1": {
++							EntryPoints: []string{"web"},
++							Rule:        `Host("*")`,
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93": {
++							ParentRefs:  []string{"listener-web-http-5b3226d4ebd42b7200f1"},
++							Service:     "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-wrr",
++							Rule:        `Host("foo.com") && Path("/bar")`,
++							Priority:    100008,
++							RuleSyntax:  "default",
++							Middlewares: []string{"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-retry"},
++						},
++					},
++					Middlewares: map[string]*dynamic.Middleware{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-retry": {
++							Retry: &dynamic.Retry{
++								Attempts:            2,
++								MaxRequestBodyBytes: new(int64(-1)),
++							},
++						},
++					},
++					Services: map[string]*dynamic.Service{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-wrr": {
++							Weighted: &dynamic.WeightedRoundRobin{
++								Services: []dynamic.WRRService{
++									{
++										Name:   "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0",
++										Weight: new(1),
++									},
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.1:80",
++									},
++									{
++										URL: "http://10.10.0.2:80",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++						},
++					},
++					ServersTransports: map[string]*dynamic.ServersTransport{},
++				},
++				TLS: &dynamic.TLSConfiguration{
++					Options: map[string]tls.Options{},
++				},
++			},
++		},
+ 		{
+ 			desc:  "Simple HTTPRoute, with api@internal service",
+ 			paths: []string{"services.yml", "httproute/simple_to_api_internal.yml"},
+@@ -4554,9 +4812,10 @@ func TestLoadHTTPRoutes(t *testing.T) {
+ 			}
+ 
+ 			p := Provider{
+-				EntryPoints:       test.entryPoints,
+-				NativeLBByDefault: test.nativeLB,
+-				client:            client,
++				EntryPoints:              test.entryPoints,
++				NativeLBByDefault:        test.nativeLB,
++				RetryMaxRequestBodyBytes: test.retryMaxRequestBodyBytes,
++				client:                   client,
+ 			}
+ 
+ 			conf, _, err := p.loadConfigurationFromGateways(t.Context())

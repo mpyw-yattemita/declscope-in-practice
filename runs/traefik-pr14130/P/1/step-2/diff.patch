@@ -1,0 +1,1416 @@
+diff --git a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+index 2503d41..69364c7 100644
+--- a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
++++ b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+@@ -144,12 +144,19 @@ spec:
+ 
+ The `tls.backend.clientCertificateRef` field on a `Gateway` (`spec.tls.backend`, a sibling of `spec.listeners`) sets the client certificate that Traefik presents to backends that require mutual TLS (mTLS), as defined by [GEP-3155](https://gateway-api.sigs.k8s.io/geps/gep-3155/).
+ 
+-Traefik presents the certificate to the backends selected by a [BackendTLSPolicy](https://gateway-api.sigs.k8s.io/reference/api-types/policy/backendtlspolicy/), for `HTTPRoute` and `GRPCRoute` routes.
++Traefik presents the certificate to the backends selected by a [BackendTLSPolicy](https://gateway-api.sigs.k8s.io/reference/api-types/policy/backendtlspolicy/), for `HTTPRoute` and `GRPCRoute` routes, and for `TLSRoute` routes in `Terminate` mode.
+ Backends without a `BackendTLSPolicy` are not affected, because the field does not enable TLS by itself.
+ The listeners of a `ListenerSet` use the certificate of their parent `Gateway`.
+ 
+ The reference must point to a core `Secret` that contains the `tls.crt` and `tls.key` entries.
+ A `Secret` in another namespace requires a [ReferenceGrant](https://gateway-api.sigs.k8s.io/reference/api-types/referencegrant/) in that namespace.
++When the reference cannot be resolved, Traefik presents no client certificate, and sets the `ResolvedRefs` condition of the `Gateway` status to `False`:
++
++| Problem | Reason |
++| --- | --- |
++| The reference is not a core `Secret` | `InvalidClientCertificateRef` |
++| The `Secret` is missing, or does not hold a valid certificate and key | `InvalidClientCertificateRef` |
++| The `Secret` is in another namespace and no `ReferenceGrant` allows it | `RefNotPermitted` |
+ 
+ ```yaml
+ ---
+diff --git a/pkg/provider/kubernetes/gateway/backend_client_certificate.go b/pkg/provider/kubernetes/gateway/backend_client_certificate.go
+new file mode 100644
+index 0000000..7c71119
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/backend_client_certificate.go
+@@ -0,0 +1,53 @@
++package gateway
++
++import (
++	"fmt"
++
++	"github.com/traefik/traefik/v3/pkg/tls"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/utils/ptr"
++	gatev1 "sigs.k8s.io/gateway-api/apis/v1"
++)
++
++// loadBackendClientCertificate returns the client certificate the Gateway presents to the backends
++// targeted by a BackendTLSPolicy (GEP-3155), or the Gateway ResolvedRefs condition explaining why it cannot be resolved.
++// It returns no certificate when the Gateway references none.
++func (p *Provider) loadBackendClientCertificate(gateway *gatev1.Gateway) (tls.Certificates, *metav1.Condition) {
++	if gateway.Spec.TLS == nil || gateway.Spec.TLS.Backend == nil || gateway.Spec.TLS.Backend.ClientCertificateRef == nil {
++		return nil, nil
++	}
++
++	ref := gateway.Spec.TLS.Backend.ClientCertificateRef
++
++	group := ptr.Deref(ref.Group, "")
++	kind := ptr.Deref(ref.Kind, kindSecret)
++	if (group != "" && group != groupCore) || kind != kindSecret {
++		return nil, newBackendClientCertificateCondition(gateway, gatev1.GatewayReasonInvalidClientCertificateRef,
++			fmt.Sprintf("Unsupported ClientCertificateRef group/kind: %s/%s", group, kind))
++	}
++
++	namespace := string(ptr.Deref(ref.Namespace, gatev1.Namespace(gateway.Namespace)))
++	if err := p.isReferenceGranted(kindGateway, gateway.Namespace, groupCore, kindSecret, string(ref.Name), namespace); err != nil {
++		return nil, newBackendClientCertificateCondition(gateway, gatev1.GatewayReasonRefNotPermitted,
++			fmt.Sprintf("Cannot reference ClientCertificateRef %s/%s: %s", namespace, ref.Name, err))
++	}
++
++	cert, err := p.getTLSCert(ref.Name, namespace)
++	if err != nil {
++		return nil, newBackendClientCertificateCondition(gateway, gatev1.GatewayReasonInvalidClientCertificateRef,
++			fmt.Sprintf("Cannot load ClientCertificateRef %s/%s: %s", namespace, ref.Name, err))
++	}
++
++	return tls.Certificates{cert.Certificate}, nil
++}
++
++func newBackendClientCertificateCondition(gateway *gatev1.Gateway, reason gatev1.GatewayConditionReason, message string) *metav1.Condition {
++	return &metav1.Condition{
++		Type:               string(gatev1.GatewayConditionResolvedRefs),
++		Status:             metav1.ConditionFalse,
++		ObservedGeneration: gateway.Generation,
++		LastTransitionTime: metav1.Now(),
++		Reason:             string(reason),
++		Message:            message,
++	}
++}
+diff --git a/pkg/provider/kubernetes/gateway/client.go b/pkg/provider/kubernetes/gateway/client.go
+index c6fc963..ab692b7 100644
+--- a/pkg/provider/kubernetes/gateway/client.go
++++ b/pkg/provider/kubernetes/gateway/client.go
+@@ -829,6 +829,7 @@ var (
+ 	gatewayConditionTypes = []string{
+ 		string(gatev1.GatewayConditionAccepted),
+ 		string(gatev1.GatewayConditionProgrammed),
++		string(gatev1.GatewayConditionResolvedRefs),
+ 	}
+ 	listenerConditionTypes = []string{
+ 		string(gatev1.ListenerConditionAccepted),
+diff --git a/pkg/provider/kubernetes/gateway/client_test.go b/pkg/provider/kubernetes/gateway/client_test.go
+index 77af419..b355347 100644
+--- a/pkg/provider/kubernetes/gateway/client_test.go
++++ b/pkg/provider/kubernetes/gateway/client_test.go
+@@ -400,6 +400,8 @@ func Test_mergeGatewayStatus(t *testing.T) {
+ 	staleAccepted := metav1.Condition{Type: string(gatev1.GatewayConditionAccepted), Status: metav1.ConditionFalse}
+ 	listenerAccepted := metav1.Condition{Type: string(gatev1.ListenerConditionAccepted), Status: metav1.ConditionTrue}
+ 	staleConflicted := metav1.Condition{Type: string(gatev1.ListenerConditionConflicted), Status: metav1.ConditionTrue}
++	resolvedRefs := metav1.Condition{Type: string(gatev1.GatewayConditionResolvedRefs), Status: metav1.ConditionTrue}
++	staleResolvedRefs := metav1.Condition{Type: string(gatev1.GatewayConditionResolvedRefs), Status: metav1.ConditionFalse}
+ 	foreign := metav1.Condition{Type: "example.com/Foreign", Status: metav1.ConditionTrue}
+ 
+ 	desired := gatev1.GatewayStatus{
+@@ -429,6 +431,16 @@ func Test_mergeGatewayStatus(t *testing.T) {
+ 				Listeners:  desired.Listeners,
+ 			},
+ 		},
++		{
++			desc: "drops owned ResolvedRefs Gateway condition no longer desired",
++			current: gatev1.GatewayStatus{
++				Conditions: []metav1.Condition{staleAccepted, staleResolvedRefs, foreign},
++			},
++			expected: gatev1.GatewayStatus{
++				Conditions: []metav1.Condition{accepted, foreign},
++				Listeners:  desired.Listeners,
++			},
++		},
+ 		{
+ 			desc: "keeps foreign listener condition",
+ 			current: gatev1.GatewayStatus{
+@@ -476,10 +488,22 @@ func Test_mergeGatewayStatus(t *testing.T) {
+ 			assert.Equal(t, test.expected, result)
+ 		})
+ 	}
++
++	t.Run("replaces stale ResolvedRefs Gateway condition", func(t *testing.T) {
++		t.Parallel()
++
++		desired := gatev1.GatewayStatus{Conditions: []metav1.Condition{accepted, resolvedRefs}}
++		current := gatev1.GatewayStatus{Conditions: []metav1.Condition{staleAccepted, staleResolvedRefs, foreign}}
++
++		result := mergeGatewayStatus(current, desired)
++
++		assert.Equal(t, gatev1.GatewayStatus{Conditions: []metav1.Condition{accepted, resolvedRefs, foreign}}, result)
++	})
+ }
+ 
+ func Test_withoutForeignConditions(t *testing.T) {
+ 	accepted := metav1.Condition{Type: string(gatev1.GatewayConditionAccepted), Status: metav1.ConditionTrue}
++	resolvedRefs := metav1.Condition{Type: string(gatev1.GatewayConditionResolvedRefs), Status: metav1.ConditionTrue}
+ 	listenerAccepted := metav1.Condition{Type: string(gatev1.ListenerConditionAccepted), Status: metav1.ConditionTrue}
+ 	foreign := metav1.Condition{Type: "example.com/Foreign", Status: metav1.ConditionTrue}
+ 
+@@ -505,6 +529,15 @@ func Test_withoutForeignConditions(t *testing.T) {
+ 				}},
+ 			},
+ 		},
++		{
++			desc: "keeps owned ResolvedRefs Gateway condition",
++			status: gatev1.GatewayStatus{
++				Conditions: []metav1.Condition{accepted, foreign, resolvedRefs},
++			},
++			expected: gatev1.GatewayStatus{
++				Conditions: []metav1.Condition{accepted, resolvedRefs},
++			},
++		},
+ 		{
+ 			desc: "drops foreign Gateway condition",
+ 			status: gatev1.GatewayStatus{
+diff --git a/pkg/provider/kubernetes/gateway/features.go b/pkg/provider/kubernetes/gateway/features.go
+index 30d26d2..a8cb7bb 100644
+--- a/pkg/provider/kubernetes/gateway/features.go
++++ b/pkg/provider/kubernetes/gateway/features.go
+@@ -38,6 +38,7 @@ func extendedGatewayFeatures() sets.Set[features.Feature] {
+ 		features.ListenerSetFeature,
+ 		features.GatewayFrontendClientCertificateValidationFeature,
+ 		features.GatewayFrontendClientCertificateValidationInsecureFallbackFeature,
++		features.GatewayBackendClientCertificateFeature,
+ 	)
+ }
+ 
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/backend_client_certificate_refs.yml b/pkg/provider/kubernetes/gateway/fixtures/backend_client_certificate_refs.yml
+new file mode 100644
+index 0000000..ac1e27f
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/backend_client_certificate_refs.yml
+@@ -0,0 +1,102 @@
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: client-cert
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ253Z0w1RFk0VUIxNHNNNmYKRGlrUWR0cWgyUVcxQXJmRjRmYzFVRnppZmRHaFJBTkNBQVF6cTRzTjJVTzhDSVZxMnowdWlSVUU5MjA2RFFoZApOTDBsZVgybStrMjE4aS9MWmJCcTNrMFNCZGhNSUxMWGpEcE1SaWlrcFE3N21nOEt2S2Y2bGZ0TAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
++
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: client-cert-malformed
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
++
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: client-cert-not-granted
++  namespace: other-ns
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ253Z0w1RFk0VUIxNHNNNmYKRGlrUWR0cWgyUVcxQXJmRjRmYzFVRnppZmRHaFJBTkNBQVF6cTRzTjJVTzhDSVZxMnowdWlSVUU5MjA2RFFoZApOTDBsZVgybStrMjE4aS9MWmJCcTNrMFNCZGhNSUxMWGpEcE1SaWlrcFE3N21nOEt2S2Y2bGZ0TAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
++
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: client-cert-granted
++  namespace: other-ns
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJwVENDQVV1Z0F3SUJBZ0lVVEVrVUVNQ21acnh4aUVrQ20wUFMrRnF1dXNRd0NnWUlLb1pJemowRUF3SXcKR2pFWU1CWUdBMVVFQXd3UFltRnlMbVY0WVcxd2JHVXVZMjl0TUI0WERUSTJNRGt4TlRFeE5ETXlORm9YRFRNMgpNRGt4TWpFeE5ETXlORm93R2pFWU1CWUdBMVVFQXd3UFltRnlMbVY0WVcxd2JHVXVZMjl0TUZrd0V3WUhLb1pJCnpqMENBUVlJS29aSXpqMERBUWNEUWdBRWJNdytOdEtlSEVuUUxsR0dLV04wQVUySGJ6ckcraTBYVlRMMEFqaTUKaXc2dTlsR1RiNENZQ21xTENzVmF0Q3R6UE0vRVk1dmJadXJ3SlVGVGxmM3lSS052TUcwd0hRWURWUjBPQkJZRQpGTCsvb1lFMkJiRkl1OTBuNjg1bXFEK1E0cFRVTUI4R0ExVWRJd1FZTUJhQUZMKy9vWUUyQmJGSXU5MG42ODVtCnFEK1E0cFRVTUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3R2dZRFZSMFJCQk13RVlJUFltRnlMbVY0WVcxd2JHVXUKWTI5dE1Bb0dDQ3FHU000OUJBTUNBMGdBTUVVQ0lRREN0UTRzRGtkU0hRZVRYSk44a3BwTmxtNDBWQ2pxOEx2ZAppWGszR0NYbzhBSWdiczUxeVgybHQxZXBwZEhHRnBuNGRyV3g5dDV0UGNEZGR3U1lVUzdPQkpBPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ09Uc2V0ZkxqTDNFbnVrK2gKbDNjV1dKSHZSUTE0UWx5QkI4Y0FycmNwVldHaFJBTkNBQVJzekQ0MjBwNGNTZEF1VVlZcFkzUUJUWWR2T3NiNgpMUmRWTXZRQ09MbUxEcTcyVVpOdmdKZ0thb3NLeFZxMEszTTh6OFJqbTl0bTZ2QWxRVk9WL2ZKRQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==
++
++---
++apiVersion: gateway.networking.k8s.io/v1
++kind: ReferenceGrant
++metadata:
++  name: allow-gateway
++  namespace: other-ns
++spec:
++  from:
++    - group: gateway.networking.k8s.io
++      kind: Gateway
++      namespace: default
++  to:
++    - group: ""
++      kind: Secret
++      name: client-cert-granted
++
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  rules:
++    - matches:
++        - path:
++            type: PathPrefix
++            value: /
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    wellKnownCACertificates: System
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_client_certificate.yml b/pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_client_certificate.yml
+new file mode 100644
+index 0000000..3508f11
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_client_certificate.yml
+@@ -0,0 +1,75 @@
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: client-cert
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ253Z0w1RFk0VUIxNHNNNmYKRGlrUWR0cWgyUVcxQXJmRjRmYzFVRnppZmRHaFJBTkNBQVF6cTRzTjJVTzhDSVZxMnowdWlSVUU5MjA2RFFoZApOTDBsZVgybStrMjE4aS9MWmJCcTNrMFNCZGhNSUxMWGpEcE1SaWlrcFE3N21nOEt2S2Y2bGZ0TAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
++
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  tls:
++    backend:
++      clientCertificateRef:
++        name: client-cert
++  listeners:
++    - name: web
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        kinds:
++          - kind: GRPCRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++---
++kind: GRPCRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: grpc-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - foo.com
++  rules:
++    - backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    wellKnownCACertificates: System
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_client_certificate.yml b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_client_certificate.yml
+new file mode 100644
+index 0000000..1c37127
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_client_certificate.yml
+@@ -0,0 +1,80 @@
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: client-cert
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ253Z0w1RFk0VUIxNHNNNmYKRGlrUWR0cWgyUVcxQXJmRjRmYzFVRnppZmRHaFJBTkNBQVF6cTRzTjJVTzhDSVZxMnowdWlSVUU5MjA2RFFoZApOTDBsZVgybStrMjE4aS9MWmJCcTNrMFNCZGhNSUxMWGpEcE1SaWlrcFE3N21nOEt2S2Y2bGZ0TAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
++
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  tls:
++    backend:
++      clientCertificateRef:
++        name: client-cert
++  listeners:
++    - name: http
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        namespaces:
++          from: Same
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - "foo.com"
++  rules:
++    - matches:
++        - path:
++            type: PathPrefix
++            value: /
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++        # whoami2 is not targeted by a BackendTLSPolicy, so it is not contacted with TLS.
++        - name: whoami2
++          port: 8080
++          weight: 1
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    wellKnownCACertificates: System
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/mixed/with_listenerset_backend_client_certificate.yml b/pkg/provider/kubernetes/gateway/fixtures/mixed/with_listenerset_backend_client_certificate.yml
+new file mode 100644
+index 0000000..f8cb869
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/mixed/with_listenerset_backend_client_certificate.yml
+@@ -0,0 +1,101 @@
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: client-cert
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ253Z0w1RFk0VUIxNHNNNmYKRGlrUWR0cWgyUVcxQXJmRjRmYzFVRnppZmRHaFJBTkNBQVF6cTRzTjJVTzhDSVZxMnowdWlSVUU5MjA2RFFoZApOTDBsZVgybStrMjE4aS9MWmJCcTNrMFNCZGhNSUxMWGpEcE1SaWlrcFE3N21nOEt2S2Y2bGZ0TAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
++
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  tls:
++    backend:
++      clientCertificateRef:
++        name: client-cert
++  allowedListeners:
++    namespaces:
++      from: All
++  listeners:
++    - name: web
++      protocol: HTTP
++      port: 80
++      hostname: gateway.example.com
++      allowedRoutes:
++        namespaces:
++          from: Same
++
++---
++kind: ListenerSet
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-listenerset
++  namespace: default
++spec:
++  parentRef:
++    name: my-gateway
++    namespace: default
++    kind: Gateway
++    group: gateway.networking.k8s.io
++  listeners:
++    - name: web
++      protocol: HTTP
++      port: 80
++      hostname: foo.example.com
++      allowedRoutes:
++        namespaces:
++          from: Same
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-listenerset
++      kind: ListenerSet
++      group: gateway.networking.k8s.io
++  hostnames:
++    - "foo.example.com"
++  rules:
++    - matches:
++        - path:
++            type: PathPrefix
++            value: /
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    wellKnownCACertificates: System
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/mixed/with_multiple_gateways_backend_client_certificates.yml b/pkg/provider/kubernetes/gateway/fixtures/mixed/with_multiple_gateways_backend_client_certificates.yml
+new file mode 100644
+index 0000000..b31e4b1
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/mixed/with_multiple_gateways_backend_client_certificates.yml
+@@ -0,0 +1,110 @@
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: bar-cert
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJwVENDQVV1Z0F3SUJBZ0lVVEVrVUVNQ21acnh4aUVrQ20wUFMrRnF1dXNRd0NnWUlLb1pJemowRUF3SXcKR2pFWU1CWUdBMVVFQXd3UFltRnlMbVY0WVcxd2JHVXVZMjl0TUI0WERUSTJNRGt4TlRFeE5ETXlORm9YRFRNMgpNRGt4TWpFeE5ETXlORm93R2pFWU1CWUdBMVVFQXd3UFltRnlMbVY0WVcxd2JHVXVZMjl0TUZrd0V3WUhLb1pJCnpqMENBUVlJS29aSXpqMERBUWNEUWdBRWJNdytOdEtlSEVuUUxsR0dLV04wQVUySGJ6ckcraTBYVlRMMEFqaTUKaXc2dTlsR1RiNENZQ21xTENzVmF0Q3R6UE0vRVk1dmJadXJ3SlVGVGxmM3lSS052TUcwd0hRWURWUjBPQkJZRQpGTCsvb1lFMkJiRkl1OTBuNjg1bXFEK1E0cFRVTUI4R0ExVWRJd1FZTUJhQUZMKy9vWUUyQmJGSXU5MG42ODVtCnFEK1E0cFRVTUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3R2dZRFZSMFJCQk13RVlJUFltRnlMbVY0WVcxd2JHVXUKWTI5dE1Bb0dDQ3FHU000OUJBTUNBMGdBTUVVQ0lRREN0UTRzRGtkU0hRZVRYSk44a3BwTmxtNDBWQ2pxOEx2ZAppWGszR0NYbzhBSWdiczUxeVgybHQxZXBwZEhHRnBuNGRyV3g5dDV0UGNEZGR3U1lVUzdPQkpBPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ09Uc2V0ZkxqTDNFbnVrK2gKbDNjV1dKSHZSUTE0UWx5QkI4Y0FycmNwVldHaFJBTkNBQVJzekQ0MjBwNGNTZEF1VVlZcFkzUUJUWWR2T3NiNgpMUmRWTXZRQ09MbUxEcTcyVVpOdmdKZ0thb3NLeFZxMEszTTh6OFJqbTl0bTZ2QWxRVk9WL2ZKRQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==
++
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: foo-cert
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJwVENDQVV1Z0F3SUJBZ0lVWWMyUEFhNXQ2YzRLMEJGbFhkcE5aTWtPUFd3d0NnWUlLb1pJemowRUF3SXcKR2pFWU1CWUdBMVVFQXd3UFptOXZMbVY0WVcxd2JHVXVZMjl0TUI0WERUSTJNRGt4TlRFeE5ETXlORm9YRFRNMgpNRGt4TWpFeE5ETXlORm93R2pFWU1CWUdBMVVFQXd3UFptOXZMbVY0WVcxd2JHVXVZMjl0TUZrd0V3WUhLb1pJCnpqMENBUVlJS29aSXpqMERBUWNEUWdBRUV5S28zcXFWaXlvZ0twQ2xMc1RWZkJKSElna250TllkSG1xZlV5eUgKQjcvZUFZRWMrR05nSlZ6eTdvd0VEZ3VCN0tuRnRxSE4xYUFXLzZkT2Q2VHpucU52TUcwd0hRWURWUjBPQkJZRQpGSFJTQk9WMUdOV2dyampuTEpSWnlvODZ5ajRITUI4R0ExVWRJd1FZTUJhQUZIUlNCT1YxR05XZ3Jqam5MSlJaCnlvODZ5ajRITUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3R2dZRFZSMFJCQk13RVlJUFptOXZMbVY0WVcxd2JHVXUKWTI5dE1Bb0dDQ3FHU000OUJBTUNBMGdBTUVVQ0lRRC9wYWh5QXJlcHhvOUlrQnJLa05DOHZsYjNUSkZWbHpXeApSK0ZxUUtTWUVnSWdORUVFU2VvOEpJdFE0MXowdmFSUVRGUzQ2Y3B6eGxxMlp0K3QrMitFTzd3PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1JwNHA2SmUyRVRXRU9ZYlEKWm03UE5UcWRzYkRvbndsS040ZVJTNGNMbk42aFJBTkNBQVFUSXFqZXFwV0xLaUFxa0tVdXhOVjhFa2NpQ1NlMAoxaDBlYXA5VExJY0h2OTRCZ1J6NFkyQWxYUEx1akFRT0M0SHNxY1cyb2MzVm9CYi9wMDUzcFBPZQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==
++
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: gateway-bar
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  tls:
++    backend:
++      clientCertificateRef:
++        name: bar-cert
++  listeners:
++    - name: http
++      protocol: HTTP
++      port: 80
++      hostname: bar.example.com
++      allowedRoutes:
++        namespaces:
++          from: Same
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: gateway-foo
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  tls:
++    backend:
++      clientCertificateRef:
++        name: foo-cert
++  listeners:
++    - name: http
++      protocol: HTTP
++      port: 80
++      hostname: foo.example.com
++      allowedRoutes:
++        namespaces:
++          from: Same
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: gateway-bar
++      kind: Gateway
++      group: gateway.networking.k8s.io
++    - name: gateway-foo
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  rules:
++    - matches:
++        - path:
++            type: PathPrefix
++            value: /
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    wellKnownCACertificates: System
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_client_certificate.yml b/pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_client_certificate.yml
+new file mode 100644
+index 0000000..dc1ec0e
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_client_certificate.yml
+@@ -0,0 +1,91 @@
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: supersecret
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ253Z0w1RFk0VUIxNHNNNmYKRGlrUWR0cWgyUVcxQXJmRjRmYzFVRnppZmRHaFJBTkNBQVF6cTRzTjJVTzhDSVZxMnowdWlSVUU5MjA2RFFoZApOTDBsZVgybStrMjE4aS9MWmJCcTNrMFNCZGhNSUxMWGpEcE1SaWlrcFE3N21nOEt2S2Y2bGZ0TAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
++
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: client-cert
++  namespace: default
++type: kubernetes.io/tls
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJwVENDQVV1Z0F3SUJBZ0lVVEVrVUVNQ21acnh4aUVrQ20wUFMrRnF1dXNRd0NnWUlLb1pJemowRUF3SXcKR2pFWU1CWUdBMVVFQXd3UFltRnlMbVY0WVcxd2JHVXVZMjl0TUI0WERUSTJNRGt4TlRFeE5ETXlORm9YRFRNMgpNRGt4TWpFeE5ETXlORm93R2pFWU1CWUdBMVVFQXd3UFltRnlMbVY0WVcxd2JHVXVZMjl0TUZrd0V3WUhLb1pJCnpqMENBUVlJS29aSXpqMERBUWNEUWdBRWJNdytOdEtlSEVuUUxsR0dLV04wQVUySGJ6ckcraTBYVlRMMEFqaTUKaXc2dTlsR1RiNENZQ21xTENzVmF0Q3R6UE0vRVk1dmJadXJ3SlVGVGxmM3lSS052TUcwd0hRWURWUjBPQkJZRQpGTCsvb1lFMkJiRkl1OTBuNjg1bXFEK1E0cFRVTUI4R0ExVWRJd1FZTUJhQUZMKy9vWUUyQmJGSXU5MG42ODVtCnFEK1E0cFRVTUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3R2dZRFZSMFJCQk13RVlJUFltRnlMbVY0WVcxd2JHVXUKWTI5dE1Bb0dDQ3FHU000OUJBTUNBMGdBTUVVQ0lRREN0UTRzRGtkU0hRZVRYSk44a3BwTmxtNDBWQ2pxOEx2ZAppWGszR0NYbzhBSWdiczUxeVgybHQxZXBwZEhHRnBuNGRyV3g5dDV0UGNEZGR3U1lVUzdPQkpBPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ09Uc2V0ZkxqTDNFbnVrK2gKbDNjV1dKSHZSUTE0UWx5QkI4Y0FycmNwVldHaFJBTkNBQVJzekQ0MjBwNGNTZEF1VVlZcFkzUUJUWWR2T3NiNgpMUmRWTXZRQ09MbUxEcTcyVVpOdmdKZ0thb3NLeFZxMEszTTh6OFJqbTl0bTZ2QWxRVk9WL2ZKRQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==
++
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  tls:
++    backend:
++      clientCertificateRef:
++        name: client-cert
++  listeners:
++    - name: tls
++      protocol: TLS
++      port: 9001
++      hostname: foo.com
++      tls:
++        mode: Terminate
++        certificateRefs:
++          - kind: Secret
++            name: supersecret
++            group: ""
++      allowedRoutes:
++        kinds:
++          - kind: TLSRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++---
++kind: TLSRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: tls-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  rules:
++    - backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    wellKnownCACertificates: System
+diff --git a/pkg/provider/kubernetes/gateway/grpcroute.go b/pkg/provider/kubernetes/gateway/grpcroute.go
+index 34699cf..cc15c0a 100644
+--- a/pkg/provider/kubernetes/gateway/grpcroute.go
++++ b/pkg/provider/kubernetes/gateway/grpcroute.go
+@@ -466,6 +466,10 @@ func (p *Provider) loadGRPCServers(gatewayName, gatewayNamespace, namespace stri
+ 		}
+ 	}
+ 
++	if serversTransport != nil {
++		serversTransport.Certificates = listener.BackendClientCertificates
++	}
++
+ 	// If a ServersTransport is set, it means a BackendTLSPolicy matched the service port, and we can safely assume the protocol is HTTPS.
+ 	// When no ServersTransport is set, we need to determine the protocol based on the service port.
+ 	protocol := "https"
+diff --git a/pkg/provider/kubernetes/gateway/httproute.go b/pkg/provider/kubernetes/gateway/httproute.go
+index ebf7bce..2bcf09f 100644
+--- a/pkg/provider/kubernetes/gateway/httproute.go
++++ b/pkg/provider/kubernetes/gateway/httproute.go
+@@ -648,6 +648,10 @@ func (p *Provider) loadHTTPServers(gatewayName, gatewayNamespace, namespace stri
+ 		}
+ 	}
+ 
++	if serversTransport != nil {
++		serversTransport.Certificates = listener.BackendClientCertificates
++	}
++
+ 	lb := &dynamic.ServersLoadBalancer{}
+ 	lb.SetDefaults()
+ 
+diff --git a/pkg/provider/kubernetes/gateway/kubernetes.go b/pkg/provider/kubernetes/gateway/kubernetes.go
+index 3b5e17f..7971d11 100644
+--- a/pkg/provider/kubernetes/gateway/kubernetes.go
++++ b/pkg/provider/kubernetes/gateway/kubernetes.go
+@@ -28,6 +28,7 @@ import (
+ 	"github.com/traefik/traefik/v3/pkg/tls"
+ 	"github.com/traefik/traefik/v3/pkg/types"
+ 	corev1 "k8s.io/api/core/v1"
++	"k8s.io/apimachinery/pkg/api/meta"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/labels"
+ 	ktypes "k8s.io/apimachinery/pkg/types"
+@@ -173,11 +174,19 @@ type gatewayListener struct {
+ 
+ 	// ListenerSet is the ListenerSet declaring this listener, nil when the Gateway declares it itself.
+ 	ListenerSet *gatev1.ListenerSet
++
++	// BackendClientCertificates holds the client certificate of the Gateway serving this listener,
++	// presented to the backends targeted by a BackendTLSPolicy.
++	// It is read by httproute.go, grpcroute.go and tlsroute.go.
++	BackendClientCertificates tls.Certificates
+ }
+ 
+ type gatewayWithListeners struct {
+ 	gateway   *gatev1.Gateway
+ 	listeners []gatewayListener
++
++	// backendClientCertificateCondition explains why the Gateway backend client certificate cannot be resolved.
++	backendClientCertificateCondition *metav1.Condition
+ }
+ 
+ // RegisterFilterFuncs registers an allowed Group, Kind, and builder for the Filter ExtensionRef objects.
+@@ -472,9 +481,16 @@ func (p *Provider) loadConfigurationFromGateways(ctx context.Context) (*dynamic.
+ 
+ 		listeners = append(listeners, p.loadListenerSetListeners(logger.WithContext(ctx), gateway, listenerSets, claims, conf, statusReport)...)
+ 
++		// The backend client certificate is defined at the Gateway level, so the ListenerSet listeners use it too.
++		backendClientCertificates, backendClientCertificateCondition := p.loadBackendClientCertificate(gateway)
++		for i := range listeners {
++			listeners[i].BackendClientCertificates = backendClientCertificates
++		}
++
+ 		gatewaysWithListeners = append(gatewaysWithListeners, gatewayWithListeners{
+-			gateway:   gateway,
+-			listeners: listeners,
++			gateway:                           gateway,
++			listeners:                         listeners,
++			backendClientCertificateCondition: backendClientCertificateCondition,
+ 		})
+ 	}
+ 
+@@ -508,7 +524,7 @@ func (p *Provider) loadConfigurationFromGateways(ctx context.Context) (*dynamic.
+ 			return len(listener.Status.Conditions) == 0
+ 		})
+ 
+-		gatewayStatus, errConditions := p.makeGatewayStatus(gwl.gateway, gwl.listeners, addresses, accepted)
++		gatewayStatus, errConditions := p.makeGatewayStatus(gwl.gateway, gwl.listeners, gwl.backendClientCertificateCondition, addresses, accepted)
+ 		if len(errConditions) > 0 {
+ 			messages := map[string]struct{}{}
+ 			for _, condition := range errConditions {
+@@ -1174,7 +1190,9 @@ func (p *Provider) resolveCACertificateRefs(gateway *gatev1.Gateway, refs []gate
+ 	return caCert, nil
+ }
+ 
+-func (p *Provider) makeGatewayStatus(gateway *gatev1.Gateway, listeners []gatewayListener, addresses []gatev1.GatewayStatusAddress, accepted bool) (gatev1.GatewayStatus, []metav1.Condition) {
++// makeGatewayStatus returns the status of the Gateway, and the conditions of its listeners in error.
++// backendClientCertificateCondition explains why the Gateway backend client certificate cannot be resolved, nil when it can.
++func (p *Provider) makeGatewayStatus(gateway *gatev1.Gateway, listeners []gatewayListener, backendClientCertificateCondition *metav1.Condition, addresses []gatev1.GatewayStatusAddress, accepted bool) (gatev1.GatewayStatus, []metav1.Condition) {
+ 	gatewayStatus := gatev1.GatewayStatus{Addresses: addresses}
+ 
+ 	// The spec requires the InsecureFrontendValidationMode condition when any validation allows an insecure fallback.
+@@ -1190,12 +1208,17 @@ func (p *Provider) makeGatewayStatus(gateway *gatev1.Gateway, listeners []gatewa
+ 	}
+ 
+ 	var errorConditions []metav1.Condition
++	var listenersNotResolved bool
+ 	for _, listener := range listeners {
+ 		// The ListenerSet listeners are reported in their own ListenerSet status.
+ 		if listener.ListenerSet != nil {
+ 			continue
+ 		}
+ 
++		if meta.IsStatusConditionFalse(listener.Status.Conditions, string(gatev1.ListenerConditionResolvedRefs)) {
++			listenersNotResolved = true
++		}
++
+ 		if len(listener.Status.Conditions) == 0 {
+ 			listener.Status.Conditions = append(listener.Status.Conditions,
+ 				metav1.Condition{
+@@ -1233,6 +1256,30 @@ func (p *Provider) makeGatewayStatus(gateway *gatev1.Gateway, listeners []gatewa
+ 		gatewayStatus.Listeners = append(gatewayStatus.Listeners, *listener.Status)
+ 	}
+ 
++	// The Gateway's own references take precedence over the ones of its listeners.
++	switch {
++	case backendClientCertificateCondition != nil:
++		gatewayStatus.Conditions = append(gatewayStatus.Conditions, *backendClientCertificateCondition)
++	case listenersNotResolved:
++		gatewayStatus.Conditions = append(gatewayStatus.Conditions, metav1.Condition{
++			Type:               string(gatev1.GatewayConditionResolvedRefs),
++			Status:             metav1.ConditionFalse,
++			ObservedGeneration: gateway.Generation,
++			LastTransitionTime: metav1.Now(),
++			Reason:             string(gatev1.GatewayReasonListenersNotResolved),
++			Message:            "At least one Listener has unresolved references",
++		})
++	default:
++		gatewayStatus.Conditions = append(gatewayStatus.Conditions, metav1.Condition{
++			Type:               string(gatev1.GatewayConditionResolvedRefs),
++			Status:             metav1.ConditionTrue,
++			ObservedGeneration: gateway.Generation,
++			LastTransitionTime: metav1.Now(),
++			Reason:             string(gatev1.GatewayReasonResolvedRefs),
++			Message:            conditionNoErrorMessage,
++		})
++	}
++
+ 	// Traefik supports no infrastructure parameters, and the specification requires
+ 	// a parametersRef that cannot be resolved to be reported instead of ignored.
+ 	if gateway.Spec.Infrastructure != nil && gateway.Spec.Infrastructure.ParametersRef != nil {
+diff --git a/pkg/provider/kubernetes/gateway/kubernetes_test.go b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+index 9556ae5..2857eb2 100644
+--- a/pkg/provider/kubernetes/gateway/kubernetes_test.go
++++ b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+@@ -13333,35 +13333,69 @@ func Test_makeGatewayStatus(t *testing.T) {
+ 			}},
+ 		}}
+ 	}
++	unresolvedListener := func() gatewayListener {
++		return gatewayListener{Status: &gatev1.ListenerStatus{
++			Name: "unresolved",
++			Conditions: []metav1.Condition{{
++				Type:   string(gatev1.ListenerConditionResolvedRefs),
++				Status: metav1.ConditionFalse,
++				Reason: string(gatev1.ListenerReasonInvalidCertificateRef),
++			}},
++		}}
++	}
++	unresolvedListenerSetListener := func() gatewayListener {
++		listener := unresolvedListener()
++		listener.ListenerSet = &gatev1.ListenerSet{}
++		return listener
++	}
++	backendClientCertificateCondition := &metav1.Condition{
++		Type:    string(gatev1.GatewayConditionResolvedRefs),
++		Status:  metav1.ConditionFalse,
++		Reason:  string(gatev1.GatewayReasonInvalidClientCertificateRef),
++		Message: "Cannot load ClientCertificateRef default/missing",
++	}
+ 
+ 	testCases := []struct {
+-		desc           string
+-		infrastructure *gatev1.GatewayInfrastructure
+-		listeners      []gatewayListener
+-		wantStatus     metav1.ConditionStatus
+-		wantReason     gatev1.GatewayConditionReason
+-		wantProgrammed metav1.ConditionStatus
++		desc                              string
++		infrastructure                    *gatev1.GatewayInfrastructure
++		listeners                         []gatewayListener
++		backendClientCertificateCondition *metav1.Condition
++		wantStatus                        metav1.ConditionStatus
++		wantReason                        gatev1.GatewayConditionReason
++		wantProgrammed                    metav1.ConditionStatus
++		wantResolvedRefs                  metav1.ConditionStatus
++		wantResolvedRefsReason            gatev1.GatewayConditionReason
++		wantResolvedRefsMessage           string
+ 	}{
+ 		{
+-			desc:           "all listeners valid",
+-			listeners:      []gatewayListener{acceptedListener()},
+-			wantStatus:     metav1.ConditionTrue,
+-			wantReason:     gatev1.GatewayReasonAccepted,
+-			wantProgrammed: metav1.ConditionTrue,
++			desc:                    "all listeners valid",
++			listeners:               []gatewayListener{acceptedListener()},
++			wantStatus:              metav1.ConditionTrue,
++			wantReason:              gatev1.GatewayReasonAccepted,
++			wantProgrammed:          metav1.ConditionTrue,
++			wantResolvedRefs:        metav1.ConditionTrue,
++			wantResolvedRefsReason:  gatev1.GatewayReasonResolvedRefs,
++			wantResolvedRefsMessage: "No error found",
+ 		},
+ 		{
+-			desc:           "one listener valid among invalid ones",
+-			listeners:      []gatewayListener{acceptedListener(), invalidListener()},
+-			wantStatus:     metav1.ConditionTrue,
+-			wantReason:     gatev1.GatewayReasonListenersNotValid,
+-			wantProgrammed: metav1.ConditionTrue,
++			desc:                    "one listener valid among invalid ones",
++			listeners:               []gatewayListener{acceptedListener(), invalidListener()},
++			wantStatus:              metav1.ConditionTrue,
++			wantReason:              gatev1.GatewayReasonListenersNotValid,
++			wantProgrammed:          metav1.ConditionTrue,
++			wantResolvedRefs:        metav1.ConditionTrue,
++			wantResolvedRefsReason:  gatev1.GatewayReasonResolvedRefs,
++			wantResolvedRefsMessage: "No error found",
+ 		},
+ 		{
+-			desc:           "no listener valid",
+-			listeners:      []gatewayListener{invalidListener()},
+-			wantStatus:     metav1.ConditionFalse,
+-			wantReason:     gatev1.GatewayReasonListenersNotValid,
+-			wantProgrammed: metav1.ConditionFalse,
++			desc:                    "no listener valid",
++			listeners:               []gatewayListener{invalidListener()},
++			wantStatus:              metav1.ConditionFalse,
++			wantReason:              gatev1.GatewayReasonListenersNotValid,
++			wantProgrammed:          metav1.ConditionFalse,
++			wantResolvedRefs:        metav1.ConditionTrue,
++			wantResolvedRefsReason:  gatev1.GatewayReasonResolvedRefs,
++			wantResolvedRefsMessage: "No error found",
+ 		},
+ 		{
+ 			desc:      "infrastructure parametersRef",
+@@ -13373,8 +13407,53 @@ func Test_makeGatewayStatus(t *testing.T) {
+ 					Name:  "invalid",
+ 				},
+ 			},
+-			wantStatus: metav1.ConditionFalse,
+-			wantReason: gatev1.GatewayReasonInvalidParameters,
++			wantStatus:              metav1.ConditionFalse,
++			wantReason:              gatev1.GatewayReasonInvalidParameters,
++			wantResolvedRefs:        metav1.ConditionTrue,
++			wantResolvedRefsReason:  gatev1.GatewayReasonResolvedRefs,
++			wantResolvedRefsMessage: "No error found",
++		},
++		{
++			desc:                    "one listener with unresolved references",
++			listeners:               []gatewayListener{acceptedListener(), unresolvedListener()},
++			wantStatus:              metav1.ConditionTrue,
++			wantReason:              gatev1.GatewayReasonListenersNotValid,
++			wantProgrammed:          metav1.ConditionTrue,
++			wantResolvedRefs:        metav1.ConditionFalse,
++			wantResolvedRefsReason:  gatev1.GatewayReasonListenersNotResolved,
++			wantResolvedRefsMessage: "At least one Listener has unresolved references",
++		},
++		{
++			desc:                    "ListenerSet listener with unresolved references",
++			listeners:               []gatewayListener{acceptedListener(), unresolvedListenerSetListener()},
++			wantStatus:              metav1.ConditionTrue,
++			wantReason:              gatev1.GatewayReasonAccepted,
++			wantProgrammed:          metav1.ConditionTrue,
++			wantResolvedRefs:        metav1.ConditionTrue,
++			wantResolvedRefsReason:  gatev1.GatewayReasonResolvedRefs,
++			wantResolvedRefsMessage: "No error found",
++		},
++		{
++			desc:                              "unresolved backend client certificate",
++			listeners:                         []gatewayListener{acceptedListener()},
++			backendClientCertificateCondition: backendClientCertificateCondition,
++			wantStatus:                        metav1.ConditionTrue,
++			wantReason:                        gatev1.GatewayReasonAccepted,
++			wantProgrammed:                    metav1.ConditionTrue,
++			wantResolvedRefs:                  metav1.ConditionFalse,
++			wantResolvedRefsReason:            gatev1.GatewayReasonInvalidClientCertificateRef,
++			wantResolvedRefsMessage:           "Cannot load ClientCertificateRef default/missing",
++		},
++		{
++			desc:                              "unresolved backend client certificate takes precedence over the listeners",
++			listeners:                         []gatewayListener{acceptedListener(), unresolvedListener()},
++			backendClientCertificateCondition: backendClientCertificateCondition,
++			wantStatus:                        metav1.ConditionTrue,
++			wantReason:                        gatev1.GatewayReasonListenersNotValid,
++			wantProgrammed:                    metav1.ConditionTrue,
++			wantResolvedRefs:                  metav1.ConditionFalse,
++			wantResolvedRefsReason:            gatev1.GatewayReasonInvalidClientCertificateRef,
++			wantResolvedRefsMessage:           "Cannot load ClientCertificateRef default/missing",
+ 		},
+ 	}
+ 
+@@ -13383,9 +13462,12 @@ func Test_makeGatewayStatus(t *testing.T) {
+ 			t.Parallel()
+ 
+ 			p := Provider{}
+-			gateway := &gatev1.Gateway{Spec: gatev1.GatewaySpec{Infrastructure: test.infrastructure}}
++			gateway := &gatev1.Gateway{
++				ObjectMeta: metav1.ObjectMeta{Generation: 2},
++				Spec:       gatev1.GatewaySpec{Infrastructure: test.infrastructure},
++			}
+ 
+-			status, _ := p.makeGatewayStatus(gateway, test.listeners, nil, slices.ContainsFunc(test.listeners, func(listener gatewayListener) bool {
++			status, _ := p.makeGatewayStatus(gateway, test.listeners, test.backendClientCertificateCondition, nil, slices.ContainsFunc(test.listeners, func(listener gatewayListener) bool {
+ 				return len(listener.Status.Conditions) == 0
+ 			}))
+ 
+@@ -13393,7 +13475,20 @@ func Test_makeGatewayStatus(t *testing.T) {
+ 			require.NotNil(t, condition)
+ 			assert.Equal(t, test.wantStatus, condition.Status)
+ 			assert.Equal(t, string(test.wantReason), condition.Reason)
+-			assert.Len(t, status.Listeners, len(test.listeners))
++
++			wantListeners := slices.DeleteFunc(slices.Clone(test.listeners), func(listener gatewayListener) bool {
++				return listener.ListenerSet != nil
++			})
++			assert.Len(t, status.Listeners, len(wantListeners))
++
++			resolvedRefs := meta.FindStatusCondition(status.Conditions, string(gatev1.GatewayConditionResolvedRefs))
++			require.NotNil(t, resolvedRefs)
++			assert.Equal(t, test.wantResolvedRefs, resolvedRefs.Status)
++			assert.Equal(t, string(test.wantResolvedRefsReason), resolvedRefs.Reason)
++			assert.Equal(t, test.wantResolvedRefsMessage, resolvedRefs.Message)
++			if test.backendClientCertificateCondition == nil {
++				assert.Equal(t, int64(2), resolvedRefs.ObservedGeneration)
++			}
+ 
+ 			programmed := meta.FindStatusCondition(status.Conditions, string(gatev1.GatewayConditionProgrammed))
+ 			if test.wantProgrammed == "" {
+@@ -14294,6 +14389,290 @@ func Test_loadConfigurationFromGateways_BackendTLSPolicyAncestorNamespace(t *tes
+ 	}
+ }
+ 
++func Test_loadConfigurationFromGateways_BackendClientCertificate(t *testing.T) {
++	testCases := []struct {
++		desc        string
++		paths       []string
++		entryPoints map[string]Entrypoint
++		// expected maps the name of each generated ServersTransport to the common names of its client certificates.
++		expectedHTTP map[string][]string
++		expectedTCP  map[string][]string
++	}{
++		{
++			desc:        "HTTPRoute",
++			paths:       []string{"services.yml", "httproute/with_backend_client_certificate.yml"},
++			entryPoints: map[string]Entrypoint{"web": {Address: ":80"}},
++			expectedHTTP: map[string][]string{
++				"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-8471cdfe3fef3d93c07c-svc-default-whoami-0": {"example.com"},
++			},
++			expectedTCP: map[string][]string{},
++		},
++		{
++			desc:        "GRPCRoute",
++			paths:       []string{"services.yml", "grpcroute/with_backend_client_certificate.yml"},
++			entryPoints: map[string]Entrypoint{"web": {Address: ":80"}},
++			expectedHTTP: map[string][]string{
++				"grpcroute-default-grpc-app-1-gw-default-my-gateway-ep-web-0-0abda411573f19f36296-svc-default-whoami-0": {"example.com"},
++			},
++			expectedTCP: map[string][]string{},
++		},
++		{
++			desc:         "TLSRoute",
++			paths:        []string{"services.yml", "tlsroute/with_backend_client_certificate.yml"},
++			entryPoints:  map[string]Entrypoint{"tls": {Address: ":9001"}},
++			expectedHTTP: map[string][]string{},
++			expectedTCP: map[string][]string{
++				"tlsroute-default-tls-app-1-gw-default-my-gateway-ep-tls-0-5c999a999d12ac0531c5-svc-default-whoami-0": {"bar.example.com"},
++			},
++		},
++		{
++			desc:        "ListenerSet uses the client certificate of its parent Gateway",
++			paths:       []string{"services.yml", "mixed/with_listenerset_backend_client_certificate.yml"},
++			entryPoints: map[string]Entrypoint{"web": {Address: ":80"}},
++			expectedHTTP: map[string][]string{
++				"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-a94fdc274e011d680351-svc-default-whoami-0": {"example.com"},
++			},
++			expectedTCP: map[string][]string{},
++		},
++		{
++			desc:        "two Gateways present their own client certificate",
++			paths:       []string{"services.yml", "mixed/with_multiple_gateways_backend_client_certificates.yml"},
++			entryPoints: map[string]Entrypoint{"web": {Address: ":80"}},
++			expectedHTTP: map[string][]string{
++				"httproute-default-http-app-1-gw-default-gateway-bar-ep-web-0-56a5ab5333ea1e8937fc-svc-default-whoami-0": {"bar.example.com"},
++				"httproute-default-http-app-1-gw-default-gateway-foo-ep-web-0-d7e4dd2a9165724adf47-svc-default-whoami-0": {"foo.example.com"},
++			},
++			expectedTCP: map[string][]string{},
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			k8sObjects, gwObjects := readResources(t, test.paths)
++
++			client := newClientImpl(kubefake.NewClientset(k8sObjects...), newGatewaySimpleClientSet(t, gwObjects...))
++
++			eventCh, err := client.WatchAll(nil, make(chan struct{}))
++			require.NoError(t, err)
++
++			// just wait for the first event
++			<-eventCh
++
++			p := Provider{
++				EntryPoints: test.entryPoints,
++				client:      client,
++			}
++
++			conf, _, err := p.loadConfigurationFromGateways(t.Context())
++			require.NoError(t, err)
++
++			commonNames := func(certs tls.Certificates) []string {
++				names := []string{}
++				for _, cert := range certs {
++					names = append(names, certificateCommonName(t, cert.CertFile))
++				}
++				return names
++			}
++
++			gotHTTP := map[string][]string{}
++			for name, st := range conf.HTTP.ServersTransports {
++				gotHTTP[name] = commonNames(st.Certificates)
++			}
++			assert.Equal(t, test.expectedHTTP, gotHTTP)
++
++			gotTCP := map[string][]string{}
++			for name, st := range conf.TCP.ServersTransports {
++				require.NotNil(t, st.TLS)
++				gotTCP[name] = commonNames(st.TLS.Certificates)
++			}
++			assert.Equal(t, test.expectedTCP, gotTCP)
++		})
++	}
++}
++
++func Test_loadConfigurationFromGateways_BackendClientCertificateRef(t *testing.T) {
++	testCases := []struct {
++		desc                string
++		ref                 *gatev1.SecretObjectReference
++		expectedCondition   metav1.Condition
++		expectedCommonNames []string
++	}{
++		{
++			desc: "no reference",
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionTrue,
++				Reason:  string(gatev1.GatewayReasonResolvedRefs),
++				Message: "No error found",
++			},
++		},
++		{
++			desc: "Secret in the Gateway namespace",
++			ref:  &gatev1.SecretObjectReference{Name: "client-cert"},
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionTrue,
++				Reason:  string(gatev1.GatewayReasonResolvedRefs),
++				Message: "No error found",
++			},
++			expectedCommonNames: []string{"example.com"},
++		},
++		{
++			desc: "Secret with the core group and kind",
++			ref: &gatev1.SecretObjectReference{
++				Group: new(gatev1.Group(groupCore)),
++				Kind:  new(gatev1.Kind(kindSecret)),
++				Name:  "client-cert",
++			},
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionTrue,
++				Reason:  string(gatev1.GatewayReasonResolvedRefs),
++				Message: "No error found",
++			},
++			expectedCommonNames: []string{"example.com"},
++		},
++		{
++			desc: "Secret in another namespace with a ReferenceGrant",
++			ref: &gatev1.SecretObjectReference{
++				Name:      "client-cert-granted",
++				Namespace: new(gatev1.Namespace("other-ns")),
++			},
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionTrue,
++				Reason:  string(gatev1.GatewayReasonResolvedRefs),
++				Message: "No error found",
++			},
++			expectedCommonNames: []string{"bar.example.com"},
++		},
++		{
++			desc: "unsupported kind",
++			ref: &gatev1.SecretObjectReference{
++				Kind: new(gatev1.Kind(kindConfigMap)),
++				Name: "client-cert",
++			},
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionFalse,
++				Reason:  string(gatev1.GatewayReasonInvalidClientCertificateRef),
++				Message: "Unsupported ClientCertificateRef group/kind: /ConfigMap",
++			},
++		},
++		{
++			desc: "unsupported group",
++			ref: &gatev1.SecretObjectReference{
++				Group: new(gatev1.Group("example.com")),
++				Name:  "client-cert",
++			},
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionFalse,
++				Reason:  string(gatev1.GatewayReasonInvalidClientCertificateRef),
++				Message: "Unsupported ClientCertificateRef group/kind: example.com/Secret",
++			},
++		},
++		{
++			desc: "Secret in another namespace without a ReferenceGrant",
++			ref: &gatev1.SecretObjectReference{
++				Name:      "client-cert-not-granted",
++				Namespace: new(gatev1.Namespace("other-ns")),
++			},
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionFalse,
++				Reason:  string(gatev1.GatewayReasonRefNotPermitted),
++				Message: "Cannot reference ClientCertificateRef other-ns/client-cert-not-granted: missing ReferenceGrant",
++			},
++		},
++		{
++			desc: "missing Secret",
++			ref:  &gatev1.SecretObjectReference{Name: "does-not-exist"},
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionFalse,
++				Reason:  string(gatev1.GatewayReasonInvalidClientCertificateRef),
++				Message: "Cannot load ClientCertificateRef default/does-not-exist: getting secret: secret \"does-not-exist\" not found",
++			},
++		},
++		{
++			desc: "malformed Secret",
++			ref:  &gatev1.SecretObjectReference{Name: "client-cert-malformed"},
++			expectedCondition: metav1.Condition{
++				Status:  metav1.ConditionFalse,
++				Reason:  string(gatev1.GatewayReasonInvalidClientCertificateRef),
++				Message: "Cannot load ClientCertificateRef default/client-cert-malformed: getting certificate blocks: secret default/client-cert-malformed is missing the following TLS data entries: tls.key",
++			},
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			k8sObjects, gwObjects := readResources(t, []string{"services.yml", "backend_client_certificate_refs.yml"})
++
++			gateway := &gatev1.Gateway{
++				TypeMeta: metav1.TypeMeta{APIVersion: gatev1.GroupVersion.String(), Kind: kindGateway},
++				ObjectMeta: metav1.ObjectMeta{
++					Name:       "my-gateway",
++					Namespace:  "default",
++					Generation: 3,
++				},
++				Spec: gatev1.GatewaySpec{
++					GatewayClassName: "my-gateway-class",
++					Listeners: []gatev1.Listener{{
++						Name:     "http",
++						Protocol: gatev1.HTTPProtocolType,
++						Port:     80,
++					}},
++				},
++			}
++			if test.ref != nil {
++				gateway.Spec.TLS = &gatev1.GatewayTLSConfig{
++					Backend: &gatev1.GatewayBackendTLS{ClientCertificateRef: test.ref},
++				}
++			}
++
++			gwClient := newGatewaySimpleClientSet(t, append(gwObjects, gateway)...)
++			client := newClientImpl(kubefake.NewClientset(k8sObjects...), gwClient)
++
++			eventCh, err := client.WatchAll(nil, make(chan struct{}))
++			require.NoError(t, err)
++
++			// just wait for the first event
++			<-eventCh
++
++			p := Provider{
++				EntryPoints: map[string]Entrypoint{"web": {Address: ":80"}},
++				client:      client,
++			}
++
++			conf, statusReport, err := p.loadConfigurationFromGateways(t.Context())
++			require.NoError(t, err)
++
++			require.Len(t, conf.HTTP.ServersTransports, 1)
++			var commonNames []string
++			for _, st := range conf.HTTP.ServersTransports {
++				for _, cert := range st.Certificates {
++					commonNames = append(commonNames, certificateCommonName(t, cert.CertFile))
++				}
++			}
++			assert.Equal(t, test.expectedCommonNames, commonNames)
++
++			statusReport.Flush(t.Context(), client)
++
++			gotGateway, err := gwClient.GatewayV1().Gateways("default").Get(t.Context(), "my-gateway", metav1.GetOptions{})
++			require.NoError(t, err)
++
++			resolvedRefs := meta.FindStatusCondition(gotGateway.Status.Conditions, string(gatev1.GatewayConditionResolvedRefs))
++			require.NotNil(t, resolvedRefs)
++			assert.Equal(t, test.expectedCondition.Status, resolvedRefs.Status)
++			assert.Equal(t, test.expectedCondition.Reason, resolvedRefs.Reason)
++			assert.Equal(t, test.expectedCondition.Message, resolvedRefs.Message)
++			assert.Equal(t, int64(3), resolvedRefs.ObservedGeneration)
++
++			// The backend client certificate does not change whether the Gateway is accepted and programmed.
++			assert.True(t, meta.IsStatusConditionTrue(gotGateway.Status.Conditions, string(gatev1.GatewayConditionAccepted)))
++			assert.True(t, meta.IsStatusConditionTrue(gotGateway.Status.Conditions, string(gatev1.GatewayConditionProgrammed)))
++		})
++	}
++}
++
+ func certificateCommonName(t *testing.T, certFile types.FileOrContent) string {
+ 	t.Helper()
+ 
+diff --git a/pkg/provider/kubernetes/gateway/tlsroute.go b/pkg/provider/kubernetes/gateway/tlsroute.go
+index 0072776..cd8003a 100644
+--- a/pkg/provider/kubernetes/gateway/tlsroute.go
++++ b/pkg/provider/kubernetes/gateway/tlsroute.go
+@@ -454,6 +454,10 @@ func (p *Provider) loadTLSServers(gatewayName, gatewayNamespace, namespace strin
+ 		}
+ 	}
+ 
++	if serversTransport != nil {
++		serversTransport.TLS.Certificates = listener.BackendClientCertificates
++	}
++
+ 	if svcPort.Protocol != corev1.ProtocolTCP {
+ 		return nil, nil, &metav1.Condition{
+ 			Type:               string(gatev1.RouteConditionResolvedRefs),
