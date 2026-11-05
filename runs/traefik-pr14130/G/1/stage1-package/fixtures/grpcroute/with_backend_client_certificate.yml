@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: client-cert
+  namespace: default
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJMekNCMWdJSkFPbDg5YmNsZGVhY01Bb0dDQ3FHU000OUJBTUNNQjh4SFRBYkJnTlZCQU1NRkdOc2FXVnUKZEMxaExtVjRZVzF3YkdVdVkyOXRNQ0FYRFRJMk1URXdOVEUwTWpNeE4xb1lEekl4TWpZeE1ERXlNVFF5TXpFMwpXakFmTVIwd0d3WURWUVFEREJSamJHbGxiblF0WVM1bGVHRnRjR3hsTG1OdmJUQlpNQk1HQnlxR1NNNDlBZ0VHCkNDcUdTTTQ5QXdFSEEwSUFCRm1DOWxWUURMZ1dSbWNBVE5NMjNSYWkwdlJYRTBvZlNTVS9sVmsvSnpyTURlZmUKcW0vcTRZbUdGcitzMEJWamNpS1pKNy9EZDd0VitmblVsYUk5QlZ3d0NnWUlLb1pJemowRUF3SURTQUF3UlFJaApBS2JuSXpudTRsQWUxSW9CNVNQY0VNcGdEOUJNMlBJNERXUlNiU2h3Z1pYdUFpQXR5bDlPK1NyS3E2WjRud3FlCkpYUTdGYnBYbHBORXhQUU83cHdDQ0dQcnhRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ3BOait4ZzFJQ2huRDVtcXcKRzFVUjZJOWg2VlRyVUc5LzVSVUEweHREUmthaFJBTkNBQVJaZ3ZaVlVBeTRGa1puQUV6VE50MFdvdEwwVnhOSwpIMGtsUDVWWlB5YzZ6QTNuM3FwdjZ1R0poaGEvck5BVlkzSWltU2UvdzNlN1ZmbjUxSldpUFFWYwotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==
+
+---
+kind: GatewayClass
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: my-gateway-class
+spec:
+  controllerName: traefik.io/gateway-controller
+
+---
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: my-gateway
+  namespace: default
+spec:
+  gatewayClassName: my-gateway-class
+  tls:
+    backend:
+      clientCertificateRef:
+        name: client-cert
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+
+---
+kind: GRPCRoute
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: grpc-app-1
+  namespace: default
+spec:
+  parentRefs:
+    - name: my-gateway
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    - backendRefs:
+        - name: whoami
+          port: 80
+          weight: 1
+        - name: whoami-h2c
+          port: 80
+          weight: 1
+
+---
+kind: BackendTLSPolicy
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: policy-whoami
+  namespace: default
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: whoami
+  validation:
+    hostname: whoami
+    wellKnownCACertificates: System
+

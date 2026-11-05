@@ -1,0 +1,1264 @@
+diff --git a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+index 792d44e..baf2f41 100644
+--- a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
++++ b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+@@ -199,7 +199,7 @@ Traefik supports [ListenerSet](https://gateway-api.sigs.k8s.io/geps/gep-1713/) r
+ 
+ The `tls.frontend` field on a `Gateway` (`spec.tls.frontend`, a sibling of `spec.listeners`) allows requiring a client certificate (mTLS) for incoming connections, as defined by [GEP-91](https://gateway-api.sigs.k8s.io/geps/gep-91/).
+ 
+-Validation can be set for all HTTPS listeners on the `Gateway` via `default`, and optionally overridden per port via `perPort`. The CA certificate used to validate client certificates is provided through `caCertificateRefs`, with a single reference to a `ConfigMap` containing a `ca.crt` key, as defined by the core support of the specification. Other kinds of resources and multiple references are not supported, and leave the listener not accepted.
++Validation can be set for all HTTPS listeners on the `Gateway` via `default`, and optionally overridden per port via `perPort`. The CA certificate used to validate client certificates is provided through `caCertificateRefs`, with a single reference to either a `ConfigMap` containing a `ca.crt` key (core support), or a `ClusterTrustBundle` (group `certificates.k8s.io`, extended support, see [GEP-5075](https://gateway-api.sigs.k8s.io/geps/gep-5075/)). A `ClusterTrustBundle` is cluster-scoped: its reference must not set a namespace, and needs no `ReferenceGrant`. Other kinds of resources and multiple references are not supported, and leave the listener not accepted.
+ 
+ The `mode` field controls how a missing or invalid client certificate is handled:
+ 
+diff --git a/integration/fixtures/gateway-api-conformance/merged/01-rbac.yml b/integration/fixtures/gateway-api-conformance/merged/01-rbac.yml
+index 6d4db0d..1f97e4d 100644
+--- a/integration/fixtures/gateway-api-conformance/merged/01-rbac.yml
++++ b/integration/fixtures/gateway-api-conformance/merged/01-rbac.yml
+@@ -29,6 +29,13 @@ rules:
+       - get
+       - list
+       - watch
++  - apiGroups:
++      - certificates.k8s.io
++    resources:
++      - clustertrustbundles
++    verbs:
++      - list
++      - watch
+   - apiGroups:
+       - gateway.networking.k8s.io
+     resources:
+diff --git a/pkg/provider/kubernetes/gateway/client.go b/pkg/provider/kubernetes/gateway/client.go
+index ab692b7..2ed861d 100644
+--- a/pkg/provider/kubernetes/gateway/client.go
++++ b/pkg/provider/kubernetes/gateway/client.go
+@@ -12,12 +12,16 @@ import (
+ 	"github.com/rs/zerolog/log"
+ 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/k8s"
+ 	"github.com/traefik/traefik/v3/pkg/types"
++	authorizationv1 "k8s.io/api/authorization/v1"
++	certificatesv1 "k8s.io/api/certificates/v1"
+ 	corev1 "k8s.io/api/core/v1"
+ 	discoveryv1 "k8s.io/api/discovery/v1"
++	kerror "k8s.io/apimachinery/pkg/api/errors"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/fields"
+ 	"k8s.io/apimachinery/pkg/labels"
+ 	ktypes "k8s.io/apimachinery/pkg/types"
++	"k8s.io/apimachinery/pkg/util/wait"
+ 	kinformers "k8s.io/client-go/informers"
+ 	kclientset "k8s.io/client-go/kubernetes"
+ 	"k8s.io/client-go/rest"
+@@ -31,6 +35,14 @@ import (
+ 
+ const resyncPeriod = 10 * time.Minute
+ 
++const (
++	kindClusterTrustBundle      = "ClusterTrustBundle"
++	resourceClusterTrustBundles = "clustertrustbundles"
++
++	reasonClusterTrustBundleNotServed  = "the cluster does not serve the certificates.k8s.io/v1 API"
++	reasonClusterTrustBundleNotAllowed = "Traefik is not allowed to list and watch clustertrustbundles"
++)
++
+ type clientWrapper struct {
+ 	csGateway gateclientset.Interface
+ 	csKube    kclientset.Interface
+@@ -41,6 +53,11 @@ type clientWrapper struct {
+ 	factoriesKube       map[string]kinformers.SharedInformerFactory
+ 	factoriesSecret     map[string]kinformers.SharedInformerFactory
+ 
++	// factoryClusterTrustBundle is nil when ClusterTrustBundles are not supported,
++	// clusterTrustBundleUnsupportedReason then explains why.
++	factoryClusterTrustBundle           kinformers.SharedInformerFactory
++	clusterTrustBundleUnsupportedReason string
++
+ 	isNamespaceAll    bool
+ 	watchedNamespaces []string
+ 
+@@ -158,6 +175,19 @@ func (c *clientWrapper) WatchAll(namespaces []string, stopCh <-chan struct{}) (<
+ 		return nil, err
+ 	}
+ 
++	// The ClusterTrustBundle API is optional, and an informer that cannot list or watch the resource would block the cache sync.
++	c.clusterTrustBundleUnsupportedReason, err = c.clusterTrustBundleSupport(wait.ContextForChannel(stopCh))
++	if err != nil {
++		return nil, fmt.Errorf("checking ClusterTrustBundle support: %w", err)
++	}
++	if c.clusterTrustBundleUnsupportedReason == "" {
++		c.factoryClusterTrustBundle = kinformers.NewSharedInformerFactoryWithOptions(c.csKube, resyncPeriod, kinformers.WithTransform(k8s.StripManagedFields))
++		_, err = c.factoryClusterTrustBundle.Certificates().V1().ClusterTrustBundles().Informer().AddEventHandler(eventHandler)
++		if err != nil {
++			return nil, err
++		}
++	}
++
+ 	c.factoryGatewayClass = gateinformers.NewSharedInformerFactoryWithOptions(c.csGateway, resyncPeriod, gateinformers.WithTweakListOptions(gatewayClassOptions), gateinformers.WithTransform(k8s.StripManagedFields))
+ 	_, err = c.factoryGatewayClass.Gateway().V1().GatewayClasses().Informer().AddEventHandler(eventHandler)
+ 	if err != nil {
+@@ -233,6 +263,9 @@ func (c *clientWrapper) WatchAll(namespaces []string, stopCh <-chan struct{}) (<
+ 
+ 	c.factoryNamespace.Start(stopCh)
+ 	c.factoryGatewayClass.Start(stopCh)
++	if c.factoryClusterTrustBundle != nil {
++		c.factoryClusterTrustBundle.Start(stopCh)
++	}
+ 
+ 	for _, ns := range namespaces {
+ 		c.factoriesGateway[ns].Start(stopCh)
+@@ -252,6 +285,14 @@ func (c *clientWrapper) WatchAll(namespaces []string, stopCh <-chan struct{}) (<
+ 		}
+ 	}
+ 
++	if c.factoryClusterTrustBundle != nil {
++		for t, ok := range c.factoryClusterTrustBundle.WaitForCacheSync(stopCh) {
++			if !ok {
++				return nil, fmt.Errorf("timed out waiting for controller caches to sync %s", t.String())
++			}
++		}
++	}
++
+ 	for _, ns := range namespaces {
+ 		for t, ok := range c.factoriesGateway[ns].WaitForCacheSync(stopCh) {
+ 			if !ok {
+@@ -275,6 +316,46 @@ func (c *clientWrapper) WatchAll(namespaces []string, stopCh <-chan struct{}) (<
+ 	return eventCh, nil
+ }
+ 
++// clusterTrustBundleSupport returns why ClusterTrustBundles cannot be watched, or an empty string when they can.
++func (c *clientWrapper) clusterTrustBundleSupport(ctx context.Context) (string, error) {
++	resources, err := c.csKube.Discovery().ServerResourcesForGroupVersion(certificatesv1.SchemeGroupVersion.String())
++	if kerror.IsNotFound(err) {
++		return reasonClusterTrustBundleNotServed, nil
++	}
++	if err != nil {
++		return "", fmt.Errorf("discovering %s resources: %w", certificatesv1.SchemeGroupVersion, err)
++	}
++
++	if !slices.ContainsFunc(resources.APIResources, func(resource metav1.APIResource) bool {
++		return resource.Name == resourceClusterTrustBundles
++	}) {
++		return reasonClusterTrustBundleNotServed, nil
++	}
++
++	for _, verb := range []string{"list", "watch"} {
++		review := &authorizationv1.SelfSubjectAccessReview{
++			Spec: authorizationv1.SelfSubjectAccessReviewSpec{
++				ResourceAttributes: &authorizationv1.ResourceAttributes{
++					Verb:     verb,
++					Group:    certificatesv1.GroupName,
++					Resource: resourceClusterTrustBundles,
++				},
++			},
++		}
++
++		review, err = c.csKube.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, review, metav1.CreateOptions{})
++		if err != nil {
++			return "", fmt.Errorf("reviewing access to %s %s: %w", verb, resourceClusterTrustBundles, err)
++		}
++
++		if !review.Status.Allowed {
++			return reasonClusterTrustBundleNotAllowed, nil
++		}
++	}
++
++	return "", nil
++}
++
+ func (c *clientWrapper) ListNamespaces(selector labels.Selector) ([]string, error) {
+ 	ns, err := c.factoryNamespace.Core().V1().Namespaces().Lister().List(selector)
+ 	if err != nil {
+@@ -458,6 +539,19 @@ func (c *clientWrapper) GetConfigMap(namespace, name string) (*corev1.ConfigMap,
+ 	return c.factoriesKube[c.lookupNamespace(namespace)].Core().V1().ConfigMaps().Lister().ConfigMaps(namespace).Get(name)
+ }
+ 
++// GetClusterTrustBundle returns the named ClusterTrustBundle.
++func (c *clientWrapper) GetClusterTrustBundle(name string) (*certificatesv1.ClusterTrustBundle, error) {
++	if c.factoryClusterTrustBundle == nil {
++		return nil, fmt.Errorf("failed to get ClusterTrustBundle %s: ClusterTrustBundles are not supported, %s", name, c.clusterTrustBundleUnsupportedReason)
++	}
++	return c.factoryClusterTrustBundle.Certificates().V1().ClusterTrustBundles().Lister().Get(name)
++}
++
++// ClusterTrustBundleUnsupportedReason returns why ClusterTrustBundles are not supported, or an empty string when they are.
++func (c *clientWrapper) ClusterTrustBundleUnsupportedReason() string {
++	return c.clusterTrustBundleUnsupportedReason
++}
++
+ func (c *clientWrapper) UpdateGatewayClassStatus(ctx context.Context, name string, status gatev1.GatewayClassStatus) error {
+ 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+ 		currentGatewayClass, err := c.factoryGatewayClass.Gateway().V1().GatewayClasses().Lister().Get(name)
+diff --git a/pkg/provider/kubernetes/gateway/client_test.go b/pkg/provider/kubernetes/gateway/client_test.go
+index 7a26c7d..b540cad 100644
+--- a/pkg/provider/kubernetes/gateway/client_test.go
++++ b/pkg/provider/kubernetes/gateway/client_test.go
+@@ -1,11 +1,19 @@
+ package gateway
+ 
+ import (
++	"errors"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++	authorizationv1 "k8s.io/api/authorization/v1"
++	certificatesv1 "k8s.io/api/certificates/v1"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/apimachinery/pkg/runtime"
++	kubefake "k8s.io/client-go/kubernetes/fake"
++	ktesting "k8s.io/client-go/testing"
+ 	gatev1 "sigs.k8s.io/gateway-api/apis/v1"
++	gatefake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
+ )
+ 
+ func Test_gatewayStatusEquals(t *testing.T) {
+@@ -553,3 +561,101 @@ func Test_withoutForeignConditions(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func Test_clientWrapper_WatchAll_clusterTrustBundleSupport(t *testing.T) {
++	testCases := []struct {
++		desc       string
++		setup      func(client *kubefake.Clientset)
++		wantReason string
++		wantErr    bool
++	}{
++		{
++			desc:       "group version not served",
++			wantReason: reasonClusterTrustBundleNotServed,
++		},
++		{
++			desc: "group version served without clustertrustbundles",
++			setup: func(client *kubefake.Clientset) {
++				client.Resources = append(client.Resources, &metav1.APIResourceList{
++					GroupVersion: certificatesv1.SchemeGroupVersion.String(),
++					APIResources: []metav1.APIResource{{Name: "certificatesigningrequests"}},
++				})
++			},
++			wantReason: reasonClusterTrustBundleNotServed,
++		},
++		{
++			desc: "discovery error",
++			setup: func(client *kubefake.Clientset) {
++				client.PrependReactor("get", "resource", func(ktesting.Action) (bool, runtime.Object, error) {
++					return true, nil, errors.New("boom")
++				})
++			},
++			wantErr: true,
++		},
++		{
++			desc: "access review error",
++			setup: func(client *kubefake.Clientset) {
++				client.Resources = append(client.Resources, &metav1.APIResourceList{
++					GroupVersion: certificatesv1.SchemeGroupVersion.String(),
++					APIResources: []metav1.APIResource{{Name: resourceClusterTrustBundles}},
++				})
++				client.PrependReactor("create", "selfsubjectaccessreviews", func(ktesting.Action) (bool, runtime.Object, error) {
++					return true, nil, errors.New("boom")
++				})
++			},
++			wantErr: true,
++		},
++		{
++			desc: "watch not allowed",
++			setup: func(client *kubefake.Clientset) {
++				client.Resources = append(client.Resources, &metav1.APIResourceList{
++					GroupVersion: certificatesv1.SchemeGroupVersion.String(),
++					APIResources: []metav1.APIResource{{Name: resourceClusterTrustBundles}},
++				})
++				client.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
++					review := action.(ktesting.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview).DeepCopy()
++					review.Status.Allowed = review.Spec.ResourceAttributes.Verb == "list"
++					return true, review, nil
++				})
++			},
++			wantReason: reasonClusterTrustBundleNotAllowed,
++		},
++		{
++			desc: "list and watch allowed",
++			setup: func(client *kubefake.Clientset) {
++				client.Resources = append(client.Resources, &metav1.APIResourceList{
++					GroupVersion: certificatesv1.SchemeGroupVersion.String(),
++					APIResources: []metav1.APIResource{{Name: resourceClusterTrustBundles}},
++				})
++				client.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
++					review := action.(ktesting.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview).DeepCopy()
++					review.Status.Allowed = true
++					return true, review, nil
++				})
++			},
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			kubeClient := kubefake.NewClientset()
++			if test.setup != nil {
++				test.setup(kubeClient)
++			}
++
++			client := newClientImpl(kubeClient, gatefake.NewSimpleClientset())
++
++			_, err := client.WatchAll(nil, make(chan struct{}))
++			if test.wantErr {
++				require.Error(t, err)
++				return
++			}
++			require.NoError(t, err)
++
++			assert.Equal(t, test.wantReason, client.ClusterTrustBundleUnsupportedReason())
++			assert.Equal(t, test.wantReason == "", client.factoryClusterTrustBundle != nil)
++		})
++	}
++}
+diff --git a/pkg/provider/kubernetes/gateway/features.go b/pkg/provider/kubernetes/gateway/features.go
+index 0b84782..65af35f 100644
+--- a/pkg/provider/kubernetes/gateway/features.go
++++ b/pkg/provider/kubernetes/gateway/features.go
+@@ -39,6 +39,7 @@ func extendedGatewayFeatures() sets.Set[features.Feature] {
+ 		features.GatewayFrontendClientCertificateValidationFeature,
+ 		features.GatewayFrontendClientCertificateValidationInsecureFallbackFeature,
+ 		features.GatewayBackendClientCertificateFeature,
++		features.ClusterTrustBundleFeature,
+ 	)
+ }
+ 
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/cluster_trust_bundles.yml b/pkg/provider/kubernetes/gateway/fixtures/cluster_trust_bundles.yml
+new file mode 100644
+index 0000000..09ec654
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/cluster_trust_bundles.yml
+@@ -0,0 +1,15 @@
++---
++apiVersion: certificates.k8s.io/v1
++kind: ClusterTrustBundle
++metadata:
++  name: my-ca-bundle
++spec:
++  trustBundle: "CTB-CA"
++
++---
++apiVersion: certificates.k8s.io/v1
++kind: ClusterTrustBundle
++metadata:
++  name: empty-ca-bundle
++spec:
++  trustBundle: ""
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_tls_policy_cluster_trust_bundle.yml b/pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_tls_policy_cluster_trust_bundle.yml
+new file mode 100644
+index 0000000..e432d5c
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_tls_policy_cluster_trust_bundle.yml
+@@ -0,0 +1,71 @@
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  listeners: # Use GatewayClass defaults for listener definition.
++    - name: web
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        kinds:
++          - kind: GRPCRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++---
++kind: GRPCRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: grpc-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - foo.com
++  rules:
++    - backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    caCertificateRefs:
++      - group: certificates.k8s.io
++        kind: ClusterTrustBundle
++        name: my-ca-bundle
++
++---
++apiVersion: certificates.k8s.io/v1
++kind: ClusterTrustBundle
++metadata:
++  name: my-ca-bundle
++spec:
++  trustBundle: "CTB-CA"
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_tls_policy_cluster_trust_bundle.yml b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_tls_policy_cluster_trust_bundle.yml
+new file mode 100644
+index 0000000..3d8d72a
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_tls_policy_cluster_trust_bundle.yml
+@@ -0,0 +1,77 @@
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  listeners: # Use GatewayClass defaults for listener definition.
++    - name: http
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        kinds:
++          - kind: HTTPRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - "foo.com"
++  rules:
++    - matches:
++        - path:
++            type: Exact
++            value: /bar
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++          kind: Service
++          group: ""
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    caCertificateRefs:
++      - group: certificates.k8s.io
++        kind: ClusterTrustBundle
++        name: my-ca-bundle
++
++---
++apiVersion: certificates.k8s.io/v1
++kind: ClusterTrustBundle
++metadata:
++  name: my-ca-bundle
++spec:
++  trustBundle: "CTB-CA"
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_tls_policy_cluster_trust_bundle.yml b/pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_tls_policy_cluster_trust_bundle.yml
+new file mode 100644
+index 0000000..45b742b
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_tls_policy_cluster_trust_bundle.yml
+@@ -0,0 +1,87 @@
++---
++apiVersion: v1
++kind: Secret
++metadata:
++  name: supersecret
++  namespace: default
++
++data:
++  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
++  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ253Z0w1RFk0VUIxNHNNNmYKRGlrUWR0cWgyUVcxQXJmRjRmYzFVRnppZmRHaFJBTkNBQVF6cTRzTjJVTzhDSVZxMnowdWlSVUU5MjA2RFFoZApOTDBsZVgybStrMjE4aS9MWmJCcTNrMFNCZGhNSUxMWGpEcE1SaWlrcFE3N21nOEt2S2Y2bGZ0TAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
++
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  listeners: # Use GatewayClass defaults for listener definition.
++    - name: tls
++      protocol: TLS
++      port: 9001
++      hostname: foo.com
++      tls:
++        mode: Terminate # Default mode
++        certificateRefs:
++          - kind: Secret
++            name: supersecret
++            group: ""
++      allowedRoutes:
++        kinds:
++          - kind: TLSRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++---
++kind: TLSRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: tls-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  rules:
++    - backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami
++  validation:
++    hostname: whoami
++    caCertificateRefs:
++      - group: certificates.k8s.io
++        kind: ClusterTrustBundle
++        name: my-ca-bundle
++
++---
++apiVersion: certificates.k8s.io/v1
++kind: ClusterTrustBundle
++metadata:
++  name: my-ca-bundle
++spec:
++  trustBundle: "CTB-CA"
+diff --git a/pkg/provider/kubernetes/gateway/httproute.go b/pkg/provider/kubernetes/gateway/httproute.go
+index 3222ff7..7d899aa 100644
+--- a/pkg/provider/kubernetes/gateway/httproute.go
++++ b/pkg/provider/kubernetes/gateway/httproute.go
+@@ -19,6 +19,7 @@ import (
+ 	"github.com/traefik/traefik/v3/pkg/provider"
+ 	"github.com/traefik/traefik/v3/pkg/tls"
+ 	"github.com/traefik/traefik/v3/pkg/types"
++	certificatesv1 "k8s.io/api/certificates/v1"
+ 	corev1 "k8s.io/api/core/v1"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	ktypes "k8s.io/apimachinery/pkg/types"
+@@ -752,56 +753,9 @@ func (p *Provider) loadServersTransport(namespace string, policy *gatev1.Backend
+ 	}
+ 
+ 	for _, caCertRef := range policy.Spec.Validation.CACertificateRefs {
+-		if (caCertRef.Group != "" && caCertRef.Group != groupCore) || (caCertRef.Kind != kindConfigMap && caCertRef.Kind != kindSecret) {
+-			return nil, metav1.Condition{
+-				Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
+-				Status:             metav1.ConditionFalse,
+-				ObservedGeneration: policy.Generation,
+-				LastTransitionTime: metav1.Now(),
+-				Reason:             string(gatev1.BackendTLSPolicyReasonInvalidKind),
+-				Message:            "Only ConfigMaps and Secrets are supported",
+-			}
+-		}
+-
+-		var caCRT string
+-		switch caCertRef.Kind {
+-		case kindConfigMap:
+-			configmap, err := p.client.GetConfigMap(namespace, string(caCertRef.Name))
+-			if err != nil {
+-				return nil, metav1.Condition{
+-					Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
+-					Status:             metav1.ConditionFalse,
+-					ObservedGeneration: policy.Generation,
+-					LastTransitionTime: metav1.Now(),
+-					Reason:             string(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef),
+-					Message:            fmt.Sprintf("getting configmap %s/%s: %s", namespace, string(caCertRef.Name), err),
+-				}
+-			}
+-			caCRT = configmap.Data["ca.crt"]
+-		case kindSecret:
+-			secret, err := p.client.GetSecret(namespace, string(caCertRef.Name))
+-			if err != nil {
+-				return nil, metav1.Condition{
+-					Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
+-					Status:             metav1.ConditionFalse,
+-					ObservedGeneration: policy.Generation,
+-					LastTransitionTime: metav1.Now(),
+-					Reason:             string(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef),
+-					Message:            fmt.Sprintf("getting secret %s/%s: %s", namespace, string(caCertRef.Name), err),
+-				}
+-			}
+-			caCRT = string(secret.Data["ca.crt"])
+-		}
+-
+-		if caCRT == "" {
+-			return nil, metav1.Condition{
+-				Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
+-				Status:             metav1.ConditionFalse,
+-				ObservedGeneration: policy.Generation,
+-				LastTransitionTime: metav1.Now(),
+-				Reason:             string(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef),
+-				Message:            fmt.Sprintf("%s %s/%s does not have a ca.crt", caCertRef.Kind, namespace, string(caCertRef.Name)),
+-			}
++		caCRT, condition := p.resolveBackendCACertificateRef(namespace, policy, caCertRef)
++		if condition != nil {
++			return nil, *condition
+ 		}
+ 
+ 		st.RootCAs = append(st.RootCAs, types.FileOrContent(caCRT))
+@@ -816,6 +770,64 @@ func (p *Provider) loadServersTransport(namespace string, policy *gatev1.Backend
+ 	}
+ }
+ 
++// resolveBackendCACertificateRef returns the PEM CA certificate referenced by a BackendTLSPolicy,
++// or the ResolvedRefs condition explaining why it cannot be resolved.
++func (p *Provider) resolveBackendCACertificateRef(namespace string, policy *gatev1.BackendTLSPolicy, caCertRef gatev1.LocalObjectReference) (string, *metav1.Condition) {
++	invalid := func(reason gatev1.PolicyConditionReason, message string) (string, *metav1.Condition) {
++		return "", &metav1.Condition{
++			Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
++			Status:             metav1.ConditionFalse,
++			ObservedGeneration: policy.Generation,
++			LastTransitionTime: metav1.Now(),
++			Reason:             string(reason),
++			Message:            message,
++		}
++	}
++
++	switch {
++	case caCertRef.Group == certificatesv1.GroupName && caCertRef.Kind == kindClusterTrustBundle:
++		if reason := p.client.ClusterTrustBundleUnsupportedReason(); reason != "" {
++			return invalid(gatev1.BackendTLSPolicyReasonInvalidKind, "ClusterTrustBundles are not supported, "+reason)
++		}
++
++		bundle, err := p.client.GetClusterTrustBundle(string(caCertRef.Name))
++		if err != nil {
++			return invalid(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef, fmt.Sprintf("Cannot get ClusterTrustBundle %s: %s", caCertRef.Name, err))
++		}
++		if bundle.Spec.TrustBundle == "" {
++			return invalid(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef, fmt.Sprintf("ClusterTrustBundle %s has an empty trustBundle", caCertRef.Name))
++		}
++
++		return bundle.Spec.TrustBundle, nil
++
++	case caCertRef.Group != "" && caCertRef.Group != groupCore,
++		caCertRef.Kind != kindConfigMap && caCertRef.Kind != kindSecret:
++		return invalid(gatev1.BackendTLSPolicyReasonInvalidKind, "Only ConfigMaps, Secrets, and ClusterTrustBundles are supported")
++	}
++
++	var caCRT string
++	switch caCertRef.Kind {
++	case kindConfigMap:
++		configmap, err := p.client.GetConfigMap(namespace, string(caCertRef.Name))
++		if err != nil {
++			return invalid(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef, fmt.Sprintf("getting configmap %s/%s: %s", namespace, string(caCertRef.Name), err))
++		}
++		caCRT = configmap.Data["ca.crt"]
++	case kindSecret:
++		secret, err := p.client.GetSecret(namespace, string(caCertRef.Name))
++		if err != nil {
++			return invalid(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef, fmt.Sprintf("getting secret %s/%s: %s", namespace, string(caCertRef.Name), err))
++		}
++		caCRT = string(secret.Data["ca.crt"])
++	}
++
++	if caCRT == "" {
++		return invalid(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef, fmt.Sprintf("%s %s/%s does not have a ca.crt", caCertRef.Kind, namespace, string(caCertRef.Name)))
++	}
++
++	return caCRT, nil
++}
++
+ func buildHostRule(hostnames []gatev1.Hostname) (string, int) {
+ 	var rules []string
+ 	var priority int
+diff --git a/pkg/provider/kubernetes/gateway/kubernetes.go b/pkg/provider/kubernetes/gateway/kubernetes.go
+index f9e60b8..3701831 100644
+--- a/pkg/provider/kubernetes/gateway/kubernetes.go
++++ b/pkg/provider/kubernetes/gateway/kubernetes.go
+@@ -27,6 +27,7 @@ import (
+ 	"github.com/traefik/traefik/v3/pkg/safe"
+ 	"github.com/traefik/traefik/v3/pkg/tls"
+ 	"github.com/traefik/traefik/v3/pkg/types"
++	certificatesv1 "k8s.io/api/certificates/v1"
+ 	corev1 "k8s.io/api/core/v1"
+ 	"k8s.io/apimachinery/pkg/api/meta"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+@@ -1180,7 +1181,7 @@ func (p *Provider) resolveBackendClientCertificate(gateway *gatev1.Gateway) (*tl
+ }
+ 
+ // resolveCACertificateRefs returns the referenced CA certificate, or the ResolvedRefs condition explaining why it cannot.
+-// Only the Core support is implemented: a single ConfigMap reference with a ca.crt key.
++// Only a single reference is supported, to a ConfigMap with a ca.crt key (Core support) or to a ClusterTrustBundle (Extended support).
+ func (p *Provider) resolveCACertificateRefs(gateway *gatev1.Gateway, refs []gatev1.ObjectReference) (string, *metav1.Condition) {
+ 	if len(refs) != 1 {
+ 		return "", &metav1.Condition{
+@@ -1194,6 +1195,10 @@ func (p *Provider) resolveCACertificateRefs(gateway *gatev1.Gateway, refs []gate
+ 	}
+ 
+ 	ref := refs[0]
++	if string(ref.Group) == certificatesv1.GroupName && ref.Kind == kindClusterTrustBundle {
++		return p.resolveClusterTrustBundleRef(gateway, ref)
++	}
++
+ 	if (ref.Group != "" && ref.Group != groupCore) || ref.Kind != kindConfigMap {
+ 		return "", &metav1.Condition{
+ 			Type:               string(gatev1.ListenerConditionResolvedRefs),
+@@ -1244,6 +1249,41 @@ func (p *Provider) resolveCACertificateRefs(gateway *gatev1.Gateway, refs []gate
+ 	return caCert, nil
+ }
+ 
++// resolveClusterTrustBundleRef returns the trust bundle of the referenced ClusterTrustBundle,
++// or the ResolvedRefs condition explaining why it cannot.
++// ClusterTrustBundles are cluster-scoped, so their references need no ReferenceGrant.
++func (p *Provider) resolveClusterTrustBundleRef(gateway *gatev1.Gateway, ref gatev1.ObjectReference) (string, *metav1.Condition) {
++	invalid := func(reason gatev1.ListenerConditionReason, message string) (string, *metav1.Condition) {
++		return "", &metav1.Condition{
++			Type:               string(gatev1.ListenerConditionResolvedRefs),
++			Status:             metav1.ConditionFalse,
++			ObservedGeneration: gateway.Generation,
++			LastTransitionTime: metav1.Now(),
++			Reason:             string(reason),
++			Message:            message,
++		}
++	}
++
++	if reason := p.client.ClusterTrustBundleUnsupportedReason(); reason != "" {
++		return invalid(gatev1.ListenerReasonInvalidCACertificateKind, "ClusterTrustBundles are not supported, "+reason)
++	}
++
++	if ref.Namespace != nil {
++		return invalid(gatev1.ListenerReasonInvalidCACertificateRef, fmt.Sprintf("Unsupported namespace on cluster-scoped CACertificateRef: %s %s", ref.Kind, ref.Name))
++	}
++
++	bundle, err := p.client.GetClusterTrustBundle(string(ref.Name))
++	if err != nil {
++		return invalid(gatev1.ListenerReasonInvalidCACertificateRef, fmt.Sprintf("Cannot resolve ClusterTrustBundle: %s: %s", ref.Name, err))
++	}
++
++	if bundle.Spec.TrustBundle == "" {
++		return invalid(gatev1.ListenerReasonInvalidCACertificateRef, fmt.Sprintf("Cannot find trustBundle: %s %s", ref.Kind, ref.Name))
++	}
++
++	return bundle.Spec.TrustBundle, nil
++}
++
+ func (p *Provider) makeGatewayStatus(gateway *gatev1.Gateway, listeners []gatewayListener, addresses []gatev1.GatewayStatusAddress, accepted bool, clientCertificateCondition *metav1.Condition) (gatev1.GatewayStatus, []metav1.Condition) {
+ 	gatewayStatus := gatev1.GatewayStatus{Addresses: addresses}
+ 
+diff --git a/pkg/provider/kubernetes/gateway/kubernetes_test.go b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+index 208474b..ee63ffa 100644
+--- a/pkg/provider/kubernetes/gateway/kubernetes_test.go
++++ b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+@@ -22,6 +22,8 @@ import (
+ 	"github.com/traefik/traefik/v3/pkg/tls"
+ 	"github.com/traefik/traefik/v3/pkg/types"
+ 	"google.golang.org/grpc/codes"
++	authorizationv1 "k8s.io/api/authorization/v1"
++	certificatesv1 "k8s.io/api/certificates/v1"
+ 	corev1 "k8s.io/api/core/v1"
+ 	"k8s.io/apimachinery/pkg/api/meta"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+@@ -14199,6 +14201,129 @@ func Test_resolveFrontendValidation(t *testing.T) {
+ 	}
+ }
+ 
++func Test_resolveFrontendValidation_ClusterTrustBundle(t *testing.T) {
++	gateway := &gatev1.Gateway{
++		Name:       "my-gateway",
++		Namespace:  "default",
++		Generation: 1,
++	}
++
++	testCases := []struct {
++		desc     string
++		api      clusterTrustBundleAPI
++		ref      gatev1.ObjectReference
++		expected frontendValidation
++	}{
++		{
++			desc: "a ClusterTrustBundle ref is resolved",
++			api:  clusterTrustBundleAPIAllowed,
++			ref:  gatev1.ObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "my-ca-bundle"},
++			expected: frontendValidation{
++				clientAuth: &tls.ClientAuth{
++					CAFiles:        []types.FileOrContent{"CTB-CA"},
++					ClientAuthType: tls.RequireAndVerifyClientCert,
++				},
++			},
++		},
++		{
++			desc: "API not served",
++			api:  clusterTrustBundleAPINotServed,
++			ref:  gatev1.ObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "my-ca-bundle"},
++			expected: frontendValidation{
++				errCondition: &metav1.Condition{
++					Type:               string(gatev1.ListenerConditionResolvedRefs),
++					Status:             metav1.ConditionFalse,
++					ObservedGeneration: 1,
++					Reason:             string(gatev1.ListenerReasonInvalidCACertificateKind),
++					Message:            "ClusterTrustBundles are not supported, the cluster does not serve the certificates.k8s.io/v1 API",
++				},
++			},
++		},
++		{
++			desc: "not allowed to list and watch",
++			api:  clusterTrustBundleAPIForbidden,
++			ref:  gatev1.ObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "my-ca-bundle"},
++			expected: frontendValidation{
++				errCondition: &metav1.Condition{
++					Type:               string(gatev1.ListenerConditionResolvedRefs),
++					Status:             metav1.ConditionFalse,
++					ObservedGeneration: 1,
++					Reason:             string(gatev1.ListenerReasonInvalidCACertificateKind),
++					Message:            "ClusterTrustBundles are not supported, Traefik is not allowed to list and watch clustertrustbundles",
++				},
++			},
++		},
++		{
++			desc: "namespace on the ref is rejected",
++			api:  clusterTrustBundleAPIAllowed,
++			ref:  gatev1.ObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "my-ca-bundle", Namespace: new(gatev1.Namespace("default"))},
++			expected: frontendValidation{
++				errCondition: &metav1.Condition{
++					Type:               string(gatev1.ListenerConditionResolvedRefs),
++					Status:             metav1.ConditionFalse,
++					ObservedGeneration: 1,
++					Reason:             string(gatev1.ListenerReasonInvalidCACertificateRef),
++					Message:            "Unsupported namespace on cluster-scoped CACertificateRef: ClusterTrustBundle my-ca-bundle",
++				},
++			},
++		},
++		{
++			desc: "unresolvable ClusterTrustBundle is rejected",
++			api:  clusterTrustBundleAPIAllowed,
++			ref:  gatev1.ObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "does-not-exist"},
++			expected: frontendValidation{
++				errCondition: &metav1.Condition{
++					Type:               string(gatev1.ListenerConditionResolvedRefs),
++					Status:             metav1.ConditionFalse,
++					ObservedGeneration: 1,
++					Reason:             string(gatev1.ListenerReasonInvalidCACertificateRef),
++					Message:            `Cannot resolve ClusterTrustBundle: does-not-exist: clustertrustbundle.certificates.k8s.io "does-not-exist" not found`,
++				},
++			},
++		},
++		{
++			desc: "ClusterTrustBundle with an empty trustBundle is rejected",
++			api:  clusterTrustBundleAPIAllowed,
++			ref:  gatev1.ObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "empty-ca-bundle"},
++			expected: frontendValidation{
++				errCondition: &metav1.Condition{
++					Type:               string(gatev1.ListenerConditionResolvedRefs),
++					Status:             metav1.ConditionFalse,
++					ObservedGeneration: 1,
++					Reason:             string(gatev1.ListenerReasonInvalidCACertificateRef),
++					Message:            "Cannot find trustBundle: ClusterTrustBundle empty-ca-bundle",
++				},
++			},
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			k8sObjects, _ := readResources(t, []string{"cluster_trust_bundles.yml"})
++
++			client := newClientImpl(newKubeClientset(t, test.api, k8sObjects...), newGatewaySimpleClientSet(t))
++
++			_, err := client.WatchAll(nil, make(chan struct{}))
++			require.NoError(t, err)
++
++			p := Provider{client: client}
++
++			got := p.resolveFrontendValidation(gateway, &gatev1.FrontendTLSValidation{
++				CACertificateRefs: []gatev1.ObjectReference{test.ref},
++			})
++
++			// LastTransitionTime is set with metav1.Now() and is not relevant to this test.
++			if got.errCondition != nil {
++				got.errCondition.LastTransitionTime = metav1.Time{}
++			}
++
++			assert.Equal(t, test.expected, got)
++		})
++	}
++}
++
+ func Test_resolveBackendClientCertificate(t *testing.T) {
+ 	k8sObjects, gwObjects := readResources(t, []string{"backend_client_certificate_refs.yml"})
+ 
+@@ -15021,6 +15146,242 @@ func Test_loadConfigurationFromGateways_BackendTLSPolicyAncestorNamespace(t *tes
+ 	}
+ }
+ 
++// clusterTrustBundleAPI is the state of the ClusterTrustBundle API simulated by newKubeClientset.
++type clusterTrustBundleAPI int
++
++const (
++	clusterTrustBundleAPINotServed clusterTrustBundleAPI = iota
++	clusterTrustBundleAPIForbidden
++	clusterTrustBundleAPIAllowed
++)
++
++func newKubeClientset(t *testing.T, api clusterTrustBundleAPI, objects ...runtime.Object) *kubefake.Clientset {
++	t.Helper()
++
++	client := kubefake.NewClientset(objects...)
++	if api == clusterTrustBundleAPINotServed {
++		return client
++	}
++
++	client.Resources = append(client.Resources, &metav1.APIResourceList{
++		GroupVersion: certificatesv1.SchemeGroupVersion.String(),
++		APIResources: []metav1.APIResource{{Name: resourceClusterTrustBundles, Kind: kindClusterTrustBundle}},
++	})
++	client.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
++		review := action.(ktesting.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview).DeepCopy()
++		review.Status.Allowed = api == clusterTrustBundleAPIAllowed
++		return true, review, nil
++	})
++
++	return client
++}
++
++func Test_loadConfigurationFromGateways_BackendTLSPolicyClusterTrustBundle(t *testing.T) {
++	routes := []struct {
++		desc        string
++		path        string
++		entryPoints map[string]Entrypoint
++		// rootCAs returns the root CAs of the servers transports of the generated configuration.
++		rootCAs func(conf *dynamic.Configuration) [][]types.FileOrContent
++	}{
++		{
++			desc:        "HTTPRoute",
++			path:        "httproute/with_backend_tls_policy_cluster_trust_bundle.yml",
++			entryPoints: map[string]Entrypoint{"web": {Address: ":80"}},
++			rootCAs:     httpServersTransportRootCAs,
++		},
++		{
++			desc:        "GRPCRoute",
++			path:        "grpcroute/with_backend_tls_policy_cluster_trust_bundle.yml",
++			entryPoints: map[string]Entrypoint{"web": {Address: ":80"}},
++			rootCAs:     httpServersTransportRootCAs,
++		},
++		{
++			desc:        "TLSRoute",
++			path:        "tlsroute/with_backend_tls_policy_cluster_trust_bundle.yml",
++			entryPoints: map[string]Entrypoint{"tls": {Address: ":9001"}},
++			rootCAs: func(conf *dynamic.Configuration) [][]types.FileOrContent {
++				var rootCAs [][]types.FileOrContent
++				for _, st := range conf.TCP.ServersTransports {
++					rootCAs = append(rootCAs, st.TLS.RootCAs)
++				}
++				return rootCAs
++			},
++		},
++	}
++
++	apis := []struct {
++		desc          string
++		api           clusterTrustBundleAPI
++		wantCondition metav1.Condition
++		wantRootCAs   [][]types.FileOrContent
++	}{
++		{
++			desc: "allowed",
++			api:  clusterTrustBundleAPIAllowed,
++			wantCondition: metav1.Condition{
++				Type:   string(gatev1.BackendTLSPolicyConditionResolvedRefs),
++				Status: metav1.ConditionTrue,
++				Reason: string(gatev1.BackendTLSPolicyReasonResolvedRefs),
++			},
++			wantRootCAs: [][]types.FileOrContent{{"CTB-CA"}},
++		},
++		{
++			desc: "API not served",
++			api:  clusterTrustBundleAPINotServed,
++			wantCondition: metav1.Condition{
++				Type:    string(gatev1.BackendTLSPolicyConditionResolvedRefs),
++				Status:  metav1.ConditionFalse,
++				Reason:  string(gatev1.BackendTLSPolicyReasonInvalidKind),
++				Message: "ClusterTrustBundles are not supported, the cluster does not serve the certificates.k8s.io/v1 API",
++			},
++		},
++		{
++			desc: "not allowed to list and watch",
++			api:  clusterTrustBundleAPIForbidden,
++			wantCondition: metav1.Condition{
++				Type:    string(gatev1.BackendTLSPolicyConditionResolvedRefs),
++				Status:  metav1.ConditionFalse,
++				Reason:  string(gatev1.BackendTLSPolicyReasonInvalidKind),
++				Message: "ClusterTrustBundles are not supported, Traefik is not allowed to list and watch clustertrustbundles",
++			},
++		},
++	}
++
++	for _, route := range routes {
++		for _, api := range apis {
++			t.Run(route.desc+" "+api.desc, func(t *testing.T) {
++				t.Parallel()
++
++				k8sObjects, gwObjects := readResources(t, []string{"services.yml", route.path})
++
++				gwClient := newGatewaySimpleClientSet(t, gwObjects...)
++				client := newClientImpl(newKubeClientset(t, api.api, k8sObjects...), gwClient)
++
++				eventCh, err := client.WatchAll(nil, make(chan struct{}))
++				require.NoError(t, err)
++
++				// just wait for the first event
++				<-eventCh
++
++				p := Provider{
++					EntryPoints: route.entryPoints,
++					client:      client,
++				}
++
++				conf, statusReport, err := p.loadConfigurationFromGateways(t.Context())
++				require.NoError(t, err)
++
++				assert.Equal(t, api.wantRootCAs, route.rootCAs(conf))
++
++				statusReport.Flush(t.Context(), client)
++
++				policy, err := gwClient.GatewayV1().BackendTLSPolicies("default").Get(t.Context(), "policy-1", metav1.GetOptions{})
++				require.NoError(t, err)
++				require.Len(t, policy.Status.Ancestors, 1)
++
++				condition := meta.FindStatusCondition(policy.Status.Ancestors[0].Conditions, string(gatev1.BackendTLSPolicyConditionResolvedRefs))
++				require.NotNil(t, condition)
++
++				condition.LastTransitionTime = metav1.Time{}
++				assert.Equal(t, api.wantCondition, *condition)
++			})
++		}
++	}
++}
++
++func httpServersTransportRootCAs(conf *dynamic.Configuration) [][]types.FileOrContent {
++	var rootCAs [][]types.FileOrContent
++	for _, st := range conf.HTTP.ServersTransports {
++		rootCAs = append(rootCAs, st.RootCAs)
++	}
++	return rootCAs
++}
++
++func Test_resolveBackendCACertificateRef(t *testing.T) {
++	k8sObjects, _ := readResources(t, []string{"cluster_trust_bundles.yml"})
++
++	client := newClientImpl(newKubeClientset(t, clusterTrustBundleAPIAllowed, k8sObjects...), newGatewaySimpleClientSet(t))
++
++	_, err := client.WatchAll(nil, make(chan struct{}))
++	require.NoError(t, err)
++
++	p := Provider{client: client}
++
++	policy := &gatev1.BackendTLSPolicy{Generation: 1}
++
++	testCases := []struct {
++		desc              string
++		ref               gatev1.LocalObjectReference
++		wantCACert        string
++		expectedCondition *metav1.Condition
++	}{
++		{
++			desc:       "ClusterTrustBundle",
++			ref:        gatev1.LocalObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "my-ca-bundle"},
++			wantCACert: "CTB-CA",
++		},
++		{
++			desc: "ClusterTrustBundle not found",
++			ref:  gatev1.LocalObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "does-not-exist"},
++			expectedCondition: &metav1.Condition{
++				Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
++				Status:             metav1.ConditionFalse,
++				ObservedGeneration: 1,
++				Reason:             string(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef),
++				Message:            `Cannot get ClusterTrustBundle does-not-exist: clustertrustbundle.certificates.k8s.io "does-not-exist" not found`,
++			},
++		},
++		{
++			desc: "ClusterTrustBundle with an empty trustBundle",
++			ref:  gatev1.LocalObjectReference{Group: certificatesv1.GroupName, Kind: kindClusterTrustBundle, Name: "empty-ca-bundle"},
++			expectedCondition: &metav1.Condition{
++				Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
++				Status:             metav1.ConditionFalse,
++				ObservedGeneration: 1,
++				Reason:             string(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef),
++				Message:            "ClusterTrustBundle empty-ca-bundle has an empty trustBundle",
++			},
++		},
++		{
++			desc: "ClusterTrustBundle kind in the core group",
++			ref:  gatev1.LocalObjectReference{Kind: kindClusterTrustBundle, Name: "my-ca-bundle"},
++			expectedCondition: &metav1.Condition{
++				Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
++				Status:             metav1.ConditionFalse,
++				ObservedGeneration: 1,
++				Reason:             string(gatev1.BackendTLSPolicyReasonInvalidKind),
++				Message:            "Only ConfigMaps, Secrets, and ClusterTrustBundles are supported",
++			},
++		},
++		{
++			desc: "unsupported kind in the certificates group",
++			ref:  gatev1.LocalObjectReference{Group: certificatesv1.GroupName, Kind: "CertificateSigningRequest", Name: "my-csr"},
++			expectedCondition: &metav1.Condition{
++				Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
++				Status:             metav1.ConditionFalse,
++				ObservedGeneration: 1,
++				Reason:             string(gatev1.BackendTLSPolicyReasonInvalidKind),
++				Message:            "Only ConfigMaps, Secrets, and ClusterTrustBundles are supported",
++			},
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			caCert, condition := p.resolveBackendCACertificateRef("default", policy, test.ref)
++
++			// LastTransitionTime is set with metav1.Now() and is not relevant to this test.
++			if condition != nil {
++				condition.LastTransitionTime = metav1.Time{}
++			}
++
++			assert.Equal(t, test.wantCACert, caCert)
++			assert.Equal(t, test.expectedCondition, condition)
++		})
++	}
++}
++
+ func Test_loadConfigurationFromGateways_BackendClientCertificate(t *testing.T) {
+ 	testCases := []struct {
+ 		desc        string
+diff --git a/pkg/provider/kubernetes/gateway/tlsroute.go b/pkg/provider/kubernetes/gateway/tlsroute.go
+index cda0b67..10f7d10 100644
+--- a/pkg/provider/kubernetes/gateway/tlsroute.go
++++ b/pkg/provider/kubernetes/gateway/tlsroute.go
+@@ -530,56 +530,9 @@ func (p *Provider) loadTCPServersTransport(namespace string, policy *gatev1.Back
+ 	}
+ 
+ 	for _, caCertRef := range policy.Spec.Validation.CACertificateRefs {
+-		if (caCertRef.Group != "" && caCertRef.Group != groupCore) || (caCertRef.Kind != kindConfigMap && caCertRef.Kind != kindSecret) {
+-			return nil, metav1.Condition{
+-				Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
+-				Status:             metav1.ConditionFalse,
+-				ObservedGeneration: policy.Generation,
+-				LastTransitionTime: metav1.Now(),
+-				Reason:             string(gatev1.BackendTLSPolicyReasonInvalidKind),
+-				Message:            "Only ConfigMaps and Secrets are supported",
+-			}
+-		}
+-
+-		var caCRT string
+-		switch caCertRef.Kind {
+-		case kindConfigMap:
+-			configmap, err := p.client.GetConfigMap(namespace, string(caCertRef.Name))
+-			if err != nil {
+-				return nil, metav1.Condition{
+-					Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
+-					Status:             metav1.ConditionFalse,
+-					ObservedGeneration: policy.Generation,
+-					LastTransitionTime: metav1.Now(),
+-					Reason:             string(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef),
+-					Message:            fmt.Sprintf("getting configmap %s/%s: %s", namespace, string(caCertRef.Name), err),
+-				}
+-			}
+-			caCRT = configmap.Data["ca.crt"]
+-		case kindSecret:
+-			secret, err := p.client.GetSecret(namespace, string(caCertRef.Name))
+-			if err != nil {
+-				return nil, metav1.Condition{
+-					Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
+-					Status:             metav1.ConditionFalse,
+-					ObservedGeneration: policy.Generation,
+-					LastTransitionTime: metav1.Now(),
+-					Reason:             string(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef),
+-					Message:            fmt.Sprintf("getting secret %s/%s: %s", namespace, string(caCertRef.Name), err),
+-				}
+-			}
+-			caCRT = string(secret.Data["ca.crt"])
+-		}
+-
+-		if caCRT == "" {
+-			return nil, metav1.Condition{
+-				Type:               string(gatev1.BackendTLSPolicyConditionResolvedRefs),
+-				Status:             metav1.ConditionFalse,
+-				ObservedGeneration: policy.Generation,
+-				LastTransitionTime: metav1.Now(),
+-				Reason:             string(gatev1.BackendTLSPolicyReasonInvalidCACertificateRef),
+-				Message:            fmt.Sprintf("%s %s/%s does not have a ca.crt", caCertRef.Kind, namespace, string(caCertRef.Name)),
+-			}
++		caCRT, condition := p.resolveBackendCACertificateRef(namespace, policy, caCertRef)
++		if condition != nil {
++			return nil, *condition
+ 		}
+ 
+ 		st.TLS.RootCAs = append(st.TLS.RootCAs, types.FileOrContent(caCRT))

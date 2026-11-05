@@ -1,0 +1,174 @@
+{
+  "step": 4,
+  "pr": 14123,
+  "stage": 1,
+  "arm_setup": "G",
+  "agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 25,
+    "tokens": 1712160,
+    "usage": {
+      "input_tokens": 48,
+      "cache_creation_input_tokens": 83801,
+      "cache_read_input_tokens": 1609661,
+      "output_tokens": 18650,
+      "output_tokens_details": {
+        "thinking_tokens": 4192
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 83801,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1232,
+          "cache_read_input_tokens": 93503,
+          "cache_creation_input_tokens": 3579,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3579
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 1.3655322,
+    "duration_s": 266.4,
+    "limit_retries": 0
+  },
+  "files_touched": 6,
+  "lines_touched": 510,
+  "directives": 0,
+  "score": {
+    "renamed": true,
+    "no_counterpart": [],
+    "rename_problems": [
+      "httproute_test.go: Test_loadRequestMirror: literals changed"
+    ],
+    "compiled_as_is": false,
+    "rename_agent": {
+      "exit_code": 0,
+      "is_error": false,
+      "num_turns": 11,
+      "tokens": 405249,
+      "usage": {
+        "input_tokens": 22,
+        "cache_creation_input_tokens": 30547,
+        "cache_read_input_tokens": 370506,
+        "output_tokens": 4174,
+        "output_tokens_details": {
+          "thinking_tokens": 1205
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 30547,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 728,
+            "cache_read_input_tokens": 42100,
+            "cache_creation_input_tokens": 204,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 204
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "cost_usd": 0.4020452,
+      "duration_s": 102.5
+    },
+    "test_exit": 1,
+    "build_failed": false,
+    "passed": 64,
+    "failed": [
+      "TestLoadTLSRoutes"
+    ],
+    "skipped": 0,
+    "success": false,
+    "first_failed": [
+      "TestLoadTLSRoutes"
+    ],
+    "retry": {
+      "test_exit": 1,
+      "build_failed": false,
+      "passed": 0,
+      "failed": [
+        "TestLoadTLSRoutes"
+      ],
+      "skipped": 0,
+      "success": false
+    }
+  },
+  "audit": {
+    "ok": true,
+    "issues": [],
+    "warnings": [
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/head.yml\\ncat"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/head.yml"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/cases.go"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/out.log"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/vet.log"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/ds.log"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/shrink.log"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/ds0.log"
+      }
+    ]
+  },
+  "audit_rename": {
+    "ok": true,
+    "issues": [],
+    "warnings": []
+  }
+}
