@@ -563,6 +563,9 @@ def main():
         after = commit_all(ws, f"step {n}")
         diff = git(ws, "diff", before, after).stdout
         (sdir / "diff.patch").write_text(diff)
+        # The same diff with every line of each touched file, for reading a
+        # changed file whole.
+        (sdir / "diff-full.patch").write_text(git(ws, "diff", "-U1000000", before, after).stdout)
         stat = git(ws, "diff", "--numstat", before, after).stdout
         files = [l.split("\t") for l in stat.splitlines() if l]
         result = {

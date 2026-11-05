@@ -57,6 +57,7 @@ summary .plus { color: var(--ok); } summary .minus { color: var(--bad); }
 .diff .a { background: var(--add-bg); color: var(--add-fg); }
 .diff .d { background: var(--del-bg); color: var(--del-fg); }
 .diff .h { background: var(--hunk); color: var(--muted); }
+.diff .ln { display: inline-block; width: 4.5em; margin-left: -12px; padding-right: 10px; text-align: right; color: var(--muted); user-select: none; opacity: .7; }
 .empty, .note { color: var(--muted); padding: 10px 12px; margin: 0; }
 .note { font-size: 12px; border-top: 1px solid var(--line); }
 </style>
@@ -70,6 +71,7 @@ summary .plus { color: var(--ok); } summary .minus { color: var(--bad); }
     <label for="task">課題 <select id="task"></select></label>
     <label for="blind"><input type="checkbox" id="blind"> ブラインド表示（群名を伏せ、並びを入れ替え、<code>//declscope:</code> の行と declscope のファイルを隠す）</label>
     <label for="pkgonly"><input type="checkbox" id="pkgonly" checked> package の中のファイルだけ</label>
+    <label for="whole"><input type="checkbox" id="whole" checked> ファイル全体を表示（外すと変更の前後3行だけ）</label>
   </div>
   <div class="steps" id="steps" role="group" aria-label="段"></div>
   <h2 class="steptitle" id="steptitle"></h2>
@@ -96,6 +98,36 @@ function parseDiff(text) {
   return files;
 }
 
+// Keep each change with `ctx` lines around it; mark the gaps with a hunk line.
+function aroundChanges(lines, ctx) {
+  const keep = new Array(lines.length).fill(false);
+  lines.forEach((l, i) => {
+    if (l.startsWith("+") || l.startsWith("-")) for (let j = Math.max(0, i - ctx); j <= Math.min(lines.length - 1, i + ctx); j++) keep[j] = true;
+    if (l.startsWith("@@")) keep[i] = false;
+  });
+  const out = [];
+  let skipped = 0;
+  lines.forEach((l, i) => {
+    if (l.startsWith("@@")) return;
+    if (keep[i]) { if (skipped) { out.push(`@@ ${skipped} 行省略 @@`); skipped = 0; } out.push(l); } else skipped++;
+  });
+  if (skipped) out.push(`@@ ${skipped} 行省略 @@`);
+  return out;
+}
+
+// Render lines with the line number in the new file, taken from each hunk header.
+function numbered(lines) {
+  let n = 0;
+  return lines.map((l) => {
+    const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
+    if (h) { n = +h[1] - 1; return `<div class="h"><span class="ln"></span>${esc(l)}</div>`; }
+    if (l.startsWith("@@")) return `<div class="h"><span class="ln"></span>${esc(l)}</div>`;
+    const cls = l.startsWith("+") ? "a" : l.startsWith("-") ? "d" : "";
+    const ln = l.startsWith("-") ? "" : String(++n);
+    return `<div class="${cls}"><span class="ln">${ln}</span>${esc(l) || " "}</div>`;
+  }).join("");
+}
+
 function isTool(path) { return /(^|\/)\.declscope-baseline\.yaml$/.test(path) || path.startsWith(".claude/"); }
 
 function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -116,6 +148,7 @@ function render() {
 function column(r, i, blind, pkgonly, pkg) {
   const name = blind ? `コード ${i + 1}` : `${ARM[r.arm] || r.arm} · ${r.rep}回目`;
   let files = parseDiff(r.diff);
+  if (!$("whole").checked) files = files.map((f) => ({ ...f, lines: aroundChanges(f.lines, 3) }));
   if (blind) {
     files = files.filter((f) => !isTool(f.path)).map((f) => {
       const lines = f.lines.filter((l) => !/^[+\- ]\s*\/\/declscope:/.test(l));
@@ -137,7 +170,7 @@ function column(r, i, blind, pkgonly, pkg) {
   const body = shown.map((f) => `
     <details class="file" open>
       <summary><span class="path">${esc(f.path)}</span><span class="n"><span class="plus">+${f.plus}</span> <span class="minus">−${f.minus}</span></span></summary>
-      <div class="diff">${f.lines.map((l) => `<div class="${l.startsWith("+") ? "a" : l.startsWith("-") ? "d" : l.startsWith("@@") ? "h" : ""}">${esc(l) || " "}</div>`).join("")}</div>
+      <div class="diff">${numbered(f.lines)}</div>
     </details>`).join("") || `<p class="empty">差分なし</p>`;
   const notes = [];
   if (hidden) notes.push(`package の外の ${hidden} ファイルを隠している。`);
@@ -155,6 +188,7 @@ function init() {
   $("steps").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.step = +b.dataset.i; render(); } });
   $("blind").addEventListener("change", render);
   $("pkgonly").addEventListener("change", render);
+  $("whole").addEventListener("change", render);
   render();
 }
 init();

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>群ごとの差分</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+
+/* Layout: a review console. Controls on top, then one column per run, side by side, scrolling sideways inside their own track. */
+:root {
+  --bg: #f3f5f7; --panel: #ffffff; --ink: #18212b; --muted: #5d6b79; --line: #d7dde3;
+  --accent: #1f5f8b; --accent-soft: #e3eef6;
+  --add-bg: #e6f4ea; --add-fg: #14532d; --del-bg: #fbe9e9; --del-fg: #7f1d1d; --hunk: #eef1f5;
+  --ok: #1c7c44; --bad: #b3261e; --warn: #8a5a00;
+  --ui: "Atkinson Hyperlegible", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11161c; --panel: #171e26; --ink: #e2e8ee; --muted: #93a1b0; --line: #2a3542;
+  --accent: #7fb6dd; --accent-soft: #1d2f3e;
+  --add-bg: #12301f; --add-fg: #9be3b4; --del-bg: #3a1717; --del-fg: #f5a9a3; --hunk: #1d2631;
+  --ok: #5fd08f; --bad: #ff8a80; --warn: #f0c060; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11161c; --panel: #171e26; --ink: #e2e8ee; --muted: #93a1b0; --line: #2a3542;
+  --accent: #7fb6dd; --accent-soft: #1d2f3e;
+  --add-bg: #12301f; --add-fg: #9be3b4; --del-bg: #3a1717; --del-fg: #f5a9a3; --hunk: #1d2631;
+  --ok: #5fd08f; --bad: #ff8a80; --warn: #f0c060; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); font-size: 14px; line-height: 1.5; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; display: grid; gap: 16px; }
+h1 { font-size: 20px; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+select { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.steps button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+.steps button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.steptitle { margin: 0; font-size: 15px; }
+.steptitle .tag { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 8px; letter-spacing: .02em; }
+.track { overflow-x: auto; }
+.cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(420px, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 520px) { .cols { grid-auto-flow: row; grid-auto-columns: auto; } }
+.col { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.colhead { padding: 10px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.name { font-weight: 700; font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--hunk); color: var(--ink); font-variant-numeric: tabular-nums; }
+.chip.ok { background: var(--add-bg); color: var(--ok); font-weight: 700; }
+.chip.bad { background: var(--del-bg); color: var(--bad); font-weight: 700; }
+.chip.warn { color: var(--warn); }
+details.file { border-top: 1px solid var(--line); }
+details.file:first-of-type { border-top: 0; }
+summary { cursor: pointer; padding: 6px 12px; font-family: var(--mono); font-size: 12px; display: flex; gap: 8px; align-items: baseline; }
+summary .path { overflow-wrap: anywhere; }
+summary .n { margin-left: auto; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+summary .plus { color: var(--ok); } summary .minus { color: var(--bad); }
+.diff { overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.45; }
+.diff div { white-space: pre; padding: 0 12px; min-width: max-content; }
+.diff .a { background: var(--add-bg); color: var(--add-fg); }
+.diff .d { background: var(--del-bg); color: var(--del-fg); }
+.diff .h { background: var(--hunk); color: var(--muted); }
+.diff .ln { display: inline-block; width: 4.5em; margin-left: -12px; padding-right: 10px; text-align: right; color: var(--muted); user-select: none; opacity: .7; }
+.empty, .note { color: var(--muted); padding: 10px 12px; margin: 0; }
+.note { font-size: 12px; border-top: 1px solid var(--line); }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>群ごとの差分</h1>
+    <p class="sub">同じ課題の同じ段を、群ごとに並べる。各列の上に、その段の成否と手間を出す。</p>
+  </header>
+  <div class="controls">
+    <label for="task">課題 <select id="task"></select></label>
+    <label for="blind"><input type="checkbox" id="blind"> ブラインド表示（群名を伏せ、並びを入れ替え、<code>//declscope:</code> の行と declscope のファイルを隠す）</label>
+    <label for="pkgonly"><input type="checkbox" id="pkgonly" checked> package の中のファイルだけ</label>
+    <label for="whole"><input type="checkbox" id="whole" checked> ファイル全体を表示（外すと変更の前後3行だけ）</label>
+  </div>
+  <div class="steps" id="steps" role="group" aria-label="段"></div>
+  <h2 class="steptitle" id="steptitle"></h2>
+  <div class="track"><div class="cols" id="cols"></div></div>
+</div>
+
+<script>
+const DATA = {"tasks": [{"id": "jaeger-pr9256", "repo": "https://github.com/jaegertracing/jaeger", "package": "internal/storage/v2/api/tracestore", "steps": [{"n": 1, "pr": 9256, "title": "feat(storage): Let backends declare that search can omit the service name", "stage": 1, "runs": [{"arm": "G", "rep": "1", "stage": 1, "setup": "G", "success": true, "failed": [], "no_counterpart": [], "renamed": false, "tokens": 720099, "turns": 16, "files": 2, "lines": 44, "directives": 0, "audit_ok": false, "diff": "diff --git a/internal/storage/v2/api/tracestore/reader.go b/internal/storage/v2/api/tracestore/reader.go\nindex 125c1de..ed07779 100644\n--- a/internal/storage/v2/api/tracestore/reader.go\n+++ b/internal/storage/v2/api/tracestore/reader.go\n@@ -1,130 +1,155 @@\n // Copyright (c) 2024 The Jaeger Authors.\n // SPDX-License-Identifier: Apache-2.0\n \n package tracestore\n \n import (\n \t\"context\"\n \t\"iter\"\n \t\"time\"\n \n \t\"go.opentelemetry.io/collector/pdata/pcommon\"\n \t\"go.opentelemetry.io/collector/pdata/ptrace\"\n )\n \n // Reader finds and loads traces and other data from storage.\n type Reader interface {\n \t// GetTraces returns an iterator that retrieves all traces with given IDs.\n \t// The iterator is single-use: once consumed, it cannot be used again.\n \t//\n \t// Chunking requirements:\n \t// - A single ptrace.Traces chunk MUST NOT contain spans from multiple traces.\n \t// - Large traces MAY be split across multiple, *consecutive* ptrace.Traces chunks.\n \t// - Each returned ptrace.Traces object MUST NOT be empty.\n \t//\n \t// Edge cases:\n \t// - If no spans are found for any given trace ID, the ID is ignored.\n \t// - If none of the trace IDs are found in the storage, an empty iterator is returned.\n \t// - If an error is encountered, the iterator returns the error and stops.\n \tGetTraces(ctx context.Context, traceIDs ...GetTraceParams) iter.Seq2[[]ptrace.Traces, error]\n \n \t// GetServices returns all service names known to the backend from spans\n \t// within its retention period.\n \tGetServices(ctx context.Context) ([]string, error)\n \n \t// GetOperations returns all operation names for a given service\n \t// known to the backend from spans within its retention period.\n \tGetOperations(ctx context.Context, query OperationQueryParams) ([]Operation, error)\n \n \t// FindTraces returns an iterator that retrieves traces matching query parameters.\n \t// The iterator is single-use: once consumed, it cannot be used again.\n \t//\n \t// The chunking rules is the same as for GetTraces.\n \t//\n \t// If no matching traces are found, the function returns an empty iterator.\n \t// If an error is encountered, the iterator returns the error and stops.\n \t//\n \t// There's currently an implementation-dependent ambiguity whether all query filters\n \t// (such as multiple tags) must apply to the same span within a trace, or can be satisfied\n \t// by different spans.\n \tFindTraces(ctx context.Context, query TraceQueryParams) iter.Seq2[[]ptrace.Traces, error]\n \n \t// FindTraceIDs returns an iterator that retrieves IDs of traces matching query parameters.\n \t// The iterator is single-use: once consumed, it cannot be used again.\n \t//\n \t// If no matching traces are found, the function returns an empty iterator.\n \t// If an error is encountered, the iterator returns the error and stops.\n \t//\n \t// This function behaves identically to FindTraces, except that it returns only the list\n \t// of matching trace IDs. This is useful in some contexts, such as batch jobs, where a\n \t// large list of trace IDs may be queried first and then the full traces are loaded\n \t// in batches.\n \tFindTraceIDs(ctx context.Context, query TraceQueryParams) iter.Seq2[[]FoundTraceID, error]\n \n \t// FindTraceSummaries returns an iterator over lightweight summaries of the traces\n \t// matching the query parameters (the metadata shown in search-result lists). The\n \t// iterator is single-use: once consumed, it cannot be used again.\n \t//\n \t// Backends that can compute summaries natively (e.g. via a storage-side aggregation)\n \t// should do so. Backends that cannot must yield errors.ErrUnsupported (wrapped with\n \t// %w) as the first error, before any batch; the caller then falls back to FindTraces\n \t// plus client-side aggregation. Such backends can embed UnsupportedTraceSummaries to\n \t// get this behavior for free.\n \t//\n \t// The iterator streams result batches; each yielded batch may contain one or more\n \t// summaries, and implementations may yield incrementally rather than buffering all\n \t// results first.\n \tFindTraceSummaries(ctx context.Context, query TraceQueryParams) iter.Seq2[[]TraceSummary, error]\n+\n+\t// SearchCapabilities reports how this reader's search methods behave.\n+\t//\n+\t// A reader that does not declare a capability returns the zero value. A reader\n+\t// that cannot say, for example because its backend sits behind an API that\n+\t// cannot be asked, returns an error that wraps errors.ErrUnsupported; callers\n+\t// must not trust the returned value in that case.\n+\t//\n+\t// A Reader that wraps another Reader (a decorator or interceptor) must forward\n+\t// this call to the wrapped Reader rather than answer for itself.\n+\tSearchCapabilities(ctx context.Context) (SearchCapabilities, error)\n+}\n+\n+// SearchCapabilities describes how a Reader's search methods behave where\n+// backends differ.\n+//\n+// Each capability is a field whose false value is the conservative answer, so\n+// the zero value of SearchCapabilities describes the least capable reader. A\n+// capability added later is therefore false for every existing implementation\n+// until it declares otherwise.\n+type SearchCapabilities struct {\n+\t// WithoutServiceName is true when FindTraces, FindTraceIDs and\n+\t// FindTraceSummaries accept a TraceQueryParams whose ServiceName is empty\n+\t// and read it as \"any service\", rather than as an error or an empty result.\n+\tWithoutServiceName bool\n }\n \n // GetTraceParams contains single-trace parameters for a GetTraces request.\n // Some storage backends (e.g. Tempo) perform GetTraces much more efficiently\n // if they know the approximate time range of the trace.\n type GetTraceParams struct {\n \t// TraceID is the ID of the trace to retrieve. Required.\n \tTraceID pcommon.TraceID\n \t// Start of the time interval to search for trace ID. Optional.\n \tStart time.Time\n \t// End of the time interval to search for trace ID. Optional.\n \tEnd time.Time\n }\n \n // TraceQueryParams contains query parameters to find traces. For a detailed\n // definition of each field in this message, refer to `TraceQueryParameters` in `jaeger.api_v3`\n // (https://github.com/jaegertracing/jaeger-idl/blob/main/proto/api_v3/query_service.proto).\n type TraceQueryParams struct {\n \tServiceName   string\n \tOperationName string\n \t// Attributes must initialized with pcommon.NewMap() before use.\n \tAttributes   pcommon.Map\n \tStartTimeMin time.Time\n \tStartTimeMax time.Time\n \tDurationMin  time.Duration\n \tDurationMax  time.Duration\n \tSearchDepth  int\n }\n \n // FoundTraceID is a wrapper around trace ID returned from FindTraceIDs\n // with an optional time range that may be used in GetTraces calls.\n //\n // The time range is provided as an optimization hint for some storage backends\n // that can perform more efficient queries when they know the approximate time range.\n // The value should not be used for precise time-based filtering or assumptions.\n // It is meant as a rough boundary and may not be populated in all cases.\n type FoundTraceID struct {\n \tTraceID pcommon.TraceID\n \tStart   time.Time\n \tEnd     time.Time\n }\n \n // OperationQueryParams contains parameters of query operations, empty spanKind means get operations for all kinds of span.\n type OperationQueryParams struct {\n \tServiceName string\n \tSpanKind    string\n }\n \n // Operation contains operation name and span kind\n type Operation struct {\n \tName     string\n \tSpanKind string\n }\ndiff --git a/internal/storage/v2/api/tracestore/reader_test.go b/internal/storage/v2/api/tracestore/reader_test.go\nindex 04fd0ae..e622486 100644\n--- a/internal/storage/v2/api/tracestore/reader_test.go\n+++ b/internal/storage/v2/api/tracestore/reader_test.go\n@@ -1,4 +1,23 @@\n // Copyright (c) 2024 The Jaeger Authors.\n // SPDX-License-Identifier: Apache-2.0\n \n package tracestore\n+\n+import (\n+\t\"reflect\"\n+\t\"testing\"\n+\n+\t\"github.com/stretchr/testify/assert\"\n+)\n+\n+// TestSearchCapabilities_FieldCount fails when a field is added to\n+// SearchCapabilities. The forwarding tests of the decorators enumerate every\n+// field, so a new field must be added to them too:\n+//   - tracestoremetrics.TestReadMetricsDecorator_SearchCapabilities\n+//   - queryinterceptor.TestReader_SearchCapabilities_ForwardsBackendDeclaration\n+//\n+// Update those tables, then update the count here.\n+func TestSearchCapabilities_FieldCount(t *testing.T) {\n+\tassert.Equal(t, 1, reflect.TypeFor[SearchCapabilities]().NumField(),\n+\t\t\"SearchCapabilities gained a field: extend the decorators' forwarding tests to cover it\")\n+}\n", "cut": false, "full": true}]}, {"n": 2, "pr": 9356, "title": "feat(storage): Let a reader declare which filters it evaluates", "stage": 1, "runs": [{"arm": "G", "rep": "1", "stage": 1, "setup": "G", "success": true, "failed": [], "no_counterpart": [], "renamed": false, "tokens": 439051, "turns": 10, "files": 2, "lines": 117, "directives": 0, "audit_ok": false, "diff": "diff --git a/internal/storage/v2/api/tracestore/reader.go b/internal/storage/v2/api/tracestore/reader.go\nindex ed07779..c2f01af 100644\n--- a/internal/storage/v2/api/tracestore/reader.go\n+++ b/internal/storage/v2/api/tracestore/reader.go\n@@ -5,13 +5,26 @@ package tracestore\n \n import (\n \t\"context\"\n+\t\"errors\"\n \t\"iter\"\n+\t\"slices\"\n \t\"time\"\n \n+\texpression \"github.com/jaegertracing/jaeger-idl/query/expression/v1\"\n \t\"go.opentelemetry.io/collector/pdata/pcommon\"\n \t\"go.opentelemetry.io/collector/pdata/ptrace\"\n )\n \n+// ErrFilterUnsupported is returned for a well-formed query filter that the\n+// storage cannot serve: a level it does not index, an operator it has not\n+// implemented, or a boolean structure a flat index cannot evaluate. The query\n+// is refused rather than approximated.\n+var ErrFilterUnsupported = errors.New(\"this storage backend cannot serve this query filter\")\n+\n+// ErrFilterInvalid is returned for a query filter whose value does not fit the\n+// field it compares.\n+var ErrFilterInvalid = errors.New(\"invalid query filter\")\n+\n // Reader finds and loads traces and other data from storage.\n type Reader interface {\n \t// GetTraces returns an iterator that retrieves all traces with given IDs.\n@@ -100,6 +113,54 @@ type SearchCapabilities struct {\n \t// FindTraceSummaries accept a TraceQueryParams whose ServiceName is empty\n \t// and read it as \"any service\", rather than as an error or an empty result.\n \tWithoutServiceName bool\n+\n+\t// SameSpanConjunction is true when a conjunction (several entries in the\n+\t// Attributes map, or an OpAnd in Filter) is satisfied within a single span.\n+\t// False means the backend may satisfy different conjuncts from different\n+\t// spans of the same trace, as a flat inverted index does. Callers report\n+\t// this looser scoping rather than refusing the query.\n+\tSameSpanConjunction bool\n+\n+\t// Filter is how much of TraceQueryParams.Filter the reader evaluates. A nil\n+\t// Filter means none of it: the reader serves only the legacy fields.\n+\t// Callers ask Filter.IsEmpty rather than comparing it against nil.\n+\tFilter *FilterCapabilities\n+}\n+\n+// FilterCapabilities declares how much of a structured filter a Reader\n+// evaluates, by naming the levels and operators it serves.\n+//\n+// Nothing is implicit: a Reader opts in only by naming something, so an empty\n+// FilterCapabilities says the same as none at all.\n+type FilterCapabilities struct {\n+\t// Levels are the levels a reference may name. Empty means the Reader can\n+\t// serve only unqualified references.\n+\tLevels []expression.Level\n+\t// Operators are the operators the Reader evaluates, including the boolean\n+\t// combinators OpAnd, OpOr and OpNot.\n+\tOperators []expression.Operator\n+}\n+\n+// IsEmpty reports whether c names no level and no operator. It is true for a\n+// nil c, so a reader that declares nothing and one that declares an empty\n+// FilterCapabilities are read the same way.\n+func (c *FilterCapabilities) IsEmpty() bool {\n+\treturn c == nil || (len(c.Levels) == 0 && len(c.Operators) == 0)\n+}\n+\n+// SupportsLevel reports whether a reference may name level. The empty level,\n+// an unqualified reference, is always supported; any other level only when it\n+// is listed in Levels.\n+func (c FilterCapabilities) SupportsLevel(level expression.Level) bool {\n+\treturn level == \"\" || slices.Contains(c.Levels, level)\n+}\n+\n+// SupportsOperator reports whether op is listed in Operators. The boolean\n+// combinators are declared like any other operator, so the zero value supports\n+// none, not even OpAnd. Nesting is not declared: and is associative, so a\n+// caller flattens it before asking.\n+func (c FilterCapabilities) SupportsOperator(op expression.Operator) bool {\n+\treturn slices.Contains(c.Operators, op)\n }\n \n // GetTraceParams contains single-trace parameters for a GetTraces request.\n@@ -127,6 +188,11 @@ type TraceQueryParams struct {\n \tDurationMin  time.Duration\n \tDurationMax  time.Duration\n \tSearchDepth  int\n+\n+\t// Filter is the structured query filter. It is mutually exclusive with the\n+\t// predicate fields ServiceName, OperationName, Attributes and the duration\n+\t// bounds, so a reader sees one filtering model, not a mix of the two.\n+\tFilter *expression.Call\n }\n \n // FoundTraceID is a wrapper around trace ID returned from FindTraceIDs\ndiff --git a/internal/storage/v2/api/tracestore/reader_test.go b/internal/storage/v2/api/tracestore/reader_test.go\nindex e622486..89b38f8 100644\n--- a/internal/storage/v2/api/tracestore/reader_test.go\n+++ b/internal/storage/v2/api/tracestore/reader_test.go\n@@ -7,6 +7,7 @@ import (\n \t\"reflect\"\n \t\"testing\"\n \n+\texpression \"github.com/jaegertracing/jaeger-idl/query/expression/v1\"\n \t\"github.com/stretchr/testify/assert\"\n )\n \n@@ -18,6 +19,54 @@ import (\n //\n // Update those tables, then update the count here.\n func TestSearchCapabilities_FieldCount(t *testing.T) {\n-\tassert.Equal(t, 1, reflect.TypeFor[SearchCapabilities]().NumField(),\n+\tassert.Equal(t, 3, reflect.TypeFor[SearchCapabilities]().NumField(),\n \t\t\"SearchCapabilities gained a field: extend the decorators' forwarding tests to cover it\")\n }\n+\n+func TestFilterCapabilities_IsEmpty(t *testing.T) {\n+\ttests := []struct {\n+\t\tname string\n+\t\tcaps *FilterCapabilities\n+\t\twant bool\n+\t}{\n+\t\t{name: \"nil\", caps: nil, want: true},\n+\t\t{name: \"zero value\", caps: &FilterCapabilities{}, want: true},\n+\t\t{\n+\t\t\tname: \"empty non-nil slices\",\n+\t\t\tcaps: &FilterCapabilities{Levels: []expression.Level{}, Operators: []expression.Operator{}},\n+\t\t\twant: true,\n+\t\t},\n+\t\t{name: \"one level\", caps: &FilterCapabilities{Levels: []expression.Level{expression.LevelSpan}}, want: false},\n+\t\t{name: \"one operator\", caps: &FilterCapabilities{Operators: []expression.Operator{expression.OpEq}}, want: false},\n+\t}\n+\tfor _, tt := range tests {\n+\t\tt.Run(tt.name, func(t *testing.T) {\n+\t\t\tassert.Equal(t, tt.want, tt.caps.IsEmpty())\n+\t\t})\n+\t}\n+}\n+\n+func TestFilterCapabilities_SupportsLevel(t *testing.T) {\n+\tvar zero FilterCapabilities\n+\tassert.True(t, zero.SupportsLevel(\"\"), \"an unqualified reference always reaches the reader\")\n+\tassert.False(t, zero.SupportsLevel(expression.LevelSpan))\n+\n+\tcaps := FilterCapabilities{Levels: []expression.Level{expression.LevelSpan, expression.LevelResource}}\n+\tassert.True(t, caps.SupportsLevel(\"\"))\n+\tassert.True(t, caps.SupportsLevel(expression.LevelSpan))\n+\tassert.True(t, caps.SupportsLevel(expression.LevelResource))\n+\tassert.False(t, caps.SupportsLevel(expression.LevelEvent))\n+}\n+\n+func TestFilterCapabilities_SupportsOperator(t *testing.T) {\n+\tvar zero FilterCapabilities\n+\tassert.False(t, zero.SupportsOperator(expression.OpAnd), \"the zero value supports no operator, not even and\")\n+\tassert.False(t, zero.SupportsOperator(expression.OpEq))\n+\n+\tconjunctive := FilterCapabilities{Operators: []expression.Operator{expression.OpAnd, expression.OpEq}}\n+\tassert.True(t, conjunctive.SupportsOperator(expression.OpAnd))\n+\tassert.True(t, conjunctive.SupportsOperator(expression.OpEq))\n+\tassert.False(t, conjunctive.SupportsOperator(expression.OpOr))\n+\tassert.False(t, conjunctive.SupportsOperator(expression.OpNot))\n+\tassert.False(t, conjunctive.SupportsOperator(expression.OpRegex))\n+}\n", "cut": false, "full": false}]}]}]};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ARM = { A: "A: なし", P: "P: プロンプト", G: "G: ガードレール" };
+const state = { task: 0, step: 0 };
+
+function parseDiff(text) {
+  const files = [];
+  let cur = null;
+  for (const line of text.split("\n")) {
+    const m = /^diff --git a\/(.*?) b\/(.*)$/.exec(line);
+    if (m) { cur = { path: m[2], lines: [], plus: 0, minus: 0 }; files.push(cur); continue; }
+    if (!cur || /^(index |--- |\+\+\+ |new file mode|deleted file mode|similarity |rename )/.test(line)) continue;
+    cur.lines.push(line);
+    if (line.startsWith("+")) cur.plus++; else if (line.startsWith("-")) cur.minus++;
+  }
+  return files;
+}
+
+// Keep each change with `ctx` lines around it; mark the gaps with a hunk line.
+function aroundChanges(lines, ctx) {
+  const keep = new Array(lines.length).fill(false);
+  lines.forEach((l, i) => {
+    if (l.startsWith("+") || l.startsWith("-")) for (let j = Math.max(0, i - ctx); j <= Math.min(lines.length - 1, i + ctx); j++) keep[j] = true;
+    if (l.startsWith("@@")) keep[i] = false;
+  });
+  const out = [];
+  let skipped = 0;
+  lines.forEach((l, i) => {
+    if (l.startsWith("@@")) return;
+    if (keep[i]) { if (skipped) { out.push(`@@ ${skipped} 行省略 @@`); skipped = 0; } out.push(l); } else skipped++;
+  });
+  if (skipped) out.push(`@@ ${skipped} 行省略 @@`);
+  return out;
+}
+
+// Render lines with the line number in the new file, taken from each hunk header.
+function numbered(lines) {
+  let n = 0;
+  return lines.map((l) => {
+    const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
+    if (h) { n = +h[1] - 1; return `<div class="h"><span class="ln"></span>${esc(l)}</div>`; }
+    if (l.startsWith("@@")) return `<div class="h"><span class="ln"></span>${esc(l)}</div>`;
+    const cls = l.startsWith("+") ? "a" : l.startsWith("-") ? "d" : "";
+    const ln = l.startsWith("-") ? "" : String(++n);
+    return `<div class="${cls}"><span class="ln">${ln}</span>${esc(l) || " "}</div>`;
+  }).join("");
+}
+
+function isTool(path) { return /(^|\/)\.declscope-baseline\.yaml$/.test(path) || path.startsWith(".claude/"); }
+
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+function render() {
+  const t = DATA.tasks[state.task];
+  const step = t.steps[state.step];
+  const blind = $("blind").checked, pkgonly = $("pkgonly").checked;
+  $("steps").innerHTML = t.steps.map((s, i) =>
+    `<button type="button" data-i="${i}" aria-pressed="${i === state.step}">段 ${s.n}${s.pr ? ` · #${s.pr}` : ""}${s.stage === 2 ? " · 段階2" : ""}</button>`).join("");
+  $("steptitle").innerHTML = `${esc(step.title || `段 ${step.n}`)}<span class="tag">${step.stage === 2 ? "段階2（どの群も A と同じ条件）" : "段階1（各群の条件）"}</span>`;
+  let runs = step.runs.slice();
+  if (blind) runs.sort((a, b) => hash(t.id + step.n + a.arm + a.rep) - hash(t.id + step.n + b.arm + b.rep));
+  $("cols").innerHTML = runs.map((r, i) => column(r, i, blind, pkgonly, t.package)).join("") ||
+    `<p class="empty">この段の結果はまだない。</p>`;
+}
+
+function column(r, i, blind, pkgonly, pkg) {
+  const name = blind ? `コード ${i + 1}` : `${ARM[r.arm] || r.arm} · ${r.rep}回目`;
+  let files = parseDiff(r.diff);
+  if (!$("whole").checked) files = files.map((f) => ({ ...f, lines: aroundChanges(f.lines, 3) }));
+  if (blind) {
+    files = files.filter((f) => !isTool(f.path)).map((f) => {
+      const lines = f.lines.filter((l) => !/^[+\- ]\s*\/\/declscope:/.test(l));
+      return { ...f, lines: lines.map((l) => l.replace(/\s*\/\/declscope:\S+(?:\s\/\/.*)?$/, "")) };
+    });
+  }
+  const inPkg = (p) => !pkg || p === pkg || p.startsWith(pkg + "/");
+  const shown = pkgonly ? files.filter((f) => inPkg(f.path)) : files;
+  const hidden = files.length - shown.length;
+  const chips = [];
+  if (r.success === true) chips.push(`<span class="chip ok">成功</span>`);
+  else if (r.success === false) chips.push(`<span class="chip bad">失敗${r.failed && r.failed.length ? `（${r.failed.length}件）` : ""}</span>`);
+  if (r.tokens != null) chips.push(`<span class="chip">${(r.tokens / 1000).toFixed(0)}k トークン</span>`);
+  if (r.turns != null) chips.push(`<span class="chip">${r.turns} ターン</span>`);
+  if (r.files != null) chips.push(`<span class="chip">${r.files} ファイル · ${r.lines} 行</span>`);
+  if (!blind && r.directives) chips.push(`<span class="chip">ディレクティブ ${r.directives}</span>`);
+  if (r.renamed) chips.push(`<span class="chip warn">名前合わせあり${r.no_counterpart.length ? `・対応なし ${r.no_counterpart.length}` : ""}</span>`);
+  if (r.audit_ok === false) chips.push(`<span class="chip bad">監査で違反</span>`);
+  const body = shown.map((f) => `
+    <details class="file" open>
+      <summary><span class="path">${esc(f.path)}</span><span class="n"><span class="plus">+${f.plus}</span> <span class="minus">−${f.minus}</span></span></summary>
+      <div class="diff">${numbered(f.lines)}</div>
+    </details>`).join("") || `<p class="empty">差分なし</p>`;
+  const notes = [];
+  if (hidden) notes.push(`package の外の ${hidden} ファイルを隠している。`);
+  if (r.cut) notes.push("差分が長いので途中で切った。");
+  return `<section class="col" aria-label="${esc(name)}">
+    <div class="colhead"><div class="name">${esc(name)}</div><div class="chips">${chips.join("")}</div></div>
+    ${body}${notes.length ? `<p class="note">${notes.join(" ")}</p>` : ""}
+  </section>`;
+}
+
+function init() {
+  if (!DATA || !DATA.tasks.length) { $("cols").innerHTML = `<p class="empty">結果はまだない。</p>`; return; }
+  $("task").innerHTML = DATA.tasks.map((t, i) => `<option value="${i}">${esc(t.id)}</option>`).join("");
+  $("task").addEventListener("change", (e) => { state.task = +e.target.value; state.step = 0; render(); });
+  $("steps").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.step = +b.dataset.i; render(); } });
+  $("blind").addEventListener("change", render);
+  $("pkgonly").addEventListener("change", render);
+  $("whole").addEventListener("change", render);
+  render();
+}
+init();
+</script>
+</body>
+</html>

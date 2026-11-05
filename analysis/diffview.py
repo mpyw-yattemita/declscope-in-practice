@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Build a page that lays the arms' diffs side by side, task by task and step by step.
 
-  python3 -I analysis/diffview.py --root runs --out analysis/diffview.html
-  python3 -I analysis/diffview.py --root smoke --out <somewhere>/diffview.html
+  python3 -I analysis/diffview.py --root runs --out analysis/diffview/runs.html
+  python3 -I analysis/diffview.py --root smoke --out analysis/diffview/smoke.html
+
+The generated pages are committed, so they can be opened from a clone.
 
 It reads <root>/<task>/<arm>/<rep>/step-<n>/{diff.patch,metrics.json} and the
 task's task.yaml for the step titles. The page is one self-contained file.
@@ -15,7 +17,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = Path(__file__).resolve().parent / "diffview.template.html"
-MAX_DIFF = 400_000  # characters per step and run; longer diffs are cut and say so
+MAX_DIFF = 1_500_000  # characters per step and run; longer diffs are cut and say so
 
 
 def load_yaml(path):
@@ -43,7 +45,8 @@ def main():
                     diff_p, met_p = sdir / "diff.patch", sdir / "metrics.json"
                     if not diff_p.exists():
                         continue
-                    diff = diff_p.read_text(errors="replace")
+                    full_p = sdir / "diff-full.patch"
+                    diff = (full_p if full_p.exists() else diff_p).read_text(errors="replace")
                     cut = len(diff) > MAX_DIFF
                     m = json.loads(met_p.read_text()) if met_p.exists() else {}
                     score, agent = m.get("score") or {}, m.get("agent") or {}
@@ -55,7 +58,7 @@ def main():
                         "tokens": agent.get("tokens"), "turns": agent.get("num_turns"),
                         "files": m.get("files_touched"), "lines": m.get("lines_touched"),
                         "directives": m.get("directives"), "audit_ok": (m.get("audit") or {}).get("ok"),
-                        "diff": diff[:MAX_DIFF], "cut": cut,
+                        "diff": diff[:MAX_DIFF], "cut": cut, "full": full_p.exists(),
                     })
         if not steps:
             continue
@@ -68,6 +71,12 @@ def main():
         })
     html = TEMPLATE.read_text().replace("/*__DATA__*/null", json.dumps({"tasks": tasks}, ensure_ascii=False)
                                         .replace("</", "<\\/"))
+    # A standalone page needs its own document skeleton.
+    head = ('<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n')
+    html = head + html.replace("<style>", "<style>\n*,*::before,*::after{box-sizing:border-box}\nbody{margin:0}\n", 1)
+    html = html.replace("\n<div class=\"wrap\">", "\n</head>\n<body>\n<div class=\"wrap\">", 1) + "</body>\n</html>\n"
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(html)
     print(f"{args.out}: {len(tasks)} task(s), "
           f"{sum(len(s['runs']) for t in tasks for s in t['steps'])} step run(s)")

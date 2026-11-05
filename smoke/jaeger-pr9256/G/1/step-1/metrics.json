@@ -1,0 +1,88 @@
+{
+  "step": 1,
+  "pr": 9256,
+  "stage": 1,
+  "arm_setup": "G",
+  "agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 16,
+    "tokens": 720099,
+    "usage": {
+      "input_tokens": 32,
+      "cache_creation_input_tokens": 46617,
+      "cache_read_input_tokens": 668673,
+      "output_tokens": 4777,
+      "output_tokens_details": {
+        "thinking_tokens": 753
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 46617,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 871,
+          "cache_read_input_tokens": 58109,
+          "cache_creation_input_tokens": 265,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 265
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.6023386000000002,
+    "duration_s": 219.2
+  },
+  "files_touched": 2,
+  "lines_touched": 44,
+  "directives": 0,
+  "score": {
+    "renamed": false,
+    "no_counterpart": [],
+    "rename_problems": [],
+    "compiled_as_is": true,
+    "test_exit": 0,
+    "build_failed": false,
+    "passed": 2,
+    "failed": [],
+    "skipped": 0,
+    "success": true
+  },
+  "audit": {
+    "ok": false,
+    "issues": [
+      {
+        "kind": "parent-ref",
+        "tool": "Bash",
+        "input": "{\"command\": \"cd internal/storage/v2/api/tracestore && ls && sed -n 1,200p reader.go && head -30 ../../../../../.declscope-baseline.yaml; ls ../../../../../.declscope*; cat ../../../../../.declscope.y*ml 2>/dev/null\"}"
+      },
+      {
+        "kind": "parent-ref",
+        "tool": "Bash",
+        "input": "{\"command\": \"cd internal/storage/v2/api/tracestore && cat reader_test.go | head -60; cat summary.go | head -60; grep -rn \\\"SearchCapabilities\\\" --include=*.go ../../../../.. | grep -v _test | head -20\"}"
+      },
+      {
+        "kind": "outside-path",
+        "tool": "Bash",
+        "path": "/private/tmp/claude-502/-Users-ryosuke-ishibashi-ws-e9c819248ebe/c57ccc3d-cfee-4eeb-b6c9-f2a826ca68f2/tasks/bfcnuxqlq.output"
+      },
+      {
+        "kind": "outside-path",
+        "tool": "Bash",
+        "path": "/Users/ryosuke.ishibashi/.claude/projects/-Users-ryosuke-ishibashi-ws-e9c819248ebe/c57ccc3d-cfee-4eeb-b6c9-f2a826ca68f2/tool-results/bzpnbk36c.txt"
+      }
+    ]
+  }
+}
