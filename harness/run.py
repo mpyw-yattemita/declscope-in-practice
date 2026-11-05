@@ -352,8 +352,14 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
                 ev = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            msg = ev.get("message") or {}
-            for block in msg.get("content") or [] if isinstance(msg.get("content"), list) else []:
+            msg = ev.get("message")
+            # Some events carry a plain string as their message; only a
+            # message with a list of blocks holds tool calls and results.
+            if not isinstance(msg, dict) or not isinstance(msg.get("content"), list):
+                continue
+            for block in msg["content"]:
+                if not isinstance(block, dict):
+                    continue
                 if block.get("type") == "tool_use":
                     inp = json.dumps(block.get("input"), ensure_ascii=False)
                     name = block.get("name")
