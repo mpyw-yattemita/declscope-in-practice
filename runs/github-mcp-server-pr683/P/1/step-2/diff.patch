@@ -1,0 +1,876 @@
+diff --git a/README.md b/README.md
+index c06142b..39aa015 100644
+--- a/README.md
++++ b/README.md
+@@ -478,6 +478,13 @@ The following sets of tools are available (all are on by default):
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
++- **add_sub_issue** - Add sub-issue
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `replace_parent`: When true, replaces the sub-issue's current parent issue (boolean, optional)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to add. ID is not the same as issue number (number, required)
++
+ - **assign_copilot_to_issue** - Assign Copilot to issue
+   - `issueNumber`: Issue number (number, required)
+   - `owner`: Repository owner (string, required)
+@@ -515,6 +522,27 @@ The following sets of tools are available (all are on by default):
+   - `sort`: Sort order (string, optional)
+   - `state`: Filter by state (string, optional)
+ 
++- **list_sub_issues** - List sub-issues
++  - `issue_number`: Issue number (number, required)
++  - `owner`: Repository owner (string, required)
++  - `page`: Page number for pagination (default: 1) (number, optional)
++  - `per_page`: Number of results per page (max 100, default: 30) (number, optional)
++  - `repo`: Repository name (string, required)
++
++- **remove_sub_issue** - Remove sub-issue
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to remove. ID is not the same as issue number (number, required)
++
++- **reprioritize_sub_issue** - Reprioritize sub-issue
++  - `after_id`: The ID of the sub-issue to be prioritized after (either after_id OR before_id should be specified) (number, optional)
++  - `before_id`: The ID of the sub-issue to be prioritized before (either after_id OR before_id should be specified) (number, optional)
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to reprioritize. ID is not the same as issue number (number, required)
++
+ - **search_issues** - Search issues
+   - `order`: Sort order (string, optional)
+   - `owner`: Optional repository owner. If provided with repo, only notifications for this repository are listed. (string, optional)
+diff --git a/pkg/github/sub_issue.go b/pkg/github/sub_issue.go
+new file mode 100644
+index 0000000..6818b60
+--- /dev/null
++++ b/pkg/github/sub_issue.go
+@@ -0,0 +1,295 @@
++package github
++
++import (
++	"context"
++	"fmt"
++	"net/http"
++
++	ghErrors "github.com/github/github-mcp-server/pkg/errors"
++	"github.com/github/github-mcp-server/pkg/translations"
++	"github.com/google/go-github/v73/github"
++	"github.com/mark3labs/mcp-go/mcp"
++	"github.com/mark3labs/mcp-go/server"
++)
++
++// AddSubIssue creates a tool to add a sub-issue to a parent issue.
++func AddSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("add_sub_issue",
++			mcp.WithDescription(t("TOOL_ADD_SUB_ISSUE_DESCRIPTION", "Add a sub-issue to a parent issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_ADD_SUB_ISSUE_USER_TITLE", "Add sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("The number of the parent issue"),
++			),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to add. ID is not the same as issue number"),
++			),
++			mcp.WithBoolean("replace_parent",
++				mcp.Description("When true, replaces the sub-issue's current parent issue"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			target, err := requiredSubIssueTarget(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := RequiredInt(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			replaceParent, err := OptionalParam[bool](request, "replace_parent")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			subIssueRequest := github.SubIssueRequest{
++				SubIssueID: int64(subIssueID),
++			}
++			if replaceParent {
++				subIssueRequest.ReplaceParent = github.Ptr(true)
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++			subIssue, resp, err := client.SubIssue.Add(ctx, target.owner, target.repo, int64(target.issueNumber), subIssueRequest)
++			return subIssueResult(ctx, "failed to add sub-issue", http.StatusCreated, subIssue, resp, err)
++		}
++}
++
++// ListSubIssues creates a tool to list the sub-issues of an issue.
++func ListSubIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("list_sub_issues",
++			mcp.WithDescription(t("TOOL_LIST_SUB_ISSUES_DESCRIPTION", "List sub-issues for a specific issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_LIST_SUB_ISSUES_USER_TITLE", "List sub-issues"),
++				ReadOnlyHint: ToBoolPtr(true),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("Issue number"),
++			),
++			mcp.WithNumber("page",
++				mcp.Description("Page number for pagination (default: 1)"),
++			),
++			mcp.WithNumber("per_page",
++				mcp.Description("Number of results per page (max 100, default: 30)"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			target, err := requiredSubIssueTarget(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			page, err := OptionalIntParamWithDefault(request, "page", 1)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			perPage, err := OptionalIntParamWithDefault(request, "per_page", 30)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			opts := &github.IssueListOptions{
++				ListOptions: github.ListOptions{
++					Page:    page,
++					PerPage: perPage,
++				},
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++			subIssues, resp, err := client.SubIssue.ListByIssue(ctx, target.owner, target.repo, int64(target.issueNumber), opts)
++			return subIssueResult(ctx, "failed to list sub-issues", http.StatusOK, subIssues, resp, err)
++		}
++}
++
++// RemoveSubIssue creates a tool to remove a sub-issue from a parent issue.
++func RemoveSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("remove_sub_issue",
++			mcp.WithDescription(t("TOOL_REMOVE_SUB_ISSUE_DESCRIPTION", "Remove a sub-issue from a parent issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_REMOVE_SUB_ISSUE_USER_TITLE", "Remove sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("The number of the parent issue"),
++			),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to remove. ID is not the same as issue number"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			target, err := requiredSubIssueTarget(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := RequiredInt(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++
++			// go-github's SubIssue.Remove sends the request to ".../sub_issues" instead of
++			// ".../sub_issue" (google/go-github#3613), so build the request here.
++			url := fmt.Sprintf("repos/%s/%s/issues/%d/sub_issue", target.owner, target.repo, target.issueNumber)
++			req, err := client.NewRequest(http.MethodDelete, url, github.SubIssueRequest{
++				SubIssueID: int64(subIssueID),
++			})
++			if err != nil {
++				return nil, fmt.Errorf("failed to create request: %w", err)
++			}
++			var parent github.Issue
++			resp, err := client.Do(ctx, req, &parent)
++			return subIssueResult(ctx, "failed to remove sub-issue", http.StatusOK, &parent, resp, err)
++		}
++}
++
++// ReprioritizeSubIssue creates a tool to move a sub-issue to a different position in its parent's list.
++func ReprioritizeSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("reprioritize_sub_issue",
++			mcp.WithDescription(t("TOOL_REPRIORITIZE_SUB_ISSUE_DESCRIPTION", "Reprioritize a sub-issue to a different position in the parent issue's sub-issue list.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_REPRIORITIZE_SUB_ISSUE_USER_TITLE", "Reprioritize sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("The number of the parent issue"),
++			),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to reprioritize. ID is not the same as issue number"),
++			),
++			mcp.WithNumber("after_id",
++				mcp.Description("The ID of the sub-issue to be prioritized after (either after_id OR before_id should be specified)"),
++			),
++			mcp.WithNumber("before_id",
++				mcp.Description("The ID of the sub-issue to be prioritized before (either after_id OR before_id should be specified)"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			target, err := requiredSubIssueTarget(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := RequiredInt(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			afterID, hasAfter, err := OptionalParamOK[float64](request, "after_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			beforeID, hasBefore, err := OptionalParamOK[float64](request, "before_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			switch {
++			case !hasAfter && !hasBefore:
++				return mcp.NewToolResultError("either after_id or before_id must be specified"), nil
++			case hasAfter && hasBefore:
++				return mcp.NewToolResultError("only one of after_id or before_id should be specified, not both"), nil
++			}
++
++			subIssueRequest := github.SubIssueRequest{
++				SubIssueID: int64(subIssueID),
++			}
++			if hasAfter {
++				subIssueRequest.AfterID = github.Ptr(int64(afterID))
++			} else {
++				subIssueRequest.BeforeID = github.Ptr(int64(beforeID))
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++			subIssue, resp, err := client.SubIssue.Reprioritize(ctx, target.owner, target.repo, int64(target.issueNumber), subIssueRequest)
++			return subIssueResult(ctx, "failed to reprioritize sub-issue", http.StatusOK, subIssue, resp, err)
++		}
++}
++
++// subIssueTarget is the parent issue that a sub-issue tool acts on.
++type subIssueTarget struct {
++	owner       string
++	repo        string
++	issueNumber int
++}
++
++// requiredSubIssueTarget reads the required "owner", "repo" and "issue_number" parameters.
++func requiredSubIssueTarget(request mcp.CallToolRequest) (subIssueTarget, error) {
++	owner, err := RequiredParam[string](request, "owner")
++	if err != nil {
++		return subIssueTarget{}, err
++	}
++	repo, err := RequiredParam[string](request, "repo")
++	if err != nil {
++		return subIssueTarget{}, err
++	}
++	issueNumber, err := RequiredInt(request, "issue_number")
++	if err != nil {
++		return subIssueTarget{}, err
++	}
++	return subIssueTarget{owner: owner, repo: repo, issueNumber: issueNumber}, nil
++}
++
++// subIssueResult turns the outcome of a sub-issue API call into a tool result.
++// An API error, or a success status other than wantStatus, gives an error result that starts with message.
++// Otherwise the result is v as JSON.
++func subIssueResult(ctx context.Context, message string, wantStatus int, v any, resp *github.Response, err error) (*mcp.CallToolResult, error) {
++	if err != nil {
++		return ghErrors.NewGitHubAPIErrorResponse(ctx, message, resp, err), nil
++	}
++	// The client has already read and closed the body, so only the status is left to report.
++	if resp.StatusCode != wantStatus {
++		return mcp.NewToolResultError(fmt.Sprintf("%s: unexpected status %d %s", message, resp.StatusCode, http.StatusText(resp.StatusCode))), nil
++	}
++
++	return MarshalledTextResult(v), nil
++}
+diff --git a/pkg/github/sub_issue_test.go b/pkg/github/sub_issue_test.go
+new file mode 100644
+index 0000000..0946b27
+--- /dev/null
++++ b/pkg/github/sub_issue_test.go
+@@ -0,0 +1,502 @@
++package github
++
++import (
++	"context"
++	"encoding/json"
++	"io"
++	"net/http"
++	"testing"
++
++	"github.com/github/github-mcp-server/internal/toolsnaps"
++	"github.com/github/github-mcp-server/pkg/translations"
++	"github.com/google/go-github/v73/github"
++	"github.com/mark3labs/mcp-go/mcp"
++	"github.com/mark3labs/mcp-go/server"
++	"github.com/migueleliasweb/go-github-mock/src/mock"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++func Test_AddSubIssue(t *testing.T) {
++	tool, _ := AddSubIssue(subIssueClientFn(nil), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	mockSubIssue := &github.Issue{
++		ID:     github.Ptr(int64(123)),
++		Number: github.Ptr(42),
++		Title:  github.Ptr("Sub-issue"),
++	}
++
++	tests := []struct {
++		name           string
++		mockedClient   *http.Client
++		requestArgs    map[string]any
++		expectedErrMsg string
++	}{
++		{
++			name: "successful add with replace_parent",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.PostReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusCreated, mockSubIssue, map[string]any{
++						"sub_issue_id":   float64(123),
++						"replace_parent": true,
++					}),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":          "owner",
++				"repo":           "repo",
++				"issue_number":   float64(1),
++				"sub_issue_id":   float64(123),
++				"replace_parent": true,
++			},
++		},
++		{
++			name: "successful add without replace_parent",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.PostReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusCreated, mockSubIssue, map[string]any{
++						"sub_issue_id": float64(123),
++					}),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++			},
++		},
++		{
++			name:         "missing sub_issue_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++			},
++			expectedErrMsg: "missing required parameter: sub_issue_id",
++		},
++		{
++			name: "API error",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.PostReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusUnprocessableEntity, map[string]string{"message": "Validation Failed"}, nil),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++			},
++			expectedErrMsg: "failed to add sub-issue",
++		},
++		{
++			name: "unexpected status",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.PostReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusOK, mockSubIssue, nil),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++			},
++			expectedErrMsg: "failed to add sub-issue",
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			_, handler := AddSubIssue(subIssueClientFn(tc.mockedClient), translations.NullTranslationHelper)
++			text := callSubIssueTool(t, handler, tc.requestArgs, tc.expectedErrMsg)
++			if tc.expectedErrMsg != "" {
++				return
++			}
++
++			var got github.Issue
++			require.NoError(t, json.Unmarshal([]byte(text), &got))
++			assert.Equal(t, *mockSubIssue.ID, *got.ID)
++			assert.Equal(t, *mockSubIssue.Number, *got.Number)
++			assert.Equal(t, *mockSubIssue.Title, *got.Title)
++		})
++	}
++}
++
++func Test_ListSubIssues(t *testing.T) {
++	tool, _ := ListSubIssues(subIssueClientFn(nil), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	mockSubIssues := []*github.Issue{
++		{ID: github.Ptr(int64(1)), Number: github.Ptr(10), Title: github.Ptr("First")},
++		{ID: github.Ptr(int64(2)), Number: github.Ptr(11), Title: github.Ptr("Second")},
++	}
++
++	tests := []struct {
++		name           string
++		mockedClient   *http.Client
++		requestArgs    map[string]any
++		expectedErrMsg string
++	}{
++		{
++			name: "successful list with default pagination",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.GetReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					subIssueQueryHandler(t, map[string]string{"page": "1", "per_page": "30"}, mockSubIssues),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++			},
++		},
++		{
++			name: "successful list with pagination",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.GetReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					subIssueQueryHandler(t, map[string]string{"page": "2", "per_page": "10"}, mockSubIssues),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"page":         float64(2),
++				"per_page":     float64(10),
++			},
++		},
++		{
++			name:         "missing issue_number",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]any{
++				"owner": "owner",
++				"repo":  "repo",
++			},
++			expectedErrMsg: "missing required parameter: issue_number",
++		},
++		{
++			name: "API error",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.GetReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusNotFound, map[string]string{"message": "Not Found"}, nil),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++			},
++			expectedErrMsg: "failed to list sub-issues",
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			_, handler := ListSubIssues(subIssueClientFn(tc.mockedClient), translations.NullTranslationHelper)
++			text := callSubIssueTool(t, handler, tc.requestArgs, tc.expectedErrMsg)
++			if tc.expectedErrMsg != "" {
++				return
++			}
++
++			var got []github.Issue
++			require.NoError(t, json.Unmarshal([]byte(text), &got))
++			require.Len(t, got, len(mockSubIssues))
++			for i := range got {
++				assert.Equal(t, *mockSubIssues[i].ID, *got[i].ID)
++				assert.Equal(t, *mockSubIssues[i].Title, *got[i].Title)
++			}
++		})
++	}
++}
++
++func Test_RemoveSubIssue(t *testing.T) {
++	tool, _ := RemoveSubIssue(subIssueClientFn(nil), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	mockParent := &github.Issue{
++		ID:     github.Ptr(int64(999)),
++		Number: github.Ptr(1),
++		Title:  github.Ptr("Parent"),
++	}
++
++	tests := []struct {
++		name           string
++		mockedClient   *http.Client
++		requestArgs    map[string]any
++		expectedErrMsg string
++	}{
++		{
++			name: "successful remove",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.DeleteReposIssuesSubIssueByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusOK, mockParent, map[string]any{
++						"sub_issue_id": float64(123),
++					}),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++			},
++		},
++		{
++			name:         "missing sub_issue_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++			},
++			expectedErrMsg: "missing required parameter: sub_issue_id",
++		},
++		{
++			name: "API error",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.DeleteReposIssuesSubIssueByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusNotFound, map[string]string{"message": "Not Found"}, nil),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++			},
++			expectedErrMsg: "failed to remove sub-issue",
++		},
++		{
++			name: "unexpected status",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.DeleteReposIssuesSubIssueByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusNoContent, nil, nil),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++			},
++			expectedErrMsg: "failed to remove sub-issue",
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			_, handler := RemoveSubIssue(subIssueClientFn(tc.mockedClient), translations.NullTranslationHelper)
++			text := callSubIssueTool(t, handler, tc.requestArgs, tc.expectedErrMsg)
++			if tc.expectedErrMsg != "" {
++				return
++			}
++
++			var got github.Issue
++			require.NoError(t, json.Unmarshal([]byte(text), &got))
++			assert.Equal(t, *mockParent.ID, *got.ID)
++			assert.Equal(t, *mockParent.Title, *got.Title)
++		})
++	}
++}
++
++func Test_ReprioritizeSubIssue(t *testing.T) {
++	tool, _ := ReprioritizeSubIssue(subIssueClientFn(nil), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	mockSubIssue := &github.Issue{
++		ID:     github.Ptr(int64(123)),
++		Number: github.Ptr(42),
++		Title:  github.Ptr("Sub-issue"),
++	}
++
++	tests := []struct {
++		name           string
++		mockedClient   *http.Client
++		requestArgs    map[string]any
++		expectedErrMsg string
++	}{
++		{
++			name: "successful reprioritize with after_id",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.PatchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusOK, mockSubIssue, map[string]any{
++						"sub_issue_id": float64(123),
++						"after_id":     float64(456),
++					}),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++				"after_id":     float64(456),
++			},
++		},
++		{
++			name: "successful reprioritize with before_id",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.PatchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusOK, mockSubIssue, map[string]any{
++						"sub_issue_id": float64(123),
++						"before_id":    float64(789),
++					}),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++				"before_id":    float64(789),
++			},
++		},
++		{
++			name:         "neither after_id nor before_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++			},
++			expectedErrMsg: "either after_id or before_id must be specified",
++		},
++		{
++			name:         "both after_id and before_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++				"after_id":     float64(456),
++				"before_id":    float64(789),
++			},
++			expectedErrMsg: "only one of after_id or before_id should be specified, not both",
++		},
++		{
++			name:         "missing sub_issue_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"after_id":     float64(456),
++			},
++			expectedErrMsg: "missing required parameter: sub_issue_id",
++		},
++		{
++			name: "API error",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					mock.PatchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber,
++					subIssueHandler(t, http.StatusUnprocessableEntity, map[string]string{"message": "Validation Failed"}, nil),
++				),
++			),
++			requestArgs: map[string]any{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(1),
++				"sub_issue_id": float64(123),
++				"after_id":     float64(456),
++			},
++			expectedErrMsg: "failed to reprioritize sub-issue",
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			_, handler := ReprioritizeSubIssue(subIssueClientFn(tc.mockedClient), translations.NullTranslationHelper)
++			text := callSubIssueTool(t, handler, tc.requestArgs, tc.expectedErrMsg)
++			if tc.expectedErrMsg != "" {
++				return
++			}
++
++			var got github.Issue
++			require.NoError(t, json.Unmarshal([]byte(text), &got))
++			assert.Equal(t, *mockSubIssue.ID, *got.ID)
++			assert.Equal(t, *mockSubIssue.Title, *got.Title)
++		})
++	}
++}
++
++// subIssueClientFn returns a GetClientFn whose client sends requests through httpClient.
++func subIssueClientFn(httpClient *http.Client) GetClientFn {
++	client := github.NewClient(httpClient)
++	return func(context.Context) (*github.Client, error) {
++		return client, nil
++	}
++}
++
++// subIssueHandler responds with status and body as JSON. A nil body writes no body.
++// When wantBody is not nil, it first checks that the request body is wantBody as JSON.
++func subIssueHandler(t *testing.T, status int, body any, wantBody map[string]any) http.HandlerFunc {
++	t.Helper()
++	return func(w http.ResponseWriter, r *http.Request) {
++		if wantBody != nil {
++			raw, err := io.ReadAll(r.Body)
++			require.NoError(t, err)
++			var got map[string]any
++			require.NoError(t, json.Unmarshal(raw, &got))
++			assert.Equal(t, wantBody, got)
++		}
++		w.WriteHeader(status)
++		if body != nil {
++			require.NoError(t, json.NewEncoder(w).Encode(body))
++		}
++	}
++}
++
++// subIssueQueryHandler checks that the request has wantQuery and responds 200 with body as JSON.
++func subIssueQueryHandler(t *testing.T, wantQuery map[string]string, body any) http.HandlerFunc {
++	t.Helper()
++	return func(w http.ResponseWriter, r *http.Request) {
++		query := r.URL.Query()
++		for k, v := range wantQuery {
++			assert.Equal(t, v, query.Get(k), "query parameter %s", k)
++		}
++		w.WriteHeader(http.StatusOK)
++		require.NoError(t, json.NewEncoder(w).Encode(body))
++	}
++}
++
++// callSubIssueTool calls handler with args and returns the text of its result.
++// When wantErrMsg is not empty, it checks that the result is an error that contains wantErrMsg.
++// Otherwise it checks that the result is not an error.
++func callSubIssueTool(t *testing.T, handler server.ToolHandlerFunc, args map[string]any, wantErrMsg string) string {
++	t.Helper()
++	request := mcp.CallToolRequest{}
++	request.Params.Arguments = args
++
++	result, err := handler(context.Background(), request)
++	require.NoError(t, err)
++	require.NotNil(t, result)
++	require.Len(t, result.Content, 1)
++	text, ok := result.Content[0].(mcp.TextContent)
++	require.True(t, ok, "expected text content, got %T", result.Content[0])
++
++	if wantErrMsg != "" {
++		require.True(t, result.IsError, "expected an error result, got %s", text.Text)
++		assert.Contains(t, text.Text, wantErrMsg)
++	} else {
++		require.False(t, result.IsError, "unexpected error result: %s", text.Text)
++	}
++	return text.Text
++}
+diff --git a/pkg/github/tools.go b/pkg/github/tools.go
+index bd34917..e01b7cc 100644
+--- a/pkg/github/tools.go
++++ b/pkg/github/tools.go
+@@ -53,12 +53,16 @@ func DefaultToolsetGroup(readOnly bool, getClient GetClientFn, getGQLClient GetG
+ 			toolsets.NewServerTool(SearchIssues(getClient, t)),
+ 			toolsets.NewServerTool(ListIssues(getClient, t)),
+ 			toolsets.NewServerTool(GetIssueComments(getClient, t)),
++			toolsets.NewServerTool(ListSubIssues(getClient, t)),
+ 		).
+ 		AddWriteTools(
+ 			toolsets.NewServerTool(CreateIssue(getClient, t)),
+ 			toolsets.NewServerTool(AddIssueComment(getClient, t)),
+ 			toolsets.NewServerTool(UpdateIssue(getClient, t)),
+ 			toolsets.NewServerTool(AssignCopilotToIssue(getGQLClient, t)),
++			toolsets.NewServerTool(AddSubIssue(getClient, t)),
++			toolsets.NewServerTool(RemoveSubIssue(getClient, t)),
++			toolsets.NewServerTool(ReprioritizeSubIssue(getClient, t)),
+ 		).AddPrompts(toolsets.NewServerPrompt(AssignCodingAgentPrompt(t)))
+ 	users := toolsets.NewToolset("users", "GitHub User related tools").
+ 		AddReadTools(
