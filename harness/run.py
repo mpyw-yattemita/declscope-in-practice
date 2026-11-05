@@ -71,7 +71,14 @@ def mod_cache():
     return Path(sh(["go", "env", "GOMODCACHE"]).stdout.strip())
 
 
-def agent_env(task, arm, offline=True):
+def run_tmp(ws):
+    """A temporary directory of this run alone, outside its workspace."""
+    d = WS_ROOT.parent / (WS_ROOT.name + "-tmp") / ws.name
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def agent_env(task, arm, offline=True, ws=None):
     """The environment of the agent under measurement.
 
     PATH is minimal on purpose. The user's shell profile activates mise
@@ -93,6 +100,8 @@ def agent_env(task, arm, offline=True):
     }
     if offline:
         env["GOPROXY"] = "off"
+    if ws is not None:
+        env["TMPDIR"] = str(run_tmp(ws)) + "/"
     for k, v in (task.get("env") or {}).items():
         env[k] = str(v)
     return env
@@ -254,7 +263,7 @@ REL = re.compile(r"(?<![\w/.-])((?:\.\./)+[^\s'\"`;|&)]*|\.\.(?=$|[\s;|&)]))")
 CD = re.compile(r"(?:^|[;&|(]\s*|&&\s*)cd\s+([^\s;&|)]+)")
 
 
-def escapes(cmd, ws, start):
+def escapes(cmd, ws, start, carry=None):
     """Relative paths in a shell command that leave the workspace.
 
     The command starts in `start`; each `cd` moves it, in order. A path like
@@ -267,12 +276,17 @@ def escapes(cmd, ws, start):
         if m:
             target = os.path.expanduser(m.group(1).strip("'\""))
             cwd = Path(os.path.normpath(target if target.startswith("/") else cwd / target))
+            # The cd target is judged through cwd below; do not read it again
+            # from the new directory.
+            part = part[:m.start(1)] + part[m.end(1):]
         for r in REL.findall(part):
             p = os.path.normpath(cwd / r)
             if not (p == str(ws) or p.startswith(str(ws) + "/")):
                 out.append(p)
         if not (str(cwd) == str(ws) or str(cwd).startswith(str(ws) + "/")):
             out.append(str(cwd))
+    if carry is not None:
+        carry["cwd"] = cwd
     return out
 
 
@@ -283,6 +297,9 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
     allowed = [str(ws), str(mod_cache()), str(go_root()), "/dev/null", "/tmp/go-build", "/private/var/folders"]
     allowed += [str(a) for a in allowed_extra]
     issues = []
+    # The Bash tool keeps the working directory from one call to the next,
+    # so follow it through the transcript in order.
+    carry = {"cwd": Path(start or ws)}
     with gzip.open(transcript_gz, "rt") as f:
         for line in f:
             try:
@@ -297,10 +314,14 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
                     if name == "Bash" and NET.search(block["input"].get("command", "")):
                         issues.append({"kind": "network", "tool": name, "input": inp[:300]})
                     for p in ABS.findall(inp):
-                        if not any(p.startswith(a) for a in allowed) and session_tag not in p:
-                            issues.append({"kind": "outside-path", "tool": name, "path": p})
+                        if any(p.startswith(a) for a in allowed) or session_tag in p:
+                            continue
+                        # /tmp is shared by every run, so a file left there can
+                        # reach another arm. Recorded apart from other paths.
+                        kind = "shared-tmp" if re.match(r"/(private/)?tmp/", p) else "outside-path"
+                        issues.append({"kind": kind, "tool": name, "path": p})
                     if name == "Bash":
-                        for p in escapes(block["input"].get("command", ""), ws, start or ws):
+                        for p in escapes(block["input"].get("command", ""), ws, carry["cwd"], carry):
                             if not any(p.startswith(a) for a in allowed):
                                 issues.append({"kind": "parent-ref", "tool": name, "path": p})
                 if arm in ("A", "P"):
@@ -553,8 +574,16 @@ def main():
             # The structure stage 1 left is what the judge compares.
             meta["stage1_end"] = git(ws, "rev-parse", "HEAD").stdout.strip()
             (out / "stage1.patch").write_text(git(ws, "diff", base, "HEAD").stdout)
+            (out / "stage1-full.patch").write_text(git(ws, "diff", "-U1000000", base, "HEAD").stdout)
             strip_tool(ws)
-            commit_all(ws, "strip")
+            # The history records the tool's files and their removal, so the
+            # stage 2 agent would see which arm wrote the code. Keep it where
+            # the agent is not pointed, and start a history of one commit.
+            archive = WS_ROOT.parent / (WS_ROOT.name + "-archive")
+            archive.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(ws / ".git"), archive / (ws.name + ".git"))
+            git(ws, "init", "-q", "-b", "main")
+            commit_all(ws, "initial")
         # Upstream's changes outside the package, which the task text says are
         # already done: first what landed between steps, then this step's own.
         applied = False
@@ -571,7 +600,7 @@ def main():
             shutil.copyfile(src, ws / g)
         before = commit_all(ws, f"before step {n}")
         prompt = prompt_for(task_dir, step, arm, task)
-        summary = run_agent(prompt, module_dir(task, ws), agent_env(task, arm), sdir, args.model, "agent")
+        summary = run_agent(prompt, module_dir(task, ws), agent_env(task, arm, ws=ws), sdir, args.model, "agent")
         after = commit_all(ws, f"step {n}")
         diff = git(ws, "diff", before, after).stdout
         (sdir / "diff.patch").write_text(diff)
@@ -587,7 +616,7 @@ def main():
             "directives": len(re.findall(r"^\+.*//declscope:", diff, re.M)),
         }
         result["score"] = score(task, task_dir, step, n, ws, sdir, args.model)
-        result["audit"] = audit(sdir / "agent.jsonl.gz", ws, arm, start=module_dir(task, ws))
+        result["audit"] = audit(sdir / "agent.jsonl.gz", ws, arm, allowed_extra=[run_tmp(ws)], start=module_dir(task, ws))
         if (sdir / "rename.jsonl.gz").exists():
             result["audit_rename"] = audit(sdir / "rename.jsonl.gz", WS_ROOT, "A")
         (sdir / "metrics.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
