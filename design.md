@@ -110,6 +110,31 @@ Stage 2 is the main measure. Its agent has no declscope, so any difference comes
 > [!NOTE]
 > Files touched has no good direction. declscope tends to split code by job into more files. A change may then touch more files and still be easier. So it is recorded, not used to judge.
 
+## Decision rule
+
+This rule was fixed before any run. It decides the result. Every other number is reported as exploratory.
+
+Two stage 2 numbers decide each comparison of two arms.
+
+| Number | Role |
+| --- | --- |
+| Success rate: follow-up hidden tests pass and existing tests still pass | A guard. The better arm must not lose on it |
+| Tokens: every input and output token of the stage 2 run, cached input included | The measure. The better arm uses fewer |
+
+| Success rate of X against Y | Tokens of X against Y | Result |
+| --- | --- | --- |
+| Not lower | Fewer | X wins |
+| Not lower | No clear difference | No difference |
+| Lower | Any | X loses |
+
+| Term | Definition |
+| --- | --- |
+| Not lower | X's success rate is at most 5 percentage points below Y's |
+| Lower | X's success rate is more than 5 percentage points below Y's |
+| Fewer | Each task gives the ratio of X's median tokens to Y's. The 95% bootstrap interval of the mean ratio over tasks lies wholly below 1 |
+
+A failed stage 2 run still counts its tokens. The same rule applies to A against P, P against G and A against G.
+
 ## Structural review
 
 A blind reviewer reads each stage 1 result for refactoring that should be done now.
