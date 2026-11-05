@@ -1,0 +1,75 @@
+Only in /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/.claude: skills
+Only in /Users/ryosuke.ishibashi/ws/da79ea1d3b0c: .declscope-baseline.yaml
+Only in /Users/ryosuke.ishibashi/ws/da79ea1d3b0c: .declscope.yaml
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/ast_object_cons_expr.go /Users/ryosuke.ishibashi/ws/15da129d4755/hclwrite/ast_object_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/ast_object_cons_expr.go	2026-11-05 21:41:57
++++ /Users/ryosuke.ishibashi/ws/15da129d4755/hclwrite/ast_object_cons_expr.go	2026-11-05 21:48:15
+@@ -116,7 +116,6 @@
+ // object's items, in source order. A naked identifier key is a literal name,
+ // not a variable, so it contributes nothing.
+ //
+-//declscope:shared // ast_expression.go reads it to report and rename the traversals inside an object
+ func (o *ObjectConsExpr) variables() []*Traversal {
+ 	var ret []*Traversal
+ 	for _, n := range o.items.List() {
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/function_call_expr.go /Users/ryosuke.ishibashi/ws/15da129d4755/hclwrite/function_call_expr.go
+--- /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/function_call_expr.go	2026-11-05 21:47:56
++++ /Users/ryosuke.ishibashi/ws/15da129d4755/hclwrite/function_call_expr.go	2026-11-05 21:48:15
+@@ -39,7 +39,6 @@
+ // variables returns the absolute traversals in the arguments of the call, in
+ // source order.
+ //
+-//declscope:shared // ast_expression.go reads it to report and rename the traversals inside a call
+ func (call *FunctionCallExpr) variables() []*Traversal {
+ 	var ret []*Traversal
+ 	for _, n := range call.args.List() {
+@@ -59,7 +58,6 @@
+ // Each argument becomes an Expression of its own. The tokens between them,
+ // and any comments, stay as unstructured tokens of the call.
+ //
+-//declscope:shared // parser.go calls it for each function call expression it parses
+ func parseFunctionCallExpr(nativeExpr *hclsyntax.FunctionCallExpr, from inputTokens) *node {
+ 	call := &FunctionCallExpr{
+ 		inTree: newInTree(),
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/parser.go /Users/ryosuke.ishibashi/ws/15da129d4755/hclwrite/parser.go
+--- /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/parser.go	2026-11-05 21:47:56
++++ /Users/ryosuke.ishibashi/ws/15da129d4755/hclwrite/parser.go	2026-11-05 21:48:15
+@@ -72,11 +72,8 @@
+ // inputTokens is a run of input tokens, both as hclsyntax lexed them and as
+ // hclwrite keeps them, which the parse functions partition.
+ //
+-//declscope:shared // function_call_expr.go and tuple_cons_expr.go partition the tokens of a call or a tuple
+ type inputTokens struct {
+-	//declscope:private
+ 	nativeTokens hclsyntax.Tokens
+-	//declscope:private
+ 	writerTokens Tokens
+ }
+ 
+@@ -384,7 +381,6 @@
+ // parseExpression parses the given expression from the given tokens, which
+ // hold its source.
+ //
+-//declscope:shared // function_call_expr.go and tuple_cons_expr.go parse each argument or element with it
+ func parseExpression(nativeExpr hclsyntax.Expression, from inputTokens) *node {
+ 	switch tNativeExpr := nativeExpr.(type) {
+ 
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/tuple_cons_expr.go /Users/ryosuke.ishibashi/ws/15da129d4755/hclwrite/tuple_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/tuple_cons_expr.go	2026-11-05 21:47:56
++++ /Users/ryosuke.ishibashi/ws/15da129d4755/hclwrite/tuple_cons_expr.go	2026-11-05 21:48:15
+@@ -22,7 +22,6 @@
+ // variables returns the absolute traversals in the elements of the tuple, in
+ // source order.
+ //
+-//declscope:shared // ast_expression.go reads it to report and rename the traversals inside a tuple
+ func (tuple *TupleConsExpr) variables() []*Traversal {
+ 	var ret []*Traversal
+ 	for _, n := range tuple.elems.List() {
+@@ -40,7 +39,6 @@
+ // Each element becomes an Expression of its own. The tokens between them,
+ // and any comments, stay as unstructured tokens of the tuple.
+ //
+-//declscope:shared // parser.go calls it for each tuple-construct expression it parses
+ func parseTupleConsExpr(nativeExpr *hclsyntax.TupleConsExpr, from inputTokens) *node {
+ 	tuple := &TupleConsExpr{
+ 		inTree: newInTree(),

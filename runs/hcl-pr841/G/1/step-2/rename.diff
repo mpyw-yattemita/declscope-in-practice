@@ -1,0 +1,14 @@
+Only in /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/.claude: skills
+Only in /Users/ryosuke.ishibashi/ws/da79ea1d3b0c: .declscope-baseline.yaml
+Only in /Users/ryosuke.ishibashi/ws/da79ea1d3b0c: .declscope.yaml
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/ast_object_cons_expr.go /Users/ryosuke.ishibashi/ws/1c271f914861/hclwrite/ast_object_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/da79ea1d3b0c/hclwrite/ast_object_cons_expr.go	2026-11-05 21:41:57
++++ /Users/ryosuke.ishibashi/ws/1c271f914861/hclwrite/ast_object_cons_expr.go	2026-11-05 21:42:16
+@@ -116,7 +116,6 @@
+ // object's items, in source order. A naked identifier key is a literal name,
+ // not a variable, so it contributes nothing.
+ //
+-//declscope:shared // ast_expression.go reads it to report and rename the traversals inside an object
+ func (o *ObjectConsExpr) variables() []*Traversal {
+ 	var ret []*Traversal
+ 	for _, n := range o.items.List() {

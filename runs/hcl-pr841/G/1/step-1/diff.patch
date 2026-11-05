@@ -1,0 +1,216 @@
+diff --git a/hclwrite/ast_expression.go b/hclwrite/ast_expression.go
+index 57350e3..3b35923 100644
+--- a/hclwrite/ast_expression.go
++++ b/hclwrite/ast_expression.go
+@@ -138,13 +138,17 @@ func NewExpressionAbsTraversal(traversal hcl.Traversal) *Expression {
+ }
+ 
+ // Variables returns the absolute traversals that exist within the receiving
+-// expression.
++// expression. For an object-construct expression, these are the traversals
++// in the keys and values of its items.
+ func (e *Expression) Variables() []*Traversal {
+ 	nodes := e.absTraversals.List()
+ 	ret := make([]*Traversal, len(nodes))
+ 	for i, node := range nodes {
+ 		ret[i] = node.content.(*Traversal)
+ 	}
++	if object := e.AsObjectConsExpr(); object != nil {
++		ret = append(ret, object.variables()...)
++	}
+ 	return ret
+ }
+ 
+@@ -165,8 +169,7 @@ func (e *Expression) RenameVariablePrefix(search, replacement []string) {
+ 		panic(fmt.Sprintf("search and replacement length mismatch (%d and %d)", len(search), len(replacement)))
+ 	}
+ Traversals:
+-	for node := range e.absTraversals {
+-		traversal := node.content.(*Traversal)
++	for _, traversal := range e.Variables() {
+ 		if len(traversal.steps) < len(search) {
+ 			// If it's shorter then it can't have our prefix
+ 			continue
+diff --git a/hclwrite/ast_expression_test.go b/hclwrite/ast_expression_test.go
+new file mode 100644
+index 0000000..fa4978a
+--- /dev/null
++++ b/hclwrite/ast_expression_test.go
+@@ -0,0 +1,113 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: MPL-2.0
++
++package hclwrite
++
++import (
++	"strings"
++	"testing"
++
++	"github.com/hashicorp/hcl/v2"
++	"github.com/hashicorp/hcl/v2/hclsyntax"
++)
++
++func TestExpressionVariablesObjectCons(t *testing.T) {
++	tests := []struct {
++		src     string
++		want    []string // the traversals Variables reports, as source text
++		renamed string   // the source after renaming old to new
++	}{
++		{
++			"a = { k = old.x }\n",
++			[]string{"old.x"},
++			"a = { k = new.x }\n",
++		},
++		{
++			"a = { k = old.x, j = old.y }\n",
++			[]string{"old.x", "old.y"},
++			"a = { k = new.x, j = new.y }\n",
++		},
++		{
++			"a = { k = { j = old.x } }\n",
++			[]string{"old.x"},
++			"a = { k = { j = new.x } }\n",
++		},
++		{
++			"a = { k = [old.x] }\n",
++			[]string{"old.x"},
++			"a = { k = [new.x] }\n",
++		},
++		{
++			"a = { k = f(old.x) }\n",
++			[]string{"old.x"},
++			"a = { k = f(new.x) }\n",
++		},
++		{
++			"a = { old = 1 }\n",
++			nil,
++			"a = { old = 1 }\n",
++		},
++		{
++			"a = { old = old.x }\n",
++			[]string{"old.x"},
++			"a = { old = new.x }\n",
++		},
++		{
++			"a = { (old.x) = 1 }\n",
++			[]string{"old.x"},
++			"a = { (new.x) = 1 }\n",
++		},
++		{
++			"a = { (old) = 1 }\n",
++			[]string{"old"},
++			"a = { (new) = 1 }\n",
++		},
++		{
++			"a = { \"k\" = old.x }\n",
++			[]string{"old.x"},
++			"a = { \"k\" = new.x }\n",
++		},
++		{
++			"a = { (old.x) = old.y, k = { old = [f(old.z)] } }\n",
++			[]string{"old.x", "old.y", "old.z"},
++			"a = { (new.x) = new.y, k = { old = [f(new.z)] } }\n",
++		},
++	}
++
++	for _, test := range tests {
++		t.Run(test.src, func(t *testing.T) {
++			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected diagnostics: %s", diags)
++			}
++			expr := f.Body().GetAttribute("a").Expr()
++
++			var got []string
++			for _, traversal := range expr.Variables() {
++				got = append(got, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
++			}
++			if len(got) != len(test.want) {
++				t.Fatalf("wrong variables\ngot:  %q\nwant: %q", got, test.want)
++			}
++			for i := range got {
++				if got[i] != test.want[i] {
++					t.Fatalf("wrong variables\ngot:  %q\nwant: %q", got, test.want)
++				}
++			}
++
++			native, diags := hclsyntax.ParseConfig([]byte(test.src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected hclsyntax diagnostics: %s", diags)
++			}
++			nativeExpr := native.Body.(*hclsyntax.Body).Attributes["a"].Expr
++			if want := len(nativeExpr.Variables()); len(got) != want {
++				t.Errorf("got %d variables, but hclsyntax reports %d", len(got), want)
++			}
++
++			expr.RenameVariablePrefix([]string{"old"}, []string{"new"})
++			if got := string(f.Bytes()); got != test.renamed {
++				t.Errorf("wrong result after renaming\ngot:  %q\nwant: %q", got, test.renamed)
++			}
++		})
++	}
++}
+diff --git a/hclwrite/ast_object_cons_expr.go b/hclwrite/ast_object_cons_expr.go
+index 2c890cc..fe28bef 100644
+--- a/hclwrite/ast_object_cons_expr.go
++++ b/hclwrite/ast_object_cons_expr.go
+@@ -33,6 +33,26 @@ func (o *ObjectConsExpr) ValueFor(key string) *ObjectConsValue {
+ 	return nil
+ }
+ 
++// variables returns the absolute traversals in the keys and values of the
++// object's items, in source order. A naked identifier key is a literal name,
++// not a variable, so it contributes nothing.
++//
++//declscope:shared // ast_expression.go reads it to report and rename the traversals inside an object
++func (o *ObjectConsExpr) variables() []*Traversal {
++	var ret []*Traversal
++	for _, n := range o.items.List() {
++		item, ok := n.content.(*ObjectConsItem)
++		if !ok {
++			continue
++		}
++		if key := item.key.content.(*ObjectConsKeyExpr); !key.literal {
++			ret = append(ret, key.wrapped.content.(*Expression).Variables()...)
++		}
++		ret = append(ret, item.value.content.(*ObjectConsValue).Expr().Variables()...)
++	}
++	return ret
++}
++
+ type ObjectConsItem struct {
+ 	inTree
+ 	key   *node
+@@ -49,12 +69,16 @@ type ObjectConsKeyExpr struct {
+ 	inTree
+ 
+ 	wrapped *node
++	// literal is set when the key is a naked identifier, which names the
++	// attribute literally instead of referring to a variable.
++	literal bool
+ }
+ 
+-func newObjectConsKeyExpr(wrapped *node) *ObjectConsKeyExpr {
++func newObjectConsKeyExpr(wrapped *node, literal bool) *ObjectConsKeyExpr {
+ 	expr := &ObjectConsKeyExpr{
+ 		inTree:  newInTree(),
+ 		wrapped: wrapped,
++		literal: literal,
+ 	}
+ 	expr.children.AppendNode(wrapped)
+ 
+diff --git a/hclwrite/parser.go b/hclwrite/parser.go
+index 64eb034..a07e293 100644
+--- a/hclwrite/parser.go
++++ b/hclwrite/parser.go
+@@ -467,7 +467,9 @@ func parseObjectConsExpr(nativeExpr *hclsyntax.ObjectConsExpr, from inputTokens)
+ // literal is functionally equivalent to an Identifier.
+ func parseObjectConsKeyExpr(nativeExpr *hclsyntax.ObjectConsKeyExpr, from inputTokens) *node {
+ 	expr := parseExpression(nativeExpr.Wrapped, from)
+-	wrapExpr := newObjectConsKeyExpr(expr)
++	// hclsyntax treats a key that reads as a keyword as a literal name, and
++	// reports no variables for it. We follow the same rule.
++	wrapExpr := newObjectConsKeyExpr(expr, hcl.ExprAsKeyword(nativeExpr.Wrapped) != "")
+ 
+ 	return newNode(wrapExpr)
+ }
