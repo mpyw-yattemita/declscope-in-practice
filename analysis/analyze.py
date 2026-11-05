@@ -41,6 +41,7 @@ def load_runs(root):
                 s1 = [s for s in steps if s["stage"] == 1]
                 s2 = [s for s in steps if s["stage"] == 2]
                 rev = rdir / "review.json"
+                comp = rdir / "compliance.json"
                 tasks.setdefault(tdir.name, {}).setdefault(arm, []).append({
                     "rep": rdir.name,
                     "stage1_last_success": bool(s1 and s1[-1]["score"].get("success")),
@@ -52,6 +53,7 @@ def load_runs(root):
                     "directives": sum(s.get("directives") or 0 for s in s1),
                     "audit_ok": all(s["audit"]["ok"] for s in steps),
                     "review": json.loads(rev.read_text()) if rev.exists() else None,
+                    "compliance": json.loads(comp.read_text()) if comp.exists() else None,
                 })
     return tasks
 
@@ -158,6 +160,18 @@ def main():
                 md.append(f"| {t} | {a} | {' '.join('○' if s else '×' for s in r['stage1_successes'])} | {r['stage1_tokens'] // 1000}k "
                           f"| {'○' if r['stage2_success'] else '×'} | {(r['stage2_tokens'] or 0) // 1000}k | {r['directives']} "
                           f"| {rv.get('counted', '–')}（{fmt(rv.get('per_kloc'), 1)}） | {'問題なし' if r['audit_ok'] else '違反あり'} |")
+    md += ["", "## 段階1の終わりに declscope が報告するもの", "",
+           "どの群にも G 群と同じ設定と seed の baseline を当てて、`declscope` と `declscope shrink` を実行した（`analysis/compliance.py`）。", "",
+           "| 課題 | 群 | 境界 | 命名 | その他 | shrink | 通るか |", "| --- | --- | --- | --- | --- | --- | --- |"]
+    for t, arms in tasks.items():
+        for a in ("A", "P", "G"):
+            for r in arms.get(a, []):
+                c = r["compliance"]
+                if not c:
+                    continue
+                an = c["analyzer"]
+                other = an["surplus"] + an["unused"] + an["other"] + an["overexported"]
+                md.append(f"| {t} | {a} | {an['boundary']} | {an['qualify']} | {other} | {'判定できない' if c['shrink'] is None else c['shrink']} | {'通る' if c['clean'] else '通らない'} |")
     if "human" in out:
         h = out["human"]
         md += ["", "## 人による確かめ", "", f"人の多数決と AI の判定の一致率: {fmt(h['agreement'])}（{h['counted']} 組）。基準の 75% を{'満たす' if h['meets_75'] else '満たさない'}。", ""]
