@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+# The tasks are shared by every experiment, at the top of the repository.
+ROOT = REPO.parent.parent
 TASKS = ["jaeger-pr9256", "hcl-pr841", "traefik-pr14130", "github-mcp-server-pr683", "go-sdk-pr644"]
 
 

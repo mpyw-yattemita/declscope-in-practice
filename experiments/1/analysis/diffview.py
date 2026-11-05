@@ -16,6 +16,8 @@ import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+# The tasks are shared by every experiment, at the top of the repository.
+ROOT = REPO.parent.parent
 TEMPLATE = Path(__file__).resolve().parent / "diffview.template.html"
 MAX_DIFF = 1_500_000  # characters per step and run; longer diffs are cut and say so
 
@@ -35,7 +37,7 @@ def main():
     root = (REPO / args.root).resolve()
     tasks = []
     for tdir in sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith(".")):
-        ty = REPO / "tasks" / tdir.name / "task.yaml"
+        ty = ROOT / "tasks" / tdir.name / "task.yaml"
         meta = load_yaml(ty) if ty.exists() else {"steps": []}
         steps = {}
         for arm_dir in sorted(p for p in tdir.iterdir() if p.is_dir()):

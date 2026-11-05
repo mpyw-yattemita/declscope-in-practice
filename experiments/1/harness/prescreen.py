@@ -29,6 +29,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+# The tasks are shared by every experiment, at the top of the repository.
+ROOT = REPO.parent.parent
 
 INSTALLER = re.compile(
     r"\b(npm|npx|pnpm|yarn|bunx?|pip3?|pipx|uvx?|brew|apt-get|apk|cargo|curl|wget|"
@@ -156,7 +158,7 @@ def main():
     ap.add_argument("--task", required=True)
     ap.add_argument("--clones", required=True)
     args = ap.parse_args()
-    task_dir = (REPO / args.task).resolve()
+    task_dir = (ROOT / args.task).resolve()
     task = json.loads(subprocess.run(
         ["ruby", "-ryaml", "-rjson", "-e", "puts JSON.dump(YAML.load_file(ARGV[0]))", str(task_dir / "task.yaml")],
         capture_output=True, text=True, check=True).stdout)

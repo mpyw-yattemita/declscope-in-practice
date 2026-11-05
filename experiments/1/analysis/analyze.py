@@ -14,6 +14,8 @@ import random
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+# The tasks are shared by every experiment, at the top of the repository.
+ROOT = REPO.parent.parent
 PAIRS = [("A", "P"), ("P", "G"), ("A", "G")]
 ARM = {"A": "A（なし）", "P": "P（プロンプト）", "G": "G（ガードレール）"}
 B = 10000
@@ -31,7 +33,7 @@ def bootstrap_ci(values, stat=lambda v: sum(v) / len(v)):
 def white_box(tid):
     """Tests each step's task.yaml marked, before any run, as pinning internal representation."""
     import subprocess
-    ty = REPO / "tasks" / tid / "task.yaml"
+    ty = ROOT / "tasks" / tid / "task.yaml"
     if not ty.exists():
         return {}
     t = json.loads(subprocess.run(["ruby", "-ryaml", "-rjson", "-e", "puts JSON.dump(YAML.load_file(ARGV[0]))", str(ty)],

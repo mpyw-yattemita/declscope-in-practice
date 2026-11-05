@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | 1 | **第三者のコードを実行するコマンドは、ネットワークを遮断した sandbox の中でだけ実行する。** `go test`、`go run`、`go generate`、テストのバイナリ、`make`、`npm`、`npx`、`curl` などが対象 | ユーザー全体の hook（下の「hook」）が自動で包み直す。ハーネスは `sandboxed()` を通す |
 | 2 | **ネットワークありで実行してよいのは、コードを実行しないコマンドだけ。** `go mod download`、`go list`、`git clone`、`git archive`。`go test -run '^$'` は、テストを1つも実行しなくても TestMain と init が走るので、ここに含めない | ハーネスの `warm()` |
-| 3 | **テストを実行する前に、親エージェントが題材を事前チェックする。** 外部ツールのダウンロードやインストールが少しでもあれば、その題材は除外する。除外した題材を許可することはない | `harness/prescreen.py`。ハーネスは `prescreen.json` が `clean` でない課題を実行しない |
+| 3 | **テストを実行する前に、親エージェントが題材を事前チェックする。** 外部ツールのダウンロードやインストールが少しでもあれば、その題材は除外する。除外した題材を許可することはない | 各実験の `harness/prescreen.py`。ハーネスは `prescreen.json` が `clean` でない課題を実行しない |
 | 4 | **サブエージェントに第三者のコードのテストを任せない。** テストを実行するのは、事前チェックを通った課題について、親エージェントかハーネスだけ | このルール。サブエージェントに渡す指示にも書く |
 | 5 | **コードの実行に使うプロファイルは1つ。** `~/.claude/hooks/nonet.sb`。localhost 以外への外向きの接続と DNS を拒否する | hook とハーネスが同じファイルを使う |
 
@@ -28,6 +28,8 @@
 包み直したコマンドは `~/.claude/hooks/untrusted-code-sandbox.log` に記録される。
 
 ## 事前チェック
+
+各実験の `harness/` にある。実験1では、`experiments/1/` で次のように実行する。
 
 ```bash
 python3 -I harness/prescreen.py --task tasks/<id> --clones <clone の置き場所>

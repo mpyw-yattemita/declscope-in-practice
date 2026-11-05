@@ -1,9 +1,9 @@
 # 課題
 
-[candidates/README.md](../candidates/README.md) の「選んだ課題」の6本の連続を、ハーネスが読める形にしたもの。考え方は [design.md](../design.md) の「課題」「隠しテストの名前合わせ」「2つの段階」「隔離」にある。検証の結果は [VERIFY.md](VERIFY.md) にある。
+[candidates/README.md](../candidates/README.md) の「選んだ課題」の6本の連続を、ハーネスが読める形にしたもの。考え方は [実験1の design.md](../experiments/1/design.md) の「課題」「隠しテストの名前合わせ」「2つの段階」「隔離」にある。検証の結果は [VERIFY.md](VERIFY.md) にある。
 
 > [!CAUTION]
-> **opa-pr8427 は除外した。** テストが外部のサイトから JSON スキーマを取りに行き、Go 1.25.5 のツールチェーンのダウンロードも要る。[harness/SAFETY.md](../harness/SAFETY.md) のルール3による。判定は `opa-pr8427/prescreen.json` にある。
+> **opa-pr8427 は除外した。** テストが外部のサイトから JSON スキーマを取りに行き、Go 1.25.5 のツールチェーンのダウンロードも要る。[SAFETY.md](../SAFETY.md) のルール3による。判定は `opa-pr8427/prescreen.json` にある。
 
 
 | 課題 | リポジトリ / package | 段 | Go |

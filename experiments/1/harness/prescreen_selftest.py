@@ -75,13 +75,16 @@ def main():
         subprocess.run([*git, "add", "-A"], check=True)
         subprocess.run([*git, "commit", "-q", "-m", "x"], check=True)
         sha = subprocess.run([*git, "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        # The same layout as the repository: the harness inside an
+        # experiment, and the tasks at the top.
         root = tmp / "exp"
-        (root / "harness").mkdir(parents=True)
-        shutil.copy(HERE / "prescreen.py", root / "harness")
+        harness = root / "experiments" / "1" / "harness"
+        harness.mkdir(parents=True)
+        shutil.copy(HERE / "prescreen.py", harness)
         (root / "tasks" / "t").mkdir(parents=True)
         (root / "tasks" / "t" / "task.yaml").write_text(
             f"id: t\nrepo: https://github.com/example/m\npackage: pkg\nseed: {sha}\nsteps: []\n")
-        subprocess.run([sys.executable, "-I", str(root / "harness" / "prescreen.py"),
+        subprocess.run([sys.executable, "-I", str(harness / "prescreen.py"),
                         "--task", "tasks/t", "--clones", str(tmp / "clones")], check=True, capture_output=True)
         r = json.loads((root / "tasks" / "t" / "prescreen.json").read_text())
         got = {(h["severity"], h["kind"], h["path"]) for h in r["hits"]}

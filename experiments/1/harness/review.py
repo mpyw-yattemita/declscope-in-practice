@@ -157,7 +157,7 @@ def main():
     ap.add_argument("--model", default="claude-opus-5-5")
     args = ap.parse_args()
     root = (run.REPO / args.root).resolve()
-    task = run.load_yaml(run.REPO / "tasks" / args.task / "task.yaml")
+    task = run.load_yaml(run.ROOT / "tasks" / args.task / "task.yaml")
     task["id"] = args.task
     for arm in ("A", "P", "G"):
         adir = root / args.task / arm

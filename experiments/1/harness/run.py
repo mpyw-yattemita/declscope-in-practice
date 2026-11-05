@@ -23,6 +23,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
+# The tasks are shared by every experiment, at the top of the repository.
+ROOT = REPO.parent.parent
 PROMPTS = HERE / "prompts"
 
 # Workspaces live outside this repository, under a path that names nothing.
@@ -656,7 +658,7 @@ def main():
     ap.add_argument("--out", default="runs", help="output root inside this repository (smoke tests use smoke)")
     args = ap.parse_args()
 
-    task_dir = (REPO / args.task).resolve()
+    task_dir = (ROOT / args.task).resolve()
     task = load_yaml(task_dir / "task.yaml")
     # Clones are named owner__name, as the candidate search made them.
     task.setdefault("clone", "__".join(task["repo"].rstrip("/").removesuffix(".git").split("/")[-2:]))

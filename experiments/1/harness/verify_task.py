@@ -46,7 +46,7 @@ def test(task, step, wt, env):
     pkg = md / task["package"]
     for t in pkg.glob("*_test.go"):
         t.unlink()
-    hidden = run.REPO / "tasks" / task["id"] / f"step-{step.get('n')}" / "hidden"
+    hidden = run.ROOT / "tasks" / task["id"] / f"step-{step.get('n')}" / "hidden"
     for src in hidden.rglob("*"):
         if src.is_file():
             dst = wt / src.relative_to(hidden)
@@ -59,7 +59,7 @@ def test(task, step, wt, env):
 
 
 def same_as_upstream(task, step, clone):
-    hidden = run.REPO / "tasks" / task["id"] / f"step-{step.get('n')}" / "hidden"
+    hidden = run.ROOT / "tasks" / task["id"] / f"step-{step.get('n')}" / "hidden"
     prefix = (task.get("module_dir", ".").rstrip("/") + "/") if task.get("module_dir", ".") not in (".", "") else ""
     pkgdir = prefix + task["package"]
     up = sh(["git", "-C", str(clone), "ls-tree", "--name-only", f"{step['merge']}:{pkgdir}"], cwd=clone).stdout.split()
@@ -82,7 +82,7 @@ def main():
     ap.add_argument("--clones", required=True)
     ap.add_argument("--work", required=True)
     args = ap.parse_args()
-    task_dir = (run.REPO / args.task).resolve()
+    task_dir = (run.ROOT / args.task).resolve()
     run.require_prescreen(task_dir)
     task = run.load_yaml(task_dir / "task.yaml")
     task["id"] = task_dir.name

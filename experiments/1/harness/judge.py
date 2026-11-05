@@ -131,7 +131,7 @@ def main():
     ap.add_argument("--model", default="claude-opus-5-5")
     args = ap.parse_args()
     root = (run.REPO / args.root).resolve()
-    task = run.load_yaml(run.REPO / "tasks" / args.task / "task.yaml")
+    task = run.load_yaml(run.ROOT / "tasks" / args.task / "task.yaml")
     task["id"] = args.task
     reps = {a: sorted(p.name for p in (root / args.task / a).iterdir() if (p / "stage1-package").is_dir())
             for a in ("A", "P", "G") if (root / args.task / a).is_dir()}

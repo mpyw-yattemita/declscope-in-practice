@@ -23,6 +23,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+# The tasks are shared by every experiment, at the top of the repository.
+ROOT = REPO.parent.parent
 sys.path.insert(0, str(REPO / "harness"))
 import judge  # noqa: E402
 import run  # noqa: E402
@@ -74,7 +76,7 @@ def main():
         if not all((root / p["task"] / s / "stage1-package").is_dir() for s in (p["x"], p["y"])):
             print(f"pair-{i}: {p['task']} was not run; skipped")
             continue
-        task = run.load_yaml(REPO / "tasks" / p["task"] / "task.yaml")
+        task = run.load_yaml(ROOT / "tasks" / p["task"] / "task.yaml")
         task["id"] = p["task"]
         clone = Path(args.clones) / "__".join(task["repo"].rstrip("/").removesuffix(".git").split("/")[-2:])
         sides = [p["x"], p["y"]]

@@ -25,6 +25,8 @@ import tarfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+# The tasks are shared by every experiment, at the top of the repository.
+ROOT = REPO.parent.parent
 sys.path.insert(0, str(REPO / "harness"))
 import run  # noqa: E402
 
@@ -86,7 +88,7 @@ def main():
     root = (REPO / args.root).resolve()
     tasks = args.tasks.split(",") if args.tasks else sorted(p.name for p in root.iterdir() if p.is_dir())
     for tid in tasks:
-        task = run.load_yaml(REPO / "tasks" / tid / "task.yaml")
+        task = run.load_yaml(ROOT / "tasks" / tid / "task.yaml")
         task["id"] = tid
         clone = Path(args.clones) / "__".join(task["repo"].rstrip("/").removesuffix(".git").split("/")[-2:])
         seed_dir = WORK / tid / "seed"
