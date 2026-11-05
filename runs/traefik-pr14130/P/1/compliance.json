@@ -1,0 +1,17 @@
+{
+  "arm": "P",
+  "rep": "1",
+  "analyzer": {
+    "boundary": 2,
+    "qualify": 0,
+    "surplus": 0,
+    "unused": 0,
+    "overexported": 0,
+    "other": 0
+  },
+  "shrink": 0,
+  "analyzer_exit": 3,
+  "shrink_exit": 0,
+  "clean": false,
+  "output": "/Users/ryosuke.ishibashi/ws-check/traefik-pr14130/P-1/pkg/provider/kubernetes/gateway/backend_client_certificate.go:15:20: method Provider.loadBackendClientCertificate is private to namespace \"backendClientCertificate\", but is used from namespace \"kubernetes\"\n/Users/ryosuke.ishibashi/ws-check/traefik-pr14130/P-1/pkg/provider/kubernetes/gateway/kubernetes.go:488:69: \tused here, in namespace \"kubernetes\"\n/Users/ryosuke.ishibashi/ws-check/traefik-pr14130/P-1/pkg/provider/kubernetes/gateway/kubernetes.go:1445:20: method Provider.getTLSCert is private to namespace \"kubernetes\", but is used from namespace \"backendClientCertificate\"\n/Users/ryosuke.ishibashi/ws-check/traefik-pr14130/P-1/pkg/provider/kubernetes/gateway/backend_client_certificate.go:35:17: \tused here, in namespace \"backendClientCertificate\"\n\n"
+}

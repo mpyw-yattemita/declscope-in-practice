@@ -60,6 +60,8 @@ def classify(out):
         if not m or line.startswith("\t"):
             continue
         msg = m.group("msg")
+        if msg[:1].isspace():
+            continue  # a "used here" line under the report above it
         if "does not carry namespace" in msg:
             kinds["qualify"] += 1
         elif "is private to" in msg or "is declared private" in msg:

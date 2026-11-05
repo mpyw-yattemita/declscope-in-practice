@@ -69,6 +69,11 @@ def main():
         raise SystemExit("the salt does not match the hash committed in pairs.json")
     out_pairs = []
     for i, p in enumerate(pairs, 1):
+        # A pair whose task was not run (go-sdk, after the run was cut short)
+        # is skipped; its number stays, so answers still match key.json.
+        if not all((root / p["task"] / s / "stage1-package").is_dir() for s in (p["x"], p["y"])):
+            print(f"pair-{i}: {p['task']} was not run; skipped")
+            continue
         task = run.load_yaml(REPO / "tasks" / p["task"] / "task.yaml")
         task["id"] = p["task"]
         clone = Path(args.clones) / "__".join(task["repo"].rstrip("/").removesuffix(".git").split("/")[-2:])

@@ -357,6 +357,7 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
     # so follow it through the transcript in order.
     carry = {"cwd": Path(start or ws)}
     pending, wrapped = {}, set()
+    visited = {Path(start or ws)}
     with gzip.open(transcript_gz, "rt") as f:
         for line in f:
             try:
@@ -390,9 +391,25 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
                         issues.append({"kind": kind, "tool": name, "path": p})
                     if name == "Bash":
                         prev = carry["cwd"]
-                        for p in escapes(block["input"].get("command", ""), ws, carry["cwd"], carry):
-                            if not any(p.startswith(a) for a in allowed):
-                                issues.append({"kind": "parent-ref", "tool": name, "path": p})
+                        command = block["input"].get("command", "")
+                        # Whether a command succeeded, and so kept its cd, cannot
+                        # be read reliably. A relative path counts only when it
+                        # leaves the workspace from every place the agent has been.
+                        seen = [p for p in visited if p != prev]
+                        hits = escapes(command, ws, prev, carry)
+                        for other in seen:
+                            if not hits:
+                                break
+                            alt = set(escapes(command, ws, other))
+                            hits = [h for h in hits if h in alt]
+                        for p in hits:
+                            if any(p.startswith(a) for a in allowed):
+                                continue
+                            kind = "shared-tmp" if re.match(r"/(private/)?tmp(/|$)", p) else "parent-ref"
+                            issues.append({"kind": kind, "tool": name, "path": p})
+                        c = carry["cwd"]
+                        if str(c) == str(ws) or str(c).startswith(str(ws) + "/"):
+                            visited.add(c)
                         pending[block.get("id")] = prev
                 if block.get("type") == "tool_result" and block.get("tool_use_id") in pending:
                     # The Bash tool keeps a cd only when the command succeeds and
