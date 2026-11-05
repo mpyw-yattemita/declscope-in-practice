@@ -211,8 +211,9 @@ def prompt_for(task_dir, step, arm, task):
 
 def run_agent(prompt, ws, env, out_dir, model, label):
     out_dir.mkdir(parents=True, exist_ok=True)
+    # The prompt goes on stdin: a judge's prompt can exceed the argument limit.
     cmd = [
-        CLAUDE, "-p", prompt,
+        CLAUDE, "-p",
         "--output-format", "stream-json", "--verbose",
         "--permission-mode", "bypassPermissions",
         "--disallowedTools", "WebFetch", "WebSearch",
@@ -220,7 +221,7 @@ def run_agent(prompt, ws, env, out_dir, model, label):
         "--model", model,
     ]
     t0 = time.time()
-    r = subprocess.run(cmd, cwd=ws, env=env, capture_output=True, text=True, timeout=AGENT_TIMEOUT)
+    r = subprocess.run(cmd, cwd=ws, env=env, capture_output=True, text=True, timeout=AGENT_TIMEOUT, input=prompt)
     elapsed = time.time() - t0
     with gzip.open(out_dir / f"{label}.jsonl.gz", "wt") as f:
         f.write(r.stdout)
