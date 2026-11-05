@@ -576,6 +576,12 @@ def main():
             (out / "stage1.patch").write_text(git(ws, "diff", base, "HEAD").stdout)
             (out / "stage1-full.patch").write_text(git(ws, "diff", "-U1000000", base, "HEAD").stdout)
             strip_tool(ws)
+            # What the judge and the reviewers read: the package as stage 1
+            # left it, with every trace of the tool removed.
+            snap = out / "stage1-package"
+            shutil.rmtree(snap, ignore_errors=True)
+            shutil.copytree(module_dir(task, ws) / task["package"], snap,
+                            ignore=shutil.ignore_patterns("testdata"))
             # The history records the tool's files and their removal, so the
             # stage 2 agent would see which arm wrote the code. Keep it where
             # the agent is not pointed, and start a history of one commit.

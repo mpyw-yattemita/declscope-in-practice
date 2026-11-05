@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>分割の判定</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a code-host review screen. A dark top bar, a list of pairs, then a file browser (tree + file) and a review box at the foot. */
+:root {
+  --bg: #f6f8fa; --panel: #ffffff; --ink: #1f2328; --muted: #59636e; --line: #d1d9e0;
+  --bar: #24292f; --bar-ink: #f0f3f6; --accent: #0969da; --accent-ink: #ffffff;
+  --add-bg: #dafbe1; --add-fg: #116329; --del-bg: #ffebe9; --del-fg: #82071e; --hunk: #ddf4ff;
+  --new: #1a7f37; --changed: #9a6700; --sel: #eaeef2;
+  --ui: "Atkinson Hyperlegible", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1117; --panel: #151b23; --ink: #e6edf3; --muted: #9198a1; --line: #30363d;
+  --bar: #010409; --bar-ink: #e6edf3; --accent: #4493f8; --accent-ink: #0d1117;
+  --add-bg: #12261e; --add-fg: #7ee2a8; --del-bg: #2d1316; --del-fg: #ffaba8; --hunk: #121d2f;
+  --new: #3fb950; --changed: #d29922; --sel: #1f2630; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0d1117; --panel: #151b23; --ink: #e6edf3; --muted: #9198a1; --line: #30363d;
+  --bar: #010409; --bar-ink: #e6edf3; --accent: #4493f8; --accent-ink: #0d1117;
+  --add-bg: #12261e; --add-fg: #7ee2a8; --del-bg: #2d1316; --del-fg: #ffaba8; --hunk: #121d2f;
+  --new: #3fb950; --changed: #d29922; --sel: #1f2630; color-scheme: dark }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--ui); font-size: 14px; line-height: 1.5; }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { background: var(--bar); color: var(--bar-ink); padding-block: 12px; }
+header.top .gutter { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+header.top .repo { font-weight: 700; }
+header.top .muted { opacity: .75; }
+main { padding-block: 16px 48px; display: grid; gap: 16px; }
+.pairs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pairs button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.pairs button[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.pairs .done::after { content: " ✓"; color: var(--new); }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.intro { padding: 12px 16px; display: grid; gap: 6px; }
+.intro h1 { margin: 0; font-size: 18px; text-wrap: balance; }
+.intro p { margin: 0; color: var(--muted); max-width: 80ch; }
+.intro ol { margin: 0; padding-left: 20px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--line); padding: 0 8px; }
+.tabs button { font: inherit; background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 12px; color: var(--muted); cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 700; }
+.browser { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); }
+@media (max-width: 760px) { .browser { grid-template-columns: minmax(0, 1fr); } }
+.tree { border-right: 1px solid var(--line); padding: 8px 0; max-height: 75vh; overflow: auto; min-width: 0; }
+.tree .opts { padding: 4px 12px 8px; display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.tree button { display: flex; gap: 6px; align-items: baseline; width: 100%; text-align: left; font: inherit; font-family: var(--mono); font-size: 12px; background: none; border: 0; padding: 3px 12px; color: var(--ink); cursor: pointer; }
+.tree button[aria-current="true"] { background: var(--sel); font-weight: 600; }
+.tree .nm { overflow-wrap: anywhere; }
+.tree .ln { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.badge { font-family: var(--ui); font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 0 5px; border-radius: 999px; border: 1px solid currentColor; }
+.badge.new { color: var(--new); } .badge.changed { color: var(--changed); }
+.panes { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); min-width: 0; }
+@media (max-width: 760px) { .panes { grid-auto-flow: row; } }
+.pane { min-width: 0; border-left: 1px solid var(--line); }
+.pane:first-child { border-left: 0; }
+.filehead { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.filehead .who { font-weight: 700; }
+.filehead .path { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.filehead .sw { margin-left: auto; display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.filehead .sw button { font: inherit; font-size: 12px; border: 0; background: var(--panel); color: var(--ink); padding: 2px 10px; cursor: pointer; }
+.filehead .sw button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.decls { padding: 6px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.code { overflow: auto; max-height: 75vh; font-family: var(--mono); font-size: 12px; line-height: 1.45; }
+.code div { white-space: pre; padding: 0 12px 0 0; min-width: max-content; }
+.code .n { display: inline-block; width: 4.5em; padding-right: 10px; text-align: right; color: var(--muted); user-select: none; }
+.code .a { background: var(--add-bg); color: var(--add-fg); }
+.code .d { background: var(--del-bg); color: var(--del-fg); }
+.code .h { background: var(--hunk); color: var(--muted); }
+.missing { padding: 12px; color: var(--muted); margin: 0; }
+.review { padding: 12px 16px; display: grid; gap: 10px; }
+.review h2 { margin: 0; font-size: 15px; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.choices label { display: inline-flex; gap: 6px; align-items: center; }
+textarea, input[type="text"] { font: inherit; width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--panel); color: var(--ink); }
+textarea { min-height: 90px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 5px 14px; background: var(--panel); color: var(--ink); cursor: pointer; text-decoration: none; }
+.btn.primary { background: var(--new); border-color: var(--new); color: #ffffff; font-weight: 700; }
+.status { color: var(--muted); }
+pre.out { margin: 0; padding: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow: auto; max-height: 200px; font-family: var(--mono); font-size: 11px; }
+button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="gutter"><span class="repo">declscope-in-practice</span><span class="muted">/ 分割の判定</span></div></header>
+<main class="gutter">
+  <div class="pairs" id="pairs" role="group" aria-label="判定する組"></div>
+  <section class="box intro" id="intro"></section>
+  <section class="box">
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-v="0">コード 1</button>
+      <button role="tab" data-v="1">コード 2</button>
+      <button role="tab" data-v="both">並べて表示</button>
+    </div>
+    <div class="browser">
+      <nav class="tree" aria-label="ファイル">
+        <div class="opts">
+          <label for="onlynew"><input type="checkbox" id="onlynew"> 新規・変更のファイルだけ</label>
+          <label for="tests"><input type="checkbox" id="tests" checked> テストファイルも出す</label>
+        </div>
+        <div id="tree"></div>
+      </nav>
+      <div class="panes" id="panes"></div>
+    </div>
+  </section>
+  <section class="box review" aria-labelledby="rv">
+    <h2 id="rv">判定</h2>
+    <p class="status" style="margin:0">このパッケージ全体のファイル構成として、論理的にうまく分割されているのはどちらですか。新しいコードは既存の構成にうまく収まっていますか。動作とテストは同じだと分かっているので、分け方だけを見てください。</p>
+    <div class="choices" role="radiogroup" aria-label="良いほう">
+      <label for="c0"><input type="radio" name="choice" id="c0" value="1"> コード 1</label>
+      <label for="c1"><input type="radio" name="choice" id="c1" value="2"> コード 2</label>
+      <label for="c2"><input type="radio" name="choice" id="c2" value="tie"> 引き分け</label>
+    </div>
+    <label for="reason" class="status">理由（どのファイルや型を見てそう判断したか）</label>
+    <textarea id="reason"></textarea>
+    <div class="actions">
+      <button class="btn" type="button" id="save">この組の判定を保存</button>
+      <span class="status" id="saved"></span>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);width:100%">
+    <label for="who" class="status">あなたの名前（Issue に載る）</label>
+    <input type="text" id="who" autocomplete="name">
+    <div class="actions">
+      <a class="btn primary" id="submit" href="#" target="_blank" rel="noopener">判定を Issue で送る</a>
+      <button class="btn" type="button" id="copy">結果を JSON でコピー</button>
+      <span class="status" id="progress"></span>
+    </div>
+    <pre class="out" id="out" hidden></pre>
+  </section>
+</main>
+<script>
+const DATA = /*__DATA__*/null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const state = { pair: 0, view: "both", file: null, mode: {} };
+let answers = store.get("judge-answers", {});
+
+function pair() { return DATA.pairs[state.pair]; }
+
+function fileList() {
+  const p = pair(), names = new Map();
+  p.candidates.forEach((c, i) => c.files.forEach((f) => {
+    const e = names.get(f.name) || { name: f.name, test: f.test, marks: [], lines: [] };
+    e.marks[i] = f.mark; e.lines[i] = f.lines; names.set(f.name, e);
+  }));
+  let list = [...names.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const views = state.view === "both" ? [0, 1] : [+state.view];
+  if ($("onlynew").checked) list = list.filter((e) => views.some((v) => e.marks[v]));
+  if (!$("tests").checked) list = list.filter((e) => !e.test);
+  list = list.filter((e) => views.some((v) => e.lines[v] != null));
+  return { list, views };
+}
+
+function renderTree() {
+  const { list, views } = fileList();
+  if (!list.some((e) => e.name === state.file)) state.file = (list.find((e) => views.some((v) => e.marks[v])) || list[0] || {}).name || null;
+  $("tree").innerHTML = list.map((e) => {
+    const badges = views.map((v) => e.marks[v] ? `<span class="badge ${e.marks[v]}" title="コード ${v + 1}">${state.view === "both" ? v + 1 + ":" : ""}${e.marks[v] === "new" ? "新規" : "変更"}</span>` : "").join("");
+    const ln = views.map((v) => e.lines[v] ?? "–").join(" / ");
+    return `<button type="button" data-f="${esc(e.name)}" aria-current="${e.name === state.file}"><span class="nm">${esc(e.name)}</span>${badges}<span class="ln">${ln}</span></button>`;
+  }).join("") || `<p class="missing">ファイルがない。</p>`;
+}
+
+function lines(f, mode) {
+  if (mode === "diff" && f.diff != null) {
+    let n = 0;
+    return f.diff.split("\n").filter((l) => !/^(---|\+\+\+) /.test(l)).map((l) => {
+      const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
+      if (h) { n = +h[1] - 1; return `<div class="h"><span class="n"></span>${esc(l)}</div>`; }
+      const cls = l.startsWith("+") ? "a" : l.startsWith("-") ? "d" : "";
+      const num = l.startsWith("-") ? "" : ++n;
+      return `<div class="${cls}"><span class="n">${num}</span>${esc(l.slice(1)) || " "}</div>`;
+    }).join("");
+  }
+  return f.text.split("\n").map((l, i) => `<div><span class="n">${i + 1}</span>${esc(l) || " "}</div>`).join("");
+}
+
+function renderPanes() {
+  const { views } = fileList();
+  const p = pair();
+  $("panes").innerHTML = views.map((v) => {
+    const f = p.candidates[v].files.find((x) => x.name === state.file);
+    const head = `<div class="filehead"><span class="who">コード ${v + 1}</span><span class="path">${esc(state.file || "")}</span>`;
+    if (!f) return `<div class="pane">${head}</div><p class="missing">コード ${v + 1} にはこのファイルがない。</p></div>`;
+    const mode = state.mode[v] || (f.diff != null && f.mark === "changed" ? "diff" : "full");
+    const sw = f.diff != null ? `<span class="sw"><button type="button" data-v="${v}" data-m="full" aria-pressed="${mode === "full"}">全文</button><button type="button" data-v="${v}" data-m="diff" aria-pressed="${mode === "diff"}">seed との差分</button></span>` : "";
+    const decls = f.decls.map((d) => (d.kind === "method" ? `${d.recv}.${d.name}` : d.name)).join(", ");
+    return `<div class="pane">${head}${f.mark ? `<span class="badge ${f.mark}">${f.mark === "new" ? "新規" : "変更"}</span>` : ""}${sw}</div>
+      ${decls ? `<div class="decls">${esc(decls)}</div>` : ""}
+      <div class="code">${lines(f, mode)}</div></div>`;
+  }).join("");
+}
+
+function renderReview() {
+  const a = answers[pair().id] || {};
+  document.querySelectorAll('input[name="choice"]').forEach((r) => { r.checked = r.value === a.choice; });
+  $("reason").value = a.reason || "";
+  $("saved").textContent = a.choice ? "保存済み" : "";
+  const done = DATA.pairs.filter((p) => (answers[p.id] || {}).choice).length;
+  $("progress").textContent = `${done} / ${DATA.pairs.length} 組を判定済み`;
+  const payload = { judge: $("who").value || "", answers: DATA.pairs.map((p) => ({ pair: p.id, task: p.task, ...(answers[p.id] || {}) })) };
+  const body = "判定サイトからの結果です。\n\n```json\n" + JSON.stringify(payload, null, 2) + "\n```\n";
+  const url = `https://github.com/${DATA.issueRepo}/issues/new?title=${encodeURIComponent("人による判定: " + (payload.judge || "名前なし"))}&body=${encodeURIComponent(body)}`;
+  $("submit").href = url.length < 7500 ? url : `https://github.com/${DATA.issueRepo}/issues/new`;
+  $("submit").dataset.long = url.length >= 7500 ? "1" : "";
+  $("out").textContent = body;
+}
+
+function render() {
+  const p = pair();
+  $("pairs").innerHTML = DATA.pairs.map((x, i) => `<button type="button" data-i="${i}" aria-current="${i === state.pair}" class="${(answers[x.id] || {}).choice ? "done" : ""}">組 ${i + 1}</button>`).join("");
+  $("intro").innerHTML = `<h1>組 ${state.pair + 1} · <code>${esc(p.package)}</code></h1>
+    <p>同じ seed から、同じ機能を順番に追加した2つの結果です。追加した機能は次のとおり。</p>
+    <ol>${p.features.map((f) => `<li>${esc(f || "")}</li>`).join("")}</ol>`;
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.v === String(state.view))));
+  renderTree(); renderPanes(); renderReview();
+}
+
+function init() {
+  $("who").value = store.get("judge-name", "");
+  $("pairs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.pair = +b.dataset.i; state.file = null; state.mode = {}; render(); } });
+  $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.view = b.dataset.v === "both" ? "both" : +b.dataset.v; render(); } });
+  $("tree").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.file = b.dataset.f; state.mode = {}; renderTree(); renderPanes(); } });
+  $("panes").addEventListener("click", (e) => { const b = e.target.closest("button[data-m]"); if (b) { state.mode[+b.dataset.v] = b.dataset.m; renderPanes(); } });
+  $("onlynew").addEventListener("change", () => { renderTree(); renderPanes(); });
+  $("tests").addEventListener("change", () => { renderTree(); renderPanes(); });
+  $("save").addEventListener("click", () => {
+    const c = document.querySelector('input[name="choice"]:checked');
+    if (!c) { $("saved").textContent = "コード 1、コード 2、引き分けのどれかを選んでください。"; return; }
+    answers[pair().id] = { choice: c.value, reason: $("reason").value };
+    store.set("judge-answers", answers); render();
+  });
+  $("who").addEventListener("input", () => { store.set("judge-name", $("who").value); renderReview(); });
+  $("submit").addEventListener("click", () => { if ($("submit").dataset.long) { $("out").hidden = false; } });
+  $("copy").addEventListener("click", () => {
+    $("out").hidden = false;
+    navigator.clipboard.writeText($("out").textContent).then(() => { $("progress").textContent = "コピーした。新しい Issue の本文に貼ってください。"; },
+      () => { const r = document.createRange(); r.selectNodeContents($("out")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+  });
+  if (!DATA || !DATA.pairs.length) { $("intro").innerHTML = "<p>判定する組はまだない。</p>"; return; }
+  render();
+}
+init();
+</script>
+</body>
+</html>
