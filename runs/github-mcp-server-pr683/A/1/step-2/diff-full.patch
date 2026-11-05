@@ -1,0 +1,4604 @@
+diff --git a/README.md b/README.md
+index c06142b..39aa015 100644
+--- a/README.md
++++ b/README.md
+@@ -1,1021 +1,1049 @@
+ # GitHub MCP Server
+ 
+ The GitHub MCP Server connects AI tools directly to GitHub's platform. This gives AI agents, assistants, and chatbots the ability to read repositories and code files, manage issues and PRs, analyze code, and automate workflows. All through natural language interactions.
+ 
+ ### Use Cases
+ 
+ - Repository Management: Browse and query code, search files, analyze commits, and understand project structure across any repository you have access to.
+ - Issue & PR Automation: Create, update, and manage issues and pull requests. Let AI help triage bugs, review code changes, and maintain project boards.
+ - CI/CD & Workflow Intelligence: Monitor GitHub Actions workflow runs, analyze build failures, manage releases, and get insights into your development pipeline.
+ - Code Analysis: Examine security findings, review Dependabot alerts, understand code patterns, and get comprehensive insights into your codebase.
+ - Team Collaboration: Access discussions, manage notifications, analyze team activity, and streamline processes for your team.
+ 
+ Built for developers who want to connect their AI tools to GitHub context and capabilities, from simple natural language queries to complex multi-step agent workflows.
+ 
+ ---
+ 
+ ## Remote GitHub MCP Server
+ 
+ [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=github&config=%7B%22type%22%3A%20%22http%22%2C%22url%22%3A%20%22https%3A%2F%2Fapi.githubcopilot.com%2Fmcp%2F%22%7D) [![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=github&config=%7B%22type%22%3A%20%22http%22%2C%22url%22%3A%20%22https%3A%2F%2Fapi.githubcopilot.com%2Fmcp%2F%22%7D&quality=insiders)
+ 
+ The remote GitHub MCP Server is hosted by GitHub and provides the easiest method for getting up and running. If your MCP host does not support remote MCP servers, don't worry! You can use the [local version of the GitHub MCP Server](https://github.com/github/github-mcp-server?tab=readme-ov-file#local-github-mcp-server) instead.
+ 
+ ### Prerequisites
+ 
+ 1. A compatible MCP host with remote server support (VS Code 1.101+, Claude Desktop, Cursor, Windsurf, etc.)
+ 2. Any applicable [policies enabled](https://github.com/github/github-mcp-server/blob/main/docs/policies-and-governance.md)
+ 
+ ### Install in VS Code
+ 
+ For quick installation, use one of the one-click install buttons above. Once you complete that flow, toggle Agent mode (located by the Copilot Chat text input) and the server will start. Make sure you're using [VS Code 1.101](https://code.visualstudio.com/updates/v1_101) or [later](https://code.visualstudio.com/updates) for remote MCP and OAuth support.
+ 
+ Alternatively, to manually configure VS Code, choose the appropriate JSON block from the examples below and add it to your host configuration:
+ 
+ <table>
+ <tr><th>Using OAuth</th><th>Using a GitHub PAT</th></tr>
+ <tr><th align=left colspan=2>VS Code (version 1.101 or greater)</th></tr>
+ <tr valign=top>
+ <td>
+   
+ ```json
+ {
+   "servers": {
+     "github": {
+       "type": "http",
+       "url": "https://api.githubcopilot.com/mcp/"
+     }
+   }
+ }
+ ```
+ 
+ </td>
+ <td>
+ 
+ ```json
+ {
+   "servers": {
+     "github": {
+       "type": "http",
+       "url": "https://api.githubcopilot.com/mcp/",
+       "headers": {
+         "Authorization": "Bearer ${input:github_mcp_pat}"
+       }
+     }
+   },
+   "inputs": [
+     {
+       "type": "promptString",
+       "id": "github_mcp_pat",
+       "description": "GitHub Personal Access Token",
+       "password": true
+     }
+   ]
+ }
+ ```
+ 
+ </td>
+ </tr>
+ </table>
+ 
+ ### Install in other MCP hosts
+ - **[GitHub Copilot in other IDEs](/docs/installation-guides/install-other-copilot-ides.md)** - Installation for JetBrains, Visual Studio, Eclipse, and Xcode with GitHub Copilot
+ - **[Claude Applications](/docs/installation-guides/install-claude.md)** - Installation guide for Claude Web, Claude Desktop and Claude Code CLI
+ - **[Cursor](/docs/installation-guides/install-cursor.md)** - Installation guide for Cursor IDE
+ - **[Windsurf](/docs/installation-guides/install-windsurf.md)** - Installation guide for Windsurf IDE
+ 
+ > **Note:** Each MCP host application needs to configure a GitHub App or OAuth App to support remote access via OAuth. Any host application that supports remote MCP servers should support the remote GitHub server with PAT authentication. Configuration details and support levels vary by host. Make sure to refer to the host application's documentation for more info.
+ 
+ > ⚠️ **Public Preview Status:** The **remote** GitHub MCP Server is currently in Public Preview. During preview, access may be gated depending on authentication type and surface:
+ > - OAuth: Subject to GitHub Copilot Editor Preview Policy until GA
+ > - PAT: Controlled via your organization's PAT policies
+ > - MCP Servers in Copilot policy: Enables/disables access to all MCP servers in VS Code, with other Copilot editors migrating to this policy in the coming months.
+ 
+ ### Configuration
+ See [Remote Server Documentation](/docs/remote-server.md) on how to pass additional configuration settings to the remote GitHub MCP Server.
+ 
+ ---
+ 
+ ## Local GitHub MCP Server
+ 
+ [![Install with Docker in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=github&inputs=%5B%7B%22id%22%3A%22github_token%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22GitHub%20Personal%20Access%20Token%22%2C%22password%22%3Atrue%7D%5D&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22GITHUB_PERSONAL_ACCESS_TOKEN%22%2C%22ghcr.io%2Fgithub%2Fgithub-mcp-server%22%5D%2C%22env%22%3A%7B%22GITHUB_PERSONAL_ACCESS_TOKEN%22%3A%22%24%7Binput%3Agithub_token%7D%22%7D%7D) [![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=github&inputs=%5B%7B%22id%22%3A%22github_token%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22GitHub%20Personal%20Access%20Token%22%2C%22password%22%3Atrue%7D%5D&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22GITHUB_PERSONAL_ACCESS_TOKEN%22%2C%22ghcr.io%2Fgithub%2Fgithub-mcp-server%22%5D%2C%22env%22%3A%7B%22GITHUB_PERSONAL_ACCESS_TOKEN%22%3A%22%24%7Binput%3Agithub_token%7D%22%7D%7D&quality=insiders)
+ 
+ ### Prerequisites
+ 
+ 1. To run the server in a container, you will need to have [Docker](https://www.docker.com/) installed.
+ 2. Once Docker is installed, you will also need to ensure Docker is running. The image is public; if you get errors on pull, you may have an expired token and need to `docker logout ghcr.io`.
+ 3. Lastly you will need to [Create a GitHub Personal Access Token](https://github.com/settings/personal-access-tokens/new).
+ The MCP server can use many of the GitHub APIs, so enable the permissions that you feel comfortable granting your AI tools (to learn more about access tokens, please check out the [documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)).
+ 
+ <details><summary><b>Handling PATs Securely</b></summary>
+ 
+ ### Environment Variables (Recommended)
+ To keep your GitHub PAT secure and reusable across different MCP hosts:
+ 
+ 1. **Store your PAT in environment variables**
+    ```bash
+    export GITHUB_PAT=your_token_here
+    ```
+    Or create a `.env` file:
+    ```env
+    GITHUB_PAT=your_token_here
+    ```
+ 
+ 2. **Protect your `.env` file**
+    ```bash
+    # Add to .gitignore to prevent accidental commits
+    echo ".env" >> .gitignore
+    ```
+ 
+ 3. **Reference the token in configurations**
+    ```bash
+    # CLI usage
+    claude mcp update github -e GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_PAT
+    
+    # In config files (where supported)
+    "env": {
+      "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_PAT"
+    }
+    ```
+ 
+ > **Note**: Environment variable support varies by host app and IDE. Some applications (like Windsurf) require hardcoded tokens in config files.
+ 
+ ### Token Security Best Practices
+ 
+ - **Minimum scopes**: Only grant necessary permissions
+   - `repo` - Repository operations
+   - `read:packages` - Docker image access
+ - **Separate tokens**: Use different PATs for different projects/environments
+ - **Regular rotation**: Update tokens periodically
+ - **Never commit**: Keep tokens out of version control
+ - **File permissions**: Restrict access to config files containing tokens
+   ```bash
+   chmod 600 ~/.your-app/config.json
+   ```
+ 
+ </details>
+ 
+ ## Installation
+ 
+ ### Install in GitHub Copilot on VS Code
+ 
+ For quick installation, use one of the one-click install buttons above. Once you complete that flow, toggle Agent mode (located by the Copilot Chat text input) and the server will start.
+ 
+ More about using MCP server tools in VS Code's [agent mode documentation](https://code.visualstudio.com/docs/copilot/chat/mcp-servers).
+ 
+ Install in GitHub Copilot on other IDEs (JetBrains, Visual Studio, Eclipse, etc.)
+ 
+ Add the following JSON block to your IDE's MCP settings.
+ 
+ ```json
+ {
+   "mcp": {
+     "inputs": [
+       {
+         "type": "promptString",
+         "id": "github_token",
+         "description": "GitHub Personal Access Token",
+         "password": true
+       }
+     ],
+     "servers": {
+       "github": {
+         "command": "docker",
+         "args": [
+           "run",
+           "-i",
+           "--rm",
+           "-e",
+           "GITHUB_PERSONAL_ACCESS_TOKEN",
+           "ghcr.io/github/github-mcp-server"
+         ],
+         "env": {
+           "GITHUB_PERSONAL_ACCESS_TOKEN": "${input:github_token}"
+         }
+       }
+     }
+   }
+ }
+ ```
+ 
+ Optionally, you can add a similar example (i.e. without the mcp key) to a file called `.vscode/mcp.json` in your workspace. This will allow you to share the configuration with other host applications that accept the same format.
+ 
+ <details>
+ <summary><b>Example JSON block without the MCP key included</b></summary>
+ <br>
+ 
+ ```json
+ {
+   "inputs": [
+     {
+       "type": "promptString",
+       "id": "github_token",
+       "description": "GitHub Personal Access Token",
+       "password": true
+     }
+   ],
+   "servers": {
+     "github": {
+       "command": "docker",
+       "args": [
+         "run",
+         "-i",
+         "--rm",
+         "-e",
+         "GITHUB_PERSONAL_ACCESS_TOKEN",
+         "ghcr.io/github/github-mcp-server"
+       ],
+       "env": {
+         "GITHUB_PERSONAL_ACCESS_TOKEN": "${input:github_token}"
+       }
+     }
+   }
+ }
+ ```
+ 
+ </details>
+ 
+ ### Install in Other MCP Hosts
+ 
+ For other MCP host applications, please refer to our installation guides:
+ 
+ - **[GitHub Copilot in other IDEs](/docs/installation-guides/install-other-copilot-ides.md)** - Installation for JetBrains, Visual Studio, Eclipse, and Xcode with GitHub Copilot
+ - **[Claude Code & Claude Desktop](docs/installation-guides/install-claude.md)** - Installation guide for Claude Code and Claude Desktop
+ - **[Cursor](docs/installation-guides/install-cursor.md)** - Installation guide for Cursor IDE  
+ - **[Windsurf](docs/installation-guides/install-windsurf.md)** - Installation guide for Windsurf IDE
+ 
+ For a complete overview of all installation options, see our **[Installation Guides Index](docs/installation-guides/installation-guides.md)**.
+ 
+ > **Note:** Any host application that supports local MCP servers should be able to access the local GitHub MCP server. However, the specific configuration process, syntax and stability of the integration will vary by host application. While many may follow a similar format to the examples above, this is not guaranteed. Please refer to your host application's documentation for the correct MCP configuration syntax and setup process.
+ 
+ ### Build from source
+ 
+ If you don't have Docker, you can use `go build` to build the binary in the
+ `cmd/github-mcp-server` directory, and use the `github-mcp-server stdio` command with the `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable set to your token. To specify the output location of the build, use the `-o` flag. You should configure your server to use the built executable as its `command`. For example:
+ 
+ ```JSON
+ {
+   "mcp": {
+     "servers": {
+       "github": {
+         "command": "/path/to/github-mcp-server",
+         "args": ["stdio"],
+         "env": {
+           "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+         }
+       }
+     }
+   }
+ }
+ ```
+ 
+ ## Tool Configuration
+ 
+ The GitHub MCP Server supports enabling or disabling specific groups of functionalities via the `--toolsets` flag. This allows you to control which GitHub API capabilities are available to your AI tools. Enabling only the toolsets that you need can help the LLM with tool choice and reduce the context size.
+ 
+ _Toolsets are not limited to Tools. Relevant MCP Resources and Prompts are also included where applicable._
+ 
+ ### Available Toolsets
+ 
+ The following sets of tools are available (all are on by default):
+ 
+ <!-- START AUTOMATED TOOLSETS -->
+ | Toolset                 | Description                                                   |
+ | ----------------------- | ------------------------------------------------------------- |
+ | `context`               | **Strongly recommended**: Tools that provide context about the current user and GitHub context you are operating in |
+ | `actions` | GitHub Actions workflows and CI/CD operations |
+ | `code_security` | Code security related tools, such as GitHub Code Scanning |
+ | `dependabot` | Dependabot tools |
+ | `discussions` | GitHub Discussions related tools |
+ | `experiments` | Experimental features that are not considered stable yet |
+ | `issues` | GitHub Issues related tools |
+ | `notifications` | GitHub Notifications related tools |
+ | `orgs` | GitHub Organization related tools |
+ | `pull_requests` | GitHub Pull Request related tools |
+ | `repos` | GitHub Repository related tools |
+ | `secret_protection` | Secret protection related tools, such as GitHub Secret Scanning |
+ | `users` | GitHub User related tools |
+ <!-- END AUTOMATED TOOLSETS -->
+ 
+ ## Tools
+ 
+ 
+ <!-- START AUTOMATED TOOLS -->
+ <details>
+ 
+ <summary>Actions</summary>
+ 
+ - **cancel_workflow_run** - Cancel workflow run
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **delete_workflow_run_logs** - Delete workflow logs
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **download_workflow_run_artifact** - Download workflow artifact
+   - `artifact_id`: The unique identifier of the artifact (number, required)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_job_logs** - Get job logs
+   - `failed_only`: When true, gets logs for all failed jobs in run_id (boolean, optional)
+   - `job_id`: The unique identifier of the workflow job (required for single job logs) (number, optional)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `return_content`: Returns actual log content instead of URLs (boolean, optional)
+   - `run_id`: Workflow run ID (required when using failed_only) (number, optional)
+   - `tail_lines`: Number of lines to return from the end of the log (number, optional)
+ 
+ - **get_workflow_run** - Get workflow run
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **get_workflow_run_logs** - Get workflow run logs
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **get_workflow_run_usage** - Get workflow usage
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **list_workflow_jobs** - List workflow jobs
+   - `filter`: Filters jobs by their completed_at timestamp (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **list_workflow_run_artifacts** - List workflow artifacts
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **list_workflow_runs** - List workflow runs
+   - `actor`: Returns someone's workflow runs. Use the login for the user who created the workflow run. (string, optional)
+   - `branch`: Returns workflow runs associated with a branch. Use the name of the branch. (string, optional)
+   - `event`: Returns workflow runs for a specific event type (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+   - `status`: Returns workflow runs with the check run status (string, optional)
+   - `workflow_id`: The workflow ID or workflow file name (string, required)
+ 
+ - **list_workflows** - List workflows
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ - **rerun_failed_jobs** - Rerun failed jobs
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **rerun_workflow_run** - Rerun workflow run
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `run_id`: The unique identifier of the workflow run (number, required)
+ 
+ - **run_workflow** - Run workflow
+   - `inputs`: Inputs the workflow accepts (object, optional)
+   - `owner`: Repository owner (string, required)
+   - `ref`: The git reference for the workflow. The reference can be a branch or tag name. (string, required)
+   - `repo`: Repository name (string, required)
+   - `workflow_id`: The workflow ID (numeric) or workflow file name (e.g., main.yml, ci.yaml) (string, required)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Code Security</summary>
+ 
+ - **get_code_scanning_alert** - Get code scanning alert
+   - `alertNumber`: The number of the alert. (number, required)
+   - `owner`: The owner of the repository. (string, required)
+   - `repo`: The name of the repository. (string, required)
+ 
+ - **list_code_scanning_alerts** - List code scanning alerts
+   - `owner`: The owner of the repository. (string, required)
+   - `ref`: The Git reference for the results you want to list. (string, optional)
+   - `repo`: The name of the repository. (string, required)
+   - `severity`: Filter code scanning alerts by severity (string, optional)
+   - `state`: Filter code scanning alerts by state. Defaults to open (string, optional)
+   - `tool_name`: The name of the tool used for code scanning. (string, optional)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Context</summary>
+ 
+ - **get_me** - Get my user profile
+   - No parameters required
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Dependabot</summary>
+ 
+ - **get_dependabot_alert** - Get dependabot alert
+   - `alertNumber`: The number of the alert. (number, required)
+   - `owner`: The owner of the repository. (string, required)
+   - `repo`: The name of the repository. (string, required)
+ 
+ - **list_dependabot_alerts** - List dependabot alerts
+   - `owner`: The owner of the repository. (string, required)
+   - `repo`: The name of the repository. (string, required)
+   - `severity`: Filter dependabot alerts by severity (string, optional)
+   - `state`: Filter dependabot alerts by state. Defaults to open (string, optional)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Discussions</summary>
+ 
+ - **get_discussion** - Get discussion
+   - `discussionNumber`: Discussion Number (number, required)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_discussion_comments** - Get discussion comments
+   - `after`: Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs. (string, optional)
+   - `discussionNumber`: Discussion Number (number, required)
+   - `owner`: Repository owner (string, required)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_discussion_categories** - List discussion categories
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_discussions** - List discussions
+   - `after`: Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs. (string, optional)
+   - `category`: Optional filter by discussion category ID. If provided, only discussions with this category are listed. (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Issues</summary>
+ 
+ - **add_issue_comment** - Add comment to issue
+   - `body`: Comment content (string, required)
+   - `issue_number`: Issue number to comment on (number, required)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
++- **add_sub_issue** - Add sub-issue
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `replace_parent`: When true, replaces the sub-issue's current parent issue (boolean, optional)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to add. ID is not the same as issue number (number, required)
++
+ - **assign_copilot_to_issue** - Assign Copilot to issue
+   - `issueNumber`: Issue number (number, required)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **create_issue** - Open new issue
+   - `assignees`: Usernames to assign to this issue (string[], optional)
+   - `body`: Issue body content (string, optional)
+   - `labels`: Labels to apply to this issue (string[], optional)
+   - `milestone`: Milestone number (number, optional)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `title`: Issue title (string, required)
+ 
+ - **get_issue** - Get issue details
+   - `issue_number`: The number of the issue (number, required)
+   - `owner`: The owner of the repository (string, required)
+   - `repo`: The name of the repository (string, required)
+ 
+ - **get_issue_comments** - Get issue comments
+   - `issue_number`: Issue number (number, required)
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_issues** - List issues
+   - `direction`: Sort direction (string, optional)
+   - `labels`: Filter by labels (string[], optional)
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+   - `since`: Filter by date (ISO 8601 timestamp) (string, optional)
+   - `sort`: Sort order (string, optional)
+   - `state`: Filter by state (string, optional)
+ 
++- **list_sub_issues** - List sub-issues
++  - `issue_number`: Issue number (number, required)
++  - `owner`: Repository owner (string, required)
++  - `page`: Page number for pagination (default: 1) (number, optional)
++  - `per_page`: Number of results per page (max 100, default: 30) (number, optional)
++  - `repo`: Repository name (string, required)
++
++- **remove_sub_issue** - Remove sub-issue
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to remove. ID is not the same as issue number (number, required)
++
++- **reprioritize_sub_issue** - Reprioritize sub-issue
++  - `after_id`: The ID of the sub-issue to be prioritized after (either after_id OR before_id should be specified) (number, optional)
++  - `before_id`: The ID of the sub-issue to be prioritized before (either after_id OR before_id should be specified) (number, optional)
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to reprioritize. ID is not the same as issue number (number, required)
++
+ - **search_issues** - Search issues
+   - `order`: Sort order (string, optional)
+   - `owner`: Optional repository owner. If provided with repo, only notifications for this repository are listed. (string, optional)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `query`: Search query using GitHub issues search syntax (string, required)
+   - `repo`: Optional repository name. If provided with owner, only notifications for this repository are listed. (string, optional)
+   - `sort`: Sort field by number of matches of categories, defaults to best match (string, optional)
+ 
+ - **update_issue** - Edit issue
+   - `assignees`: New assignees (string[], optional)
+   - `body`: New description (string, optional)
+   - `issue_number`: Issue number to update (number, required)
+   - `labels`: New labels (string[], optional)
+   - `milestone`: New milestone number (number, optional)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `state`: New state (string, optional)
+   - `title`: New title (string, optional)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Notifications</summary>
+ 
+ - **dismiss_notification** - Dismiss notification
+   - `state`: The new state of the notification (read/done) (string, optional)
+   - `threadID`: The ID of the notification thread (string, required)
+ 
+ - **get_notification_details** - Get notification details
+   - `notificationID`: The ID of the notification (string, required)
+ 
+ - **list_notifications** - List notifications
+   - `before`: Only show notifications updated before the given time (ISO 8601 format) (string, optional)
+   - `filter`: Filter notifications to, use default unless specified. Read notifications are ones that have already been acknowledged by the user. Participating notifications are those that the user is directly involved in, such as issues or pull requests they have commented on or created. (string, optional)
+   - `owner`: Optional repository owner. If provided with repo, only notifications for this repository are listed. (string, optional)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Optional repository name. If provided with owner, only notifications for this repository are listed. (string, optional)
+   - `since`: Only show notifications updated after the given time (ISO 8601 format) (string, optional)
+ 
+ - **manage_notification_subscription** - Manage notification subscription
+   - `action`: Action to perform: ignore, watch, or delete the notification subscription. (string, required)
+   - `notificationID`: The ID of the notification thread. (string, required)
+ 
+ - **manage_repository_notification_subscription** - Manage repository notification subscription
+   - `action`: Action to perform: ignore, watch, or delete the repository notification subscription. (string, required)
+   - `owner`: The account owner of the repository. (string, required)
+   - `repo`: The name of the repository. (string, required)
+ 
+ - **mark_all_notifications_read** - Mark all notifications as read
+   - `lastReadAt`: Describes the last point that notifications were checked (optional). Default: Now (string, optional)
+   - `owner`: Optional repository owner. If provided with repo, only notifications for this repository are marked as read. (string, optional)
+   - `repo`: Optional repository name. If provided with owner, only notifications for this repository are marked as read. (string, optional)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Organizations</summary>
+ 
+ - **search_orgs** - Search organizations
+   - `order`: Sort order (string, optional)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `query`: Search query using GitHub organizations search syntax scoped to type:org (string, required)
+   - `sort`: Sort field by category (string, optional)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Pull Requests</summary>
+ 
+ - **add_comment_to_pending_review** - Add review comment to the requester's latest pending pull request review
+   - `body`: The text of the review comment (string, required)
+   - `line`: The line of the blob in the pull request diff that the comment applies to. For multi-line comments, the last line of the range (number, optional)
+   - `owner`: Repository owner (string, required)
+   - `path`: The relative path to the file that necessitates a comment (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+   - `side`: The side of the diff to comment on. LEFT indicates the previous state, RIGHT indicates the new state (string, optional)
+   - `startLine`: For multi-line comments, the first line of the range that the comment applies to (number, optional)
+   - `startSide`: For multi-line comments, the starting side of the diff that the comment applies to. LEFT indicates the previous state, RIGHT indicates the new state (string, optional)
+   - `subjectType`: The level at which the comment is targeted (string, required)
+ 
+ - **create_and_submit_pull_request_review** - Create and submit a pull request review without comments
+   - `body`: Review comment text (string, required)
+   - `commitID`: SHA of commit to review (string, optional)
+   - `event`: Review action to perform (string, required)
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **create_pending_pull_request_review** - Create pending pull request review
+   - `commitID`: SHA of commit to review (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **create_pull_request** - Open new pull request
+   - `base`: Branch to merge into (string, required)
+   - `body`: PR description (string, optional)
+   - `draft`: Create as draft PR (boolean, optional)
+   - `head`: Branch containing changes (string, required)
+   - `maintainer_can_modify`: Allow maintainer edits (boolean, optional)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `title`: PR title (string, required)
+ 
+ - **delete_pending_pull_request_review** - Delete the requester's latest pending pull request review
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_pull_request** - Get pull request details
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_pull_request_comments** - Get pull request comments
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_pull_request_diff** - Get pull request diff
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_pull_request_files** - Get pull request files
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_pull_request_reviews** - Get pull request reviews
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_pull_request_status** - Get pull request status checks
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_pull_requests** - List pull requests
+   - `base`: Filter by base branch (string, optional)
+   - `direction`: Sort direction (string, optional)
+   - `head`: Filter by head user/org and branch (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+   - `sort`: Sort by (string, optional)
+   - `state`: Filter by state (string, optional)
+ 
+ - **merge_pull_request** - Merge pull request
+   - `commit_message`: Extra detail for merge commit (string, optional)
+   - `commit_title`: Title for merge commit (string, optional)
+   - `merge_method`: Merge method (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **request_copilot_review** - Request Copilot review
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **search_pull_requests** - Search pull requests
+   - `order`: Sort order (string, optional)
+   - `owner`: Optional repository owner. If provided with repo, only notifications for this repository are listed. (string, optional)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `query`: Search query using GitHub pull request search syntax (string, required)
+   - `repo`: Optional repository name. If provided with owner, only notifications for this repository are listed. (string, optional)
+   - `sort`: Sort field by number of matches of categories, defaults to best match (string, optional)
+ 
+ - **submit_pending_pull_request_review** - Submit the requester's latest pending pull request review
+   - `body`: The text of the review comment (string, optional)
+   - `event`: The event to perform (string, required)
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **update_pull_request** - Edit pull request
+   - `base`: New base branch name (string, optional)
+   - `body`: New description (string, optional)
+   - `maintainer_can_modify`: Allow maintainer edits (boolean, optional)
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number to update (number, required)
+   - `repo`: Repository name (string, required)
+   - `state`: New state (string, optional)
+   - `title`: New title (string, optional)
+ 
+ - **update_pull_request_branch** - Update pull request branch
+   - `expectedHeadSha`: The expected SHA of the pull request's HEAD ref (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `pullNumber`: Pull request number (number, required)
+   - `repo`: Repository name (string, required)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Repositories</summary>
+ 
+ - **create_branch** - Create branch
+   - `branch`: Name for new branch (string, required)
+   - `from_branch`: Source branch (defaults to repo default) (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **create_or_update_file** - Create or update file
+   - `branch`: Branch to create/update the file in (string, required)
+   - `content`: Content of the file (string, required)
+   - `message`: Commit message (string, required)
+   - `owner`: Repository owner (username or organization) (string, required)
+   - `path`: Path where to create/update the file (string, required)
+   - `repo`: Repository name (string, required)
+   - `sha`: Required if updating an existing file. The blob SHA of the file being replaced. (string, optional)
+ 
+ - **create_repository** - Create repository
+   - `autoInit`: Initialize with README (boolean, optional)
+   - `description`: Repository description (string, optional)
+   - `name`: Repository name (string, required)
+   - `private`: Whether repo should be private (boolean, optional)
+ 
+ - **delete_file** - Delete file
+   - `branch`: Branch to delete the file from (string, required)
+   - `message`: Commit message (string, required)
+   - `owner`: Repository owner (username or organization) (string, required)
+   - `path`: Path to the file to delete (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **fork_repository** - Fork repository
+   - `organization`: Organization to fork to (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **get_commit** - Get commit details
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+   - `sha`: Commit SHA, branch name, or tag name (string, required)
+ 
+ - **get_file_contents** - Get file or directory contents
+   - `owner`: Repository owner (username or organization) (string, required)
+   - `path`: Path to file/directory (directories must end with a slash '/') (string, optional)
+   - `ref`: Accepts optional git refs such as `refs/tags/{tag}`, `refs/heads/{branch}` or `refs/pull/{pr_number}/head` (string, optional)
+   - `repo`: Repository name (string, required)
+   - `sha`: Accepts optional commit SHA. If specified, it will be used instead of ref (string, optional)
+ 
+ - **get_tag** - Get tag details
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+   - `tag`: Tag name (string, required)
+ 
+ - **list_branches** - List branches
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_commits** - List commits
+   - `author`: Author username or email address to filter commits by (string, optional)
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+   - `sha`: Commit SHA, branch or tag name to list commits of. If not provided, uses the default branch of the repository. If a commit SHA is provided, will list commits up to that SHA. (string, optional)
+ 
+ - **list_tags** - List tags
+   - `owner`: Repository owner (string, required)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ - **push_files** - Push files to repository
+   - `branch`: Branch to push to (string, required)
+   - `files`: Array of file objects to push, each object with path (string) and content (string) (object[], required)
+   - `message`: Commit message (string, required)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **search_code** - Search code
+   - `order`: Sort order (string, optional)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `q`: Search query using GitHub code search syntax (string, required)
+   - `sort`: Sort field ('indexed' only) (string, optional)
+ 
+ - **search_repositories** - Search repositories
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `query`: Search query (string, required)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Secret Protection</summary>
+ 
+ - **get_secret_scanning_alert** - Get secret scanning alert
+   - `alertNumber`: The number of the alert. (number, required)
+   - `owner`: The owner of the repository. (string, required)
+   - `repo`: The name of the repository. (string, required)
+ 
+ - **list_secret_scanning_alerts** - List secret scanning alerts
+   - `owner`: The owner of the repository. (string, required)
+   - `repo`: The name of the repository. (string, required)
+   - `resolution`: Filter by resolution (string, optional)
+   - `secret_type`: A comma-separated list of secret types to return. All default secret patterns are returned. To return generic patterns, pass the token name(s) in the parameter. (string, optional)
+   - `state`: Filter by state (string, optional)
+ 
+ </details>
+ 
+ <details>
+ 
+ <summary>Users</summary>
+ 
+ - **search_users** - Search users
+   - `order`: Sort order (string, optional)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `query`: Search query using GitHub users search syntax scoped to type:user (string, required)
+   - `sort`: Sort field by category (string, optional)
+ 
+ </details>
+ <!-- END AUTOMATED TOOLS -->
+ 
+ ### Additional Tools in Remote Github MCP Server
+ 
+ <details>
+ 
+ <summary>Copilot coding agent</summary>
+ 
+ -   **create_pull_request_with_copilot** - Perform task with GitHub Copilot coding agent
+     -   `owner`: Repository owner. You can guess the owner, but confirm it with the user before proceeding. (string, required)
+     -   `repo`: Repository name. You can guess the repository name, but confirm it with the user before proceeding. (string, required)
+     -   `problem_statement`: Detailed description of the task to be performed (e.g., 'Implement a feature that does X', 'Fix bug Y', etc.) (string, required)
+     -   `title`: Title for the pull request that will be created (string, required)
+     -   `base_ref`: Git reference (e.g., branch) that the agent will start its work from. If not specified, defaults to the repository's default branch (string, optional)
+ 
+ </details>
+ 
+ #### Specifying Toolsets
+ 
+ To specify toolsets you want available to the LLM, you can pass an allow-list in two ways:
+ 
+ 1. **Using Command Line Argument**:
+ 
+    ```bash
+    github-mcp-server --toolsets repos,issues,pull_requests,actions,code_security
+    ```
+ 
+ 2. **Using Environment Variable**:
+    ```bash
+    GITHUB_TOOLSETS="repos,issues,pull_requests,actions,code_security" ./github-mcp-server
+    ```
+ 
+ The environment variable `GITHUB_TOOLSETS` takes precedence over the command line argument if both are provided.
+ 
+ ### Using Toolsets With Docker
+ 
+ When using Docker, you can pass the toolsets as environment variables:
+ 
+ ```bash
+ docker run -i --rm \
+   -e GITHUB_PERSONAL_ACCESS_TOKEN=<your-token> \
+   -e GITHUB_TOOLSETS="repos,issues,pull_requests,actions,code_security,experiments" \
+   ghcr.io/github/github-mcp-server
+ ```
+ 
+ ### The "all" Toolset
+ 
+ The special toolset `all` can be provided to enable all available toolsets regardless of any other configuration:
+ 
+ ```bash
+ ./github-mcp-server --toolsets all
+ ```
+ 
+ Or using the environment variable:
+ 
+ ```bash
+ GITHUB_TOOLSETS="all" ./github-mcp-server
+ ```
+ 
+ ## Dynamic Tool Discovery
+ 
+ **Note**: This feature is currently in beta and may not be available in all environments. Please test it out and let us know if you encounter any issues.
+ 
+ Instead of starting with all tools enabled, you can turn on dynamic toolset discovery. Dynamic toolsets allow the MCP host to list and enable toolsets in response to a user prompt. This should help to avoid situations where the model gets confused by the sheer number of tools available.
+ 
+ ### Using Dynamic Tool Discovery
+ 
+ When using the binary, you can pass the `--dynamic-toolsets` flag.
+ 
+ ```bash
+ ./github-mcp-server --dynamic-toolsets
+ ```
+ 
+ When using Docker, you can pass the toolsets as environment variables:
+ 
+ ```bash
+ docker run -i --rm \
+   -e GITHUB_PERSONAL_ACCESS_TOKEN=<your-token> \
+   -e GITHUB_DYNAMIC_TOOLSETS=1 \
+   ghcr.io/github/github-mcp-server
+ ```
+ 
+ ## Read-Only Mode
+ 
+ To run the server in read-only mode, you can use the `--read-only` flag. This will only offer read-only tools, preventing any modifications to repositories, issues, pull requests, etc.
+ 
+ ```bash
+ ./github-mcp-server --read-only
+ ```
+ 
+ When using Docker, you can pass the read-only mode as an environment variable:
+ 
+ ```bash
+ docker run -i --rm \
+   -e GITHUB_PERSONAL_ACCESS_TOKEN=<your-token> \
+   -e GITHUB_READ_ONLY=1 \
+   ghcr.io/github/github-mcp-server
+ ```
+ 
+ ## GitHub Enterprise Server and Enterprise Cloud with data residency (ghe.com)
+ 
+ The flag `--gh-host` and the environment variable `GITHUB_HOST` can be used to set
+ the hostname for GitHub Enterprise Server or GitHub Enterprise Cloud with data residency.
+ 
+ - For GitHub Enterprise Server, prefix the hostname with the `https://` URI scheme, as it otherwise defaults to `http://`, which GitHub Enterprise Server does not support.
+ - For GitHub Enterprise Cloud with data residency, use `https://YOURSUBDOMAIN.ghe.com` as the hostname.
+ ``` json
+ "github": {
+     "command": "docker",
+     "args": [
+     "run",
+     "-i",
+     "--rm",
+     "-e",
+     "GITHUB_PERSONAL_ACCESS_TOKEN",
+     "-e",
+     "GITHUB_HOST",
+     "ghcr.io/github/github-mcp-server"
+     ],
+     "env": {
+         "GITHUB_PERSONAL_ACCESS_TOKEN": "${input:github_token}",
+         "GITHUB_HOST": "https://<your GHES or ghe.com domain name>"
+     }
+ }
+ ```
+ 
+ ## i18n / Overriding Descriptions
+ 
+ The descriptions of the tools can be overridden by creating a
+ `github-mcp-server-config.json` file in the same directory as the binary.
+ 
+ The file should contain a JSON object with the tool names as keys and the new
+ descriptions as values. For example:
+ 
+ ```json
+ {
+   "TOOL_ADD_ISSUE_COMMENT_DESCRIPTION": "an alternative description",
+   "TOOL_CREATE_BRANCH_DESCRIPTION": "Create a new branch in a GitHub repository"
+ }
+ ```
+ 
+ You can create an export of the current translations by running the binary with
+ the `--export-translations` flag.
+ 
+ This flag will preserve any translations/overrides you have made, while adding
+ any new translations that have been added to the binary since the last time you
+ exported.
+ 
+ ```sh
+ ./github-mcp-server --export-translations
+ cat github-mcp-server-config.json
+ ```
+ 
+ You can also use ENV vars to override the descriptions. The environment
+ variable names are the same as the keys in the JSON file, prefixed with
+ `GITHUB_MCP_` and all uppercase.
+ 
+ For example, to override the `TOOL_ADD_ISSUE_COMMENT_DESCRIPTION` tool, you can
+ set the following environment variable:
+ 
+ ```sh
+ export GITHUB_MCP_TOOL_ADD_ISSUE_COMMENT_DESCRIPTION="an alternative description"
+ ```
+ 
+ ## Library Usage
+ 
+ The exported Go API of this module should currently be considered unstable, and subject to breaking changes. In the future, we may offer stability; please file an issue if there is a use case where this would be valuable.
+ 
+ ## License
+ 
+ This project is licensed under the terms of the MIT open source license. Please refer to [MIT](./LICENSE) for the full terms.
+diff --git a/pkg/github/issues.go b/pkg/github/issues.go
+index 80a150a..f104565 100644
+--- a/pkg/github/issues.go
++++ b/pkg/github/issues.go
+@@ -1,920 +1,1218 @@
+ package github
+ 
+ import (
+ 	"context"
+ 	"encoding/json"
+ 	"fmt"
+ 	"io"
+ 	"net/http"
+ 	"strings"
+ 	"time"
+ 
++	ghErrors "github.com/github/github-mcp-server/pkg/errors"
+ 	"github.com/github/github-mcp-server/pkg/translations"
+ 	"github.com/go-viper/mapstructure/v2"
+ 	"github.com/google/go-github/v73/github"
+ 	"github.com/mark3labs/mcp-go/mcp"
+ 	"github.com/mark3labs/mcp-go/server"
+ 	"github.com/shurcooL/githubv4"
+ )
+ 
+ // GetIssue creates a tool to get details of a specific issue in a GitHub repository.
+ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("get_issue",
+ 			mcp.WithDescription(t("TOOL_GET_ISSUE_DESCRIPTION", "Get details of a specific issue in a GitHub repository.")),
+ 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
+ 				Title:        t("TOOL_GET_ISSUE_USER_TITLE", "Get issue details"),
+ 				ReadOnlyHint: ToBoolPtr(true),
+ 			}),
+ 			mcp.WithString("owner",
+ 				mcp.Required(),
+ 				mcp.Description("The owner of the repository"),
+ 			),
+ 			mcp.WithString("repo",
+ 				mcp.Required(),
+ 				mcp.Description("The name of the repository"),
+ 			),
+ 			mcp.WithNumber("issue_number",
+ 				mcp.Required(),
+ 				mcp.Description("The number of the issue"),
+ 			),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			owner, err := RequiredParam[string](request, "owner")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			repo, err := RequiredParam[string](request, "repo")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			issueNumber, err := RequiredInt(request, "issue_number")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			client, err := getClient(ctx)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 			issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get issue: %w", err)
+ 			}
+ 			defer func() { _ = resp.Body.Close() }()
+ 
+ 			if resp.StatusCode != http.StatusOK {
+ 				body, err := io.ReadAll(resp.Body)
+ 				if err != nil {
+ 					return nil, fmt.Errorf("failed to read response body: %w", err)
+ 				}
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
+ 			}
+ 
+ 			r, err := json.Marshal(issue)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal issue: %w", err)
+ 			}
+ 
+ 			return mcp.NewToolResultText(string(r)), nil
+ 		}
+ }
+ 
+ // AddIssueComment creates a tool to add a comment to an issue.
+ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("add_issue_comment",
+ 			mcp.WithDescription(t("TOOL_ADD_ISSUE_COMMENT_DESCRIPTION", "Add a comment to a specific issue in a GitHub repository.")),
+ 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
+ 				Title:        t("TOOL_ADD_ISSUE_COMMENT_USER_TITLE", "Add comment to issue"),
+ 				ReadOnlyHint: ToBoolPtr(false),
+ 			}),
+ 			mcp.WithString("owner",
+ 				mcp.Required(),
+ 				mcp.Description("Repository owner"),
+ 			),
+ 			mcp.WithString("repo",
+ 				mcp.Required(),
+ 				mcp.Description("Repository name"),
+ 			),
+ 			mcp.WithNumber("issue_number",
+ 				mcp.Required(),
+ 				mcp.Description("Issue number to comment on"),
+ 			),
+ 			mcp.WithString("body",
+ 				mcp.Required(),
+ 				mcp.Description("Comment content"),
+ 			),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			owner, err := RequiredParam[string](request, "owner")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			repo, err := RequiredParam[string](request, "repo")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			issueNumber, err := RequiredInt(request, "issue_number")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			body, err := RequiredParam[string](request, "body")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			comment := &github.IssueComment{
+ 				Body: github.Ptr(body),
+ 			}
+ 
+ 			client, err := getClient(ctx)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 			createdComment, resp, err := client.Issues.CreateComment(ctx, owner, repo, issueNumber, comment)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to create comment: %w", err)
+ 			}
+ 			defer func() { _ = resp.Body.Close() }()
+ 
+ 			if resp.StatusCode != http.StatusCreated {
+ 				body, err := io.ReadAll(resp.Body)
+ 				if err != nil {
+ 					return nil, fmt.Errorf("failed to read response body: %w", err)
+ 				}
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to create comment: %s", string(body))), nil
+ 			}
+ 
+ 			r, err := json.Marshal(createdComment)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal response: %w", err)
+ 			}
+ 
+ 			return mcp.NewToolResultText(string(r)), nil
+ 		}
+ }
+ 
+ // SearchIssues creates a tool to search for issues.
+ func SearchIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("search_issues",
+ 			mcp.WithDescription(t("TOOL_SEARCH_ISSUES_DESCRIPTION", "Search for issues in GitHub repositories using issues search syntax already scoped to is:issue")),
+ 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
+ 				Title:        t("TOOL_SEARCH_ISSUES_USER_TITLE", "Search issues"),
+ 				ReadOnlyHint: ToBoolPtr(true),
+ 			}),
+ 			mcp.WithString("query",
+ 				mcp.Required(),
+ 				mcp.Description("Search query using GitHub issues search syntax"),
+ 			),
+ 			mcp.WithString("owner",
+ 				mcp.Description("Optional repository owner. If provided with repo, only notifications for this repository are listed."),
+ 			),
+ 			mcp.WithString("repo",
+ 				mcp.Description("Optional repository name. If provided with owner, only notifications for this repository are listed."),
+ 			),
+ 			mcp.WithString("sort",
+ 				mcp.Description("Sort field by number of matches of categories, defaults to best match"),
+ 				mcp.Enum(
+ 					"comments",
+ 					"reactions",
+ 					"reactions-+1",
+ 					"reactions--1",
+ 					"reactions-smile",
+ 					"reactions-thinking_face",
+ 					"reactions-heart",
+ 					"reactions-tada",
+ 					"interactions",
+ 					"created",
+ 					"updated",
+ 				),
+ 			),
+ 			mcp.WithString("order",
+ 				mcp.Description("Sort order"),
+ 				mcp.Enum("asc", "desc"),
+ 			),
+ 			WithPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			return searchHandler(ctx, getClient, request, "issue", "failed to search issues")
+ 		}
+ }
+ 
+ // CreateIssue creates a tool to create a new issue in a GitHub repository.
+ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("create_issue",
+ 			mcp.WithDescription(t("TOOL_CREATE_ISSUE_DESCRIPTION", "Create a new issue in a GitHub repository.")),
+ 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
+ 				Title:        t("TOOL_CREATE_ISSUE_USER_TITLE", "Open new issue"),
+ 				ReadOnlyHint: ToBoolPtr(false),
+ 			}),
+ 			mcp.WithString("owner",
+ 				mcp.Required(),
+ 				mcp.Description("Repository owner"),
+ 			),
+ 			mcp.WithString("repo",
+ 				mcp.Required(),
+ 				mcp.Description("Repository name"),
+ 			),
+ 			mcp.WithString("title",
+ 				mcp.Required(),
+ 				mcp.Description("Issue title"),
+ 			),
+ 			mcp.WithString("body",
+ 				mcp.Description("Issue body content"),
+ 			),
+ 			mcp.WithArray("assignees",
+ 				mcp.Description("Usernames to assign to this issue"),
+ 				mcp.Items(
+ 					map[string]any{
+ 						"type": "string",
+ 					},
+ 				),
+ 			),
+ 			mcp.WithArray("labels",
+ 				mcp.Description("Labels to apply to this issue"),
+ 				mcp.Items(
+ 					map[string]any{
+ 						"type": "string",
+ 					},
+ 				),
+ 			),
+ 			mcp.WithNumber("milestone",
+ 				mcp.Description("Milestone number"),
+ 			),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			owner, err := RequiredParam[string](request, "owner")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			repo, err := RequiredParam[string](request, "repo")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			title, err := RequiredParam[string](request, "title")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			// Optional parameters
+ 			body, err := OptionalParam[string](request, "body")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			// Get assignees
+ 			assignees, err := OptionalStringArrayParam(request, "assignees")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			// Get labels
+ 			labels, err := OptionalStringArrayParam(request, "labels")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			// Get optional milestone
+ 			milestone, err := OptionalIntParam(request, "milestone")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			var milestoneNum *int
+ 			if milestone != 0 {
+ 				milestoneNum = &milestone
+ 			}
+ 
+ 			// Create the issue request
+ 			issueRequest := &github.IssueRequest{
+ 				Title:     github.Ptr(title),
+ 				Body:      github.Ptr(body),
+ 				Assignees: &assignees,
+ 				Labels:    &labels,
+ 				Milestone: milestoneNum,
+ 			}
+ 
+ 			client, err := getClient(ctx)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 			issue, resp, err := client.Issues.Create(ctx, owner, repo, issueRequest)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to create issue: %w", err)
+ 			}
+ 			defer func() { _ = resp.Body.Close() }()
+ 
+ 			if resp.StatusCode != http.StatusCreated {
+ 				body, err := io.ReadAll(resp.Body)
+ 				if err != nil {
+ 					return nil, fmt.Errorf("failed to read response body: %w", err)
+ 				}
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to create issue: %s", string(body))), nil
+ 			}
+ 
+ 			r, err := json.Marshal(issue)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal response: %w", err)
+ 			}
+ 
+ 			return mcp.NewToolResultText(string(r)), nil
+ 		}
+ }
+ 
+ // ListIssues creates a tool to list and filter repository issues
+ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("list_issues",
+ 			mcp.WithDescription(t("TOOL_LIST_ISSUES_DESCRIPTION", "List issues in a GitHub repository.")),
+ 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
+ 				Title:        t("TOOL_LIST_ISSUES_USER_TITLE", "List issues"),
+ 				ReadOnlyHint: ToBoolPtr(true),
+ 			}),
+ 			mcp.WithString("owner",
+ 				mcp.Required(),
+ 				mcp.Description("Repository owner"),
+ 			),
+ 			mcp.WithString("repo",
+ 				mcp.Required(),
+ 				mcp.Description("Repository name"),
+ 			),
+ 			mcp.WithString("state",
+ 				mcp.Description("Filter by state"),
+ 				mcp.Enum("open", "closed", "all"),
+ 			),
+ 			mcp.WithArray("labels",
+ 				mcp.Description("Filter by labels"),
+ 				mcp.Items(
+ 					map[string]interface{}{
+ 						"type": "string",
+ 					},
+ 				),
+ 			),
+ 			mcp.WithString("sort",
+ 				mcp.Description("Sort order"),
+ 				mcp.Enum("created", "updated", "comments"),
+ 			),
+ 			mcp.WithString("direction",
+ 				mcp.Description("Sort direction"),
+ 				mcp.Enum("asc", "desc"),
+ 			),
+ 			mcp.WithString("since",
+ 				mcp.Description("Filter by date (ISO 8601 timestamp)"),
+ 			),
+ 			WithPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			owner, err := RequiredParam[string](request, "owner")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			repo, err := RequiredParam[string](request, "repo")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			opts := &github.IssueListByRepoOptions{}
+ 
+ 			// Set optional parameters if provided
+ 			opts.State, err = OptionalParam[string](request, "state")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			// Get labels
+ 			opts.Labels, err = OptionalStringArrayParam(request, "labels")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			opts.Sort, err = OptionalParam[string](request, "sort")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			opts.Direction, err = OptionalParam[string](request, "direction")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			since, err := OptionalParam[string](request, "since")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			if since != "" {
+ 				timestamp, err := parseISOTimestamp(since)
+ 				if err != nil {
+ 					return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", err.Error())), nil
+ 				}
+ 				opts.Since = timestamp
+ 			}
+ 
+ 			if page, ok := request.GetArguments()["page"].(float64); ok {
+ 				opts.ListOptions.Page = int(page)
+ 			}
+ 
+ 			if perPage, ok := request.GetArguments()["perPage"].(float64); ok {
+ 				opts.ListOptions.PerPage = int(perPage)
+ 			}
+ 
+ 			client, err := getClient(ctx)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 			issues, resp, err := client.Issues.ListByRepo(ctx, owner, repo, opts)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to list issues: %w", err)
+ 			}
+ 			defer func() { _ = resp.Body.Close() }()
+ 
+ 			if resp.StatusCode != http.StatusOK {
+ 				body, err := io.ReadAll(resp.Body)
+ 				if err != nil {
+ 					return nil, fmt.Errorf("failed to read response body: %w", err)
+ 				}
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
+ 			}
+ 
+ 			r, err := json.Marshal(issues)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal issues: %w", err)
+ 			}
+ 
+ 			return mcp.NewToolResultText(string(r)), nil
+ 		}
+ }
+ 
+ // UpdateIssue creates a tool to update an existing issue in a GitHub repository.
+ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("update_issue",
+ 			mcp.WithDescription(t("TOOL_UPDATE_ISSUE_DESCRIPTION", "Update an existing issue in a GitHub repository.")),
+ 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
+ 				Title:        t("TOOL_UPDATE_ISSUE_USER_TITLE", "Edit issue"),
+ 				ReadOnlyHint: ToBoolPtr(false),
+ 			}),
+ 			mcp.WithString("owner",
+ 				mcp.Required(),
+ 				mcp.Description("Repository owner"),
+ 			),
+ 			mcp.WithString("repo",
+ 				mcp.Required(),
+ 				mcp.Description("Repository name"),
+ 			),
+ 			mcp.WithNumber("issue_number",
+ 				mcp.Required(),
+ 				mcp.Description("Issue number to update"),
+ 			),
+ 			mcp.WithString("title",
+ 				mcp.Description("New title"),
+ 			),
+ 			mcp.WithString("body",
+ 				mcp.Description("New description"),
+ 			),
+ 			mcp.WithString("state",
+ 				mcp.Description("New state"),
+ 				mcp.Enum("open", "closed"),
+ 			),
+ 			mcp.WithArray("labels",
+ 				mcp.Description("New labels"),
+ 				mcp.Items(
+ 					map[string]interface{}{
+ 						"type": "string",
+ 					},
+ 				),
+ 			),
+ 			mcp.WithArray("assignees",
+ 				mcp.Description("New assignees"),
+ 				mcp.Items(
+ 					map[string]interface{}{
+ 						"type": "string",
+ 					},
+ 				),
+ 			),
+ 			mcp.WithNumber("milestone",
+ 				mcp.Description("New milestone number"),
+ 			),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			owner, err := RequiredParam[string](request, "owner")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			repo, err := RequiredParam[string](request, "repo")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			issueNumber, err := RequiredInt(request, "issue_number")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			// Create the issue request with only provided fields
+ 			issueRequest := &github.IssueRequest{}
+ 
+ 			// Set optional parameters if provided
+ 			title, err := OptionalParam[string](request, "title")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			if title != "" {
+ 				issueRequest.Title = github.Ptr(title)
+ 			}
+ 
+ 			body, err := OptionalParam[string](request, "body")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			if body != "" {
+ 				issueRequest.Body = github.Ptr(body)
+ 			}
+ 
+ 			state, err := OptionalParam[string](request, "state")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			if state != "" {
+ 				issueRequest.State = github.Ptr(state)
+ 			}
+ 
+ 			// Get labels
+ 			labels, err := OptionalStringArrayParam(request, "labels")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			if len(labels) > 0 {
+ 				issueRequest.Labels = &labels
+ 			}
+ 
+ 			// Get assignees
+ 			assignees, err := OptionalStringArrayParam(request, "assignees")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			if len(assignees) > 0 {
+ 				issueRequest.Assignees = &assignees
+ 			}
+ 
+ 			milestone, err := OptionalIntParam(request, "milestone")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			if milestone != 0 {
+ 				milestoneNum := milestone
+ 				issueRequest.Milestone = &milestoneNum
+ 			}
+ 
+ 			client, err := getClient(ctx)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 			updatedIssue, resp, err := client.Issues.Edit(ctx, owner, repo, issueNumber, issueRequest)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to update issue: %w", err)
+ 			}
+ 			defer func() { _ = resp.Body.Close() }()
+ 
+ 			if resp.StatusCode != http.StatusOK {
+ 				body, err := io.ReadAll(resp.Body)
+ 				if err != nil {
+ 					return nil, fmt.Errorf("failed to read response body: %w", err)
+ 				}
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to update issue: %s", string(body))), nil
+ 			}
+ 
+ 			r, err := json.Marshal(updatedIssue)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal response: %w", err)
+ 			}
+ 
+ 			return mcp.NewToolResultText(string(r)), nil
+ 		}
+ }
+ 
+ // GetIssueComments creates a tool to get comments for a GitHub issue.
+ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("get_issue_comments",
+ 			mcp.WithDescription(t("TOOL_GET_ISSUE_COMMENTS_DESCRIPTION", "Get comments for a specific issue in a GitHub repository.")),
+ 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
+ 				Title:        t("TOOL_GET_ISSUE_COMMENTS_USER_TITLE", "Get issue comments"),
+ 				ReadOnlyHint: ToBoolPtr(true),
+ 			}),
+ 			mcp.WithString("owner",
+ 				mcp.Required(),
+ 				mcp.Description("Repository owner"),
+ 			),
+ 			mcp.WithString("repo",
+ 				mcp.Required(),
+ 				mcp.Description("Repository name"),
+ 			),
+ 			mcp.WithNumber("issue_number",
+ 				mcp.Required(),
+ 				mcp.Description("Issue number"),
+ 			),
+ 			WithPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			owner, err := RequiredParam[string](request, "owner")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			repo, err := RequiredParam[string](request, "repo")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			issueNumber, err := RequiredInt(request, "issue_number")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			pagination, err := OptionalPaginationParams(request)
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			opts := &github.IssueListCommentsOptions{
+ 				ListOptions: github.ListOptions{
+ 					Page:    pagination.Page,
+ 					PerPage: pagination.PerPage,
+ 				},
+ 			}
+ 
+ 			client, err := getClient(ctx)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 			comments, resp, err := client.Issues.ListComments(ctx, owner, repo, issueNumber, opts)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get issue comments: %w", err)
+ 			}
+ 			defer func() { _ = resp.Body.Close() }()
+ 
+ 			if resp.StatusCode != http.StatusOK {
+ 				body, err := io.ReadAll(resp.Body)
+ 				if err != nil {
+ 					return nil, fmt.Errorf("failed to read response body: %w", err)
+ 				}
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue comments: %s", string(body))), nil
+ 			}
+ 
+ 			r, err := json.Marshal(comments)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal response: %w", err)
+ 			}
+ 
+ 			return mcp.NewToolResultText(string(r)), nil
+ 		}
+ }
+ 
++// subIssueResult turns the outcome of a sub-issue API call into a tool result.
++// An API error is reported through the GitHub API error helper, an unexpected
++// status code as a tool error, and a successful response as the JSON of v.
++// The client has already read and closed the response body, and decoded it into v.
++func subIssueResult(ctx context.Context, message string, v any, resp *github.Response, err error, wantStatus int) (*mcp.CallToolResult, error) {
++	if err != nil {
++		return ghErrors.NewGitHubAPIErrorResponse(ctx, message, resp, err), nil
++	}
++
++	if resp.StatusCode != wantStatus {
++		return mcp.NewToolResultError(fmt.Sprintf("%s: unexpected status %d", message, resp.StatusCode)), nil
++	}
++
++	r, err := json.Marshal(v)
++	if err != nil {
++		return nil, fmt.Errorf("failed to marshal response: %w", err)
++	}
++
++	return mcp.NewToolResultText(string(r)), nil
++}
++
++// ListSubIssues creates a tool to list the sub-issues of an issue.
++func ListSubIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("list_sub_issues",
++			mcp.WithDescription(t("TOOL_LIST_SUB_ISSUES_DESCRIPTION", "List sub-issues for a specific issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_LIST_SUB_ISSUES_USER_TITLE", "List sub-issues"),
++				ReadOnlyHint: ToBoolPtr(true),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("Issue number"),
++			),
++			mcp.WithNumber("page",
++				mcp.Description("Page number for pagination (default: 1)"),
++			),
++			mcp.WithNumber("per_page",
++				mcp.Description("Number of results per page (max 100, default: 30)"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			owner, err := RequiredParam[string](request, "owner")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			repo, err := RequiredParam[string](request, "repo")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			issueNumber, err := RequiredInt(request, "issue_number")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			page, err := OptionalIntParamWithDefault(request, "page", 1)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			perPage, err := OptionalIntParamWithDefault(request, "per_page", 30)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++
++			opts := &github.IssueListOptions{
++				ListOptions: github.ListOptions{
++					Page:    page,
++					PerPage: perPage,
++				},
++			}
++			subIssues, resp, err := client.SubIssue.ListByIssue(ctx, owner, repo, int64(issueNumber), opts)
++			return subIssueResult(ctx, "failed to list sub-issues", subIssues, resp, err, http.StatusOK)
++		}
++}
++
++// AddSubIssue creates a tool to add a sub-issue to a parent issue.
++func AddSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("add_sub_issue",
++			mcp.WithDescription(t("TOOL_ADD_SUB_ISSUE_DESCRIPTION", "Add a sub-issue to a parent issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_ADD_SUB_ISSUE_USER_TITLE", "Add sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("The number of the parent issue"),
++			),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to add. ID is not the same as issue number"),
++			),
++			mcp.WithBoolean("replace_parent",
++				mcp.Description("When true, replaces the sub-issue's current parent issue"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			owner, err := RequiredParam[string](request, "owner")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			repo, err := RequiredParam[string](request, "repo")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			issueNumber, err := RequiredInt(request, "issue_number")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := RequiredInt(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			replaceParent, err := OptionalParam[bool](request, "replace_parent")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++
++			subIssueRequest := github.SubIssueRequest{
++				SubIssueID: int64(subIssueID),
++			}
++			if replaceParent {
++				subIssueRequest.ReplaceParent = github.Ptr(true)
++			}
++			subIssue, resp, err := client.SubIssue.Add(ctx, owner, repo, int64(issueNumber), subIssueRequest)
++			return subIssueResult(ctx, "failed to add sub-issue", subIssue, resp, err, http.StatusCreated)
++		}
++}
++
++// RemoveSubIssue creates a tool to remove a sub-issue from a parent issue.
++func RemoveSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("remove_sub_issue",
++			mcp.WithDescription(t("TOOL_REMOVE_SUB_ISSUE_DESCRIPTION", "Remove a sub-issue from a parent issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_REMOVE_SUB_ISSUE_USER_TITLE", "Remove sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("The number of the parent issue"),
++			),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to remove. ID is not the same as issue number"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			owner, err := RequiredParam[string](request, "owner")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			repo, err := RequiredParam[string](request, "repo")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			issueNumber, err := RequiredInt(request, "issue_number")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := RequiredInt(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++
++			// SubIssueService.Remove sends the request to ".../sub_issues" instead of
++			// ".../sub_issue" (google/go-github#3613), so build the request directly.
++			u := fmt.Sprintf("repos/%s/%s/issues/%d/sub_issue", owner, repo, issueNumber)
++			req, err := client.NewRequest(http.MethodDelete, u, github.SubIssueRequest{SubIssueID: int64(subIssueID)})
++			if err != nil {
++				return nil, fmt.Errorf("failed to create request: %w", err)
++			}
++
++			// The response body is the parent issue.
++			parent := new(github.Issue)
++			resp, err := client.Do(ctx, req, parent)
++			return subIssueResult(ctx, "failed to remove sub-issue", parent, resp, err, http.StatusOK)
++		}
++}
++
++// ReprioritizeSubIssue creates a tool to move a sub-issue to a different position in its parent's sub-issue list.
++func ReprioritizeSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("reprioritize_sub_issue",
++			mcp.WithDescription(t("TOOL_REPRIORITIZE_SUB_ISSUE_DESCRIPTION", "Reprioritize a sub-issue to a different position in the parent issue's sub-issue list.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_REPRIORITIZE_SUB_ISSUE_USER_TITLE", "Reprioritize sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("The number of the parent issue"),
++			),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to reprioritize. ID is not the same as issue number"),
++			),
++			mcp.WithNumber("after_id",
++				mcp.Description("The ID of the sub-issue to be prioritized after (either after_id OR before_id should be specified)"),
++			),
++			mcp.WithNumber("before_id",
++				mcp.Description("The ID of the sub-issue to be prioritized before (either after_id OR before_id should be specified)"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			owner, err := RequiredParam[string](request, "owner")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			repo, err := RequiredParam[string](request, "repo")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			issueNumber, err := RequiredInt(request, "issue_number")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := RequiredInt(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			afterID, err := OptionalIntParam(request, "after_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			beforeID, err := OptionalIntParam(request, "before_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			if afterID == 0 && beforeID == 0 {
++				return mcp.NewToolResultError("either after_id or before_id must be specified"), nil
++			}
++			if afterID != 0 && beforeID != 0 {
++				return mcp.NewToolResultError("only one of after_id or before_id should be specified, not both"), nil
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++
++			subIssueRequest := github.SubIssueRequest{
++				SubIssueID: int64(subIssueID),
++			}
++			if afterID != 0 {
++				subIssueRequest.AfterID = github.Ptr(int64(afterID))
++			} else {
++				subIssueRequest.BeforeID = github.Ptr(int64(beforeID))
++			}
++			subIssue, resp, err := client.SubIssue.Reprioritize(ctx, owner, repo, int64(issueNumber), subIssueRequest)
++			return subIssueResult(ctx, "failed to reprioritize sub-issue", subIssue, resp, err, http.StatusOK)
++		}
++}
++
+ // mvpDescription is an MVP idea for generating tool descriptions from structured data in a shared format.
+ // It is not intended for widespread usage and is not a complete implementation.
+ type mvpDescription struct {
+ 	summary        string
+ 	outcomes       []string
+ 	referenceLinks []string
+ }
+ 
+ func (d *mvpDescription) String() string {
+ 	var sb strings.Builder
+ 	sb.WriteString(d.summary)
+ 	if len(d.outcomes) > 0 {
+ 		sb.WriteString("\n\n")
+ 		sb.WriteString("This tool can help with the following outcomes:\n")
+ 		for _, outcome := range d.outcomes {
+ 			sb.WriteString(fmt.Sprintf("- %s\n", outcome))
+ 		}
+ 	}
+ 
+ 	if len(d.referenceLinks) > 0 {
+ 		sb.WriteString("\n\n")
+ 		sb.WriteString("More information can be found at:\n")
+ 		for _, link := range d.referenceLinks {
+ 			sb.WriteString(fmt.Sprintf("- %s\n", link))
+ 		}
+ 	}
+ 
+ 	return sb.String()
+ }
+ 
+ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
+ 	description := mvpDescription{
+ 		summary: "Assign Copilot to a specific issue in a GitHub repository.",
+ 		outcomes: []string{
+ 			"a Pull Request created with source code changes to resolve the issue",
+ 		},
+ 		referenceLinks: []string{
+ 			"https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent-to-work-on-tasks/about-assigning-tasks-to-copilot",
+ 		},
+ 	}
+ 
+ 	return mcp.NewTool("assign_copilot_to_issue",
+ 			mcp.WithDescription(t("TOOL_ASSIGN_COPILOT_TO_ISSUE_DESCRIPTION", description.String())),
+ 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
+ 				Title:          t("TOOL_ASSIGN_COPILOT_TO_ISSUE_USER_TITLE", "Assign Copilot to issue"),
+ 				ReadOnlyHint:   ToBoolPtr(false),
+ 				IdempotentHint: ToBoolPtr(true),
+ 			}),
+ 			mcp.WithString("owner",
+ 				mcp.Required(),
+ 				mcp.Description("Repository owner"),
+ 			),
+ 			mcp.WithString("repo",
+ 				mcp.Required(),
+ 				mcp.Description("Repository name"),
+ 			),
+ 			mcp.WithNumber("issueNumber",
+ 				mcp.Required(),
+ 				mcp.Description("Issue number"),
+ 			),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			var params struct {
+ 				Owner       string
+ 				Repo        string
+ 				IssueNumber int32
+ 			}
+ 			if err := mapstructure.Decode(request.Params.Arguments, &params); err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+ 			client, err := getGQLClient(ctx)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 
+ 			// Firstly, we try to find the copilot bot in the suggested actors for the repository.
+ 			// Although as I write this, we would expect copilot to be at the top of the list, in future, maybe
+ 			// it will not be on the first page of responses, thus we will keep paginating until we find it.
+ 			type botAssignee struct {
+ 				ID       githubv4.ID
+ 				Login    string
+ 				TypeName string `graphql:"__typename"`
+ 			}
+ 
+ 			type suggestedActorsQuery struct {
+ 				Repository struct {
+ 					SuggestedActors struct {
+ 						Nodes []struct {
+ 							Bot botAssignee `graphql:"... on Bot"`
+ 						}
+ 						PageInfo struct {
+ 							HasNextPage bool
+ 							EndCursor   string
+ 						}
+ 					} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
+ 				} `graphql:"repository(owner: $owner, name: $name)"`
+ 			}
+ 
+ 			variables := map[string]any{
+ 				"owner":     githubv4.String(params.Owner),
+ 				"name":      githubv4.String(params.Repo),
+ 				"endCursor": (*githubv4.String)(nil),
+ 			}
+ 
+ 			var copilotAssignee *botAssignee
+ 			for {
+ 				var query suggestedActorsQuery
+ 				err := client.Query(ctx, &query, variables)
+ 				if err != nil {
+ 					return nil, err
+ 				}
+ 
+ 				// Iterate all the returned nodes looking for the copilot bot, which is supposed to have the
+ 				// same name on each host. We need this in order to get the ID for later assignment.
+ 				for _, node := range query.Repository.SuggestedActors.Nodes {
+ 					if node.Bot.Login == "copilot-swe-agent" {
+ 						copilotAssignee = &node.Bot
+ 						break
+ 					}
+ 				}
+ 
+ 				if !query.Repository.SuggestedActors.PageInfo.HasNextPage {
+ 					break
+ 				}
+ 				variables["endCursor"] = githubv4.String(query.Repository.SuggestedActors.PageInfo.EndCursor)
+ 			}
+ 
+ 			// If we didn't find the copilot bot, we can't proceed any further.
+ 			if copilotAssignee == nil {
+ 				// The e2e tests depend upon this specific message to skip the test.
+ 				return mcp.NewToolResultError("copilot isn't available as an assignee for this issue. Please inform the user to visit https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent-to-work-on-tasks/about-assigning-tasks-to-copilot for more information."), nil
+ 			}
+ 
+ 			// Next let's get the GQL Node ID and current assignees for this issue because the only way to
+ 			// assign copilot is to use replaceActorsForAssignable which requires the full list.
+ 			var getIssueQuery struct {
+ 				Repository struct {
+ 					Issue struct {
+ 						ID        githubv4.ID
+ 						Assignees struct {
+ 							Nodes []struct {
+ 								ID githubv4.ID
+ 							}
+ 						} `graphql:"assignees(first: 100)"`
+ 					} `graphql:"issue(number: $number)"`
+ 				} `graphql:"repository(owner: $owner, name: $name)"`
+ 			}
+ 
+ 			variables = map[string]any{
+ 				"owner":  githubv4.String(params.Owner),
+ 				"name":   githubv4.String(params.Repo),
+ 				"number": githubv4.Int(params.IssueNumber),
+ 			}
+ 
+ 			if err := client.Query(ctx, &getIssueQuery, variables); err != nil {
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue ID: %v", err)), nil
+ 			}
+ 
+ 			// Finally, do the assignment. Just for reference, assigning copilot to an issue that it is already
+ 			// assigned to seems to have no impact (which is a good thing).
+ 			var assignCopilotMutation struct {
+ 				ReplaceActorsForAssignable struct {
+ 					Typename string `graphql:"__typename"` // Not required but we need a selector or GQL errors
+ 				} `graphql:"replaceActorsForAssignable(input: $input)"`
+ 			}
+ 
+ 			actorIDs := make([]githubv4.ID, len(getIssueQuery.Repository.Issue.Assignees.Nodes)+1)
+ 			for i, node := range getIssueQuery.Repository.Issue.Assignees.Nodes {
+ 				actorIDs[i] = node.ID
+ 			}
+ 			actorIDs[len(getIssueQuery.Repository.Issue.Assignees.Nodes)] = copilotAssignee.ID
+ 
+ 			if err := client.Mutate(
+ 				ctx,
+ 				&assignCopilotMutation,
+ 				ReplaceActorsForAssignableInput{
+ 					AssignableID: getIssueQuery.Repository.Issue.ID,
+ 					ActorIDs:     actorIDs,
+ 				},
+ 				nil,
+ 			); err != nil {
+ 				return nil, fmt.Errorf("failed to replace actors for assignable: %w", err)
+ 			}
+ 
+ 			return mcp.NewToolResultText("successfully assigned copilot to issue"), nil
+ 		}
+ }
+ 
+ type ReplaceActorsForAssignableInput struct {
+ 	AssignableID githubv4.ID   `json:"assignableId"`
+ 	ActorIDs     []githubv4.ID `json:"actorIds"`
+ }
+ 
+ // parseISOTimestamp parses an ISO 8601 timestamp string into a time.Time object.
+ // Returns the parsed time or an error if parsing fails.
+ // Example formats supported: "2023-01-15T14:30:00Z", "2023-01-15"
+ func parseISOTimestamp(timestamp string) (time.Time, error) {
+ 	if timestamp == "" {
+ 		return time.Time{}, fmt.Errorf("empty timestamp")
+ 	}
+ 
+ 	// Try RFC3339 format (standard ISO 8601 with time)
+ 	t, err := time.Parse(time.RFC3339, timestamp)
+ 	if err == nil {
+ 		return t, nil
+ 	}
+ 
+ 	// Try simple date format (YYYY-MM-DD)
+ 	t, err = time.Parse("2006-01-02", timestamp)
+ 	if err == nil {
+ 		return t, nil
+ 	}
+ 
+ 	// Return error with supported formats
+ 	return time.Time{}, fmt.Errorf("invalid ISO 8601 timestamp: %s (supported formats: YYYY-MM-DDThh:mm:ssZ or YYYY-MM-DD)", timestamp)
+ }
+ 
+ func AssignCodingAgentPrompt(t translations.TranslationHelperFunc) (tool mcp.Prompt, handler server.PromptHandlerFunc) {
+ 	return mcp.NewPrompt("AssignCodingAgent",
+ 			mcp.WithPromptDescription(t("PROMPT_ASSIGN_CODING_AGENT_DESCRIPTION", "Assign GitHub Coding Agent to multiple tasks in a GitHub repository.")),
+ 			mcp.WithArgument("repo", mcp.ArgumentDescription("The repository to assign tasks in (owner/repo)."), mcp.RequiredArgument()),
+ 		), func(_ context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+ 			repo := request.Params.Arguments["repo"]
+ 
+ 			messages := []mcp.PromptMessage{
+ 				{
+ 					Role:    "system",
+ 					Content: mcp.NewTextContent("You are a personal assistant for GitHub the Copilot GitHub Coding Agent. Your task is to help the user assign tasks to the Coding Agent based on their open GitHub issues. You can use `assign_copilot_to_issue` tool to assign the Coding Agent to issues that are suitable for autonomous work, and `search_issues` tool to find issues that match the user's criteria. You can also use `list_issues` to get a list of issues in the repository."),
+ 				},
+ 				{
+ 					Role:    "user",
+ 					Content: mcp.NewTextContent(fmt.Sprintf("Please go and get a list of the most recent 10 issues from the %s GitHub repository", repo)),
+ 				},
+ 				{
+ 					Role:    "assistant",
+ 					Content: mcp.NewTextContent(fmt.Sprintf("Sure! I will get a list of the 10 most recent issues for the repo %s.", repo)),
+ 				},
+ 				{
+ 					Role:    "user",
+ 					Content: mcp.NewTextContent("For each issue, please check if it is a clearly defined coding task with acceptance criteria and a low to medium complexity to identify issues that are suitable for an AI Coding Agent to work on. Then assign each of the identified issues to Copilot."),
+ 				},
+ 				{
+ 					Role:    "assistant",
+ 					Content: mcp.NewTextContent("Certainly! Let me carefully check which ones are clearly scoped issues that are good to assign to the coding agent, and I will summarize and assign them now."),
+ 				},
+ 				{
+ 					Role:    "user",
+ 					Content: mcp.NewTextContent("Great, if you are unsure if an issue is good to assign, ask me first, rather than assigning copilot. If you are certain the issue is clear and suitable you can assign it to Copilot without asking."),
+ 				},
+ 			}
+ 			return &mcp.GetPromptResult{
+ 				Messages: messages,
+ 			}, nil
+ 		}
+ }
+diff --git a/pkg/github/issues_test.go b/pkg/github/issues_test.go
+index 1462594..f457ab4 100644
+--- a/pkg/github/issues_test.go
++++ b/pkg/github/issues_test.go
+@@ -1,1631 +1,2108 @@
+ package github
+ 
+ import (
+ 	"context"
+ 	"encoding/json"
+ 	"fmt"
+ 	"net/http"
+ 	"testing"
+ 	"time"
+ 
+ 	"github.com/github/github-mcp-server/internal/githubv4mock"
+ 	"github.com/github/github-mcp-server/internal/toolsnaps"
+ 	"github.com/github/github-mcp-server/pkg/translations"
+ 	"github.com/google/go-github/v73/github"
++	"github.com/mark3labs/mcp-go/mcp"
++	"github.com/mark3labs/mcp-go/server"
+ 	"github.com/migueleliasweb/go-github-mock/src/mock"
+ 	"github.com/shurcooL/githubv4"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+ func Test_GetIssue(t *testing.T) {
+ 	// Verify tool definition once
+ 	mockClient := github.NewClient(nil)
+ 	tool, _ := GetIssue(stubGetClientFn(mockClient), translations.NullTranslationHelper)
+ 	require.NoError(t, toolsnaps.Test(tool.Name, tool))
+ 
+ 	assert.Equal(t, "get_issue", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
+ 	assert.Contains(t, tool.InputSchema.Properties, "issue_number")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issue_number"})
+ 
+ 	// Setup mock issue for success case
+ 	mockIssue := &github.Issue{
+ 		Number:  github.Ptr(42),
+ 		Title:   github.Ptr("Test Issue"),
+ 		Body:    github.Ptr("This is a test issue"),
+ 		State:   github.Ptr("open"),
+ 		HTMLURL: github.Ptr("https://github.com/owner/repo/issues/42"),
+ 	}
+ 
+ 	tests := []struct {
+ 		name           string
+ 		mockedClient   *http.Client
+ 		requestArgs    map[string]interface{}
+ 		expectError    bool
+ 		expectedIssue  *github.Issue
+ 		expectedErrMsg string
+ 	}{
+ 		{
+ 			name: "successful issue retrieval",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatch(
+ 					mock.GetReposIssuesByOwnerByRepoByIssueNumber,
+ 					mockIssue,
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(42),
+ 			},
+ 			expectError:   false,
+ 			expectedIssue: mockIssue,
+ 		},
+ 		{
+ 			name: "issue not found",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetReposIssuesByOwnerByRepoByIssueNumber,
+ 					mockResponse(t, http.StatusNotFound, `{"message": "Issue not found"}`),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(999),
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "failed to get issue",
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			// Setup client with mock
+ 			client := github.NewClient(tc.mockedClient)
+ 			_, handler := GetIssue(stubGetClientFn(client), translations.NullTranslationHelper)
+ 
+ 			// Create call request
+ 			request := createMCPRequest(tc.requestArgs)
+ 
+ 			// Call handler
+ 			result, err := handler(context.Background(), request)
+ 
+ 			// Verify results
+ 			if tc.expectError {
+ 				require.Error(t, err)
+ 				assert.Contains(t, err.Error(), tc.expectedErrMsg)
+ 				return
+ 			}
+ 
+ 			require.NoError(t, err)
+ 			textContent := getTextResult(t, result)
+ 
+ 			// Unmarshal and verify the result
+ 			var returnedIssue github.Issue
+ 			err = json.Unmarshal([]byte(textContent.Text), &returnedIssue)
+ 			require.NoError(t, err)
+ 			assert.Equal(t, *tc.expectedIssue.Number, *returnedIssue.Number)
+ 			assert.Equal(t, *tc.expectedIssue.Title, *returnedIssue.Title)
+ 			assert.Equal(t, *tc.expectedIssue.Body, *returnedIssue.Body)
+ 		})
+ 	}
+ }
+ 
+ func Test_AddIssueComment(t *testing.T) {
+ 	// Verify tool definition once
+ 	mockClient := github.NewClient(nil)
+ 	tool, _ := AddIssueComment(stubGetClientFn(mockClient), translations.NullTranslationHelper)
+ 	require.NoError(t, toolsnaps.Test(tool.Name, tool))
+ 
+ 	assert.Equal(t, "add_issue_comment", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
+ 	assert.Contains(t, tool.InputSchema.Properties, "issue_number")
+ 	assert.Contains(t, tool.InputSchema.Properties, "body")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issue_number", "body"})
+ 
+ 	// Setup mock comment for success case
+ 	mockComment := &github.IssueComment{
+ 		ID:   github.Ptr(int64(123)),
+ 		Body: github.Ptr("This is a test comment"),
+ 		User: &github.User{
+ 			Login: github.Ptr("testuser"),
+ 		},
+ 		HTMLURL: github.Ptr("https://github.com/owner/repo/issues/42#issuecomment-123"),
+ 	}
+ 
+ 	tests := []struct {
+ 		name            string
+ 		mockedClient    *http.Client
+ 		requestArgs     map[string]interface{}
+ 		expectError     bool
+ 		expectedComment *github.IssueComment
+ 		expectedErrMsg  string
+ 	}{
+ 		{
+ 			name: "successful comment creation",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PostReposIssuesCommentsByOwnerByRepoByIssueNumber,
+ 					mockResponse(t, http.StatusCreated, mockComment),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(42),
+ 				"body":         "This is a test comment",
+ 			},
+ 			expectError:     false,
+ 			expectedComment: mockComment,
+ 		},
+ 		{
+ 			name: "comment creation fails",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PostReposIssuesCommentsByOwnerByRepoByIssueNumber,
+ 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+ 						w.WriteHeader(http.StatusUnprocessableEntity)
+ 						_, _ = w.Write([]byte(`{"message": "Invalid request"}`))
+ 					}),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(42),
+ 				"body":         "",
+ 			},
+ 			expectError:    false,
+ 			expectedErrMsg: "missing required parameter: body",
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			// Setup client with mock
+ 			client := github.NewClient(tc.mockedClient)
+ 			_, handler := AddIssueComment(stubGetClientFn(client), translations.NullTranslationHelper)
+ 
+ 			// Create call request
+ 			request := createMCPRequest(tc.requestArgs)
+ 
+ 			// Call handler
+ 			result, err := handler(context.Background(), request)
+ 
+ 			// Verify results
+ 			if tc.expectError {
+ 				require.Error(t, err)
+ 				assert.Contains(t, err.Error(), tc.expectedErrMsg)
+ 				return
+ 			}
+ 
+ 			if tc.expectedErrMsg != "" {
+ 				require.NotNil(t, result)
+ 				textContent := getTextResult(t, result)
+ 				assert.Contains(t, textContent.Text, tc.expectedErrMsg)
+ 				return
+ 			}
+ 
+ 			require.NoError(t, err)
+ 
+ 			// Parse the result and get the text content if no error
+ 			textContent := getTextResult(t, result)
+ 
+ 			// Unmarshal and verify the result
+ 			var returnedComment github.IssueComment
+ 			err = json.Unmarshal([]byte(textContent.Text), &returnedComment)
+ 			require.NoError(t, err)
+ 			assert.Equal(t, *tc.expectedComment.ID, *returnedComment.ID)
+ 			assert.Equal(t, *tc.expectedComment.Body, *returnedComment.Body)
+ 			assert.Equal(t, *tc.expectedComment.User.Login, *returnedComment.User.Login)
+ 
+ 		})
+ 	}
+ }
+ 
+ func Test_SearchIssues(t *testing.T) {
+ 	// Verify tool definition once
+ 	mockClient := github.NewClient(nil)
+ 	tool, _ := SearchIssues(stubGetClientFn(mockClient), translations.NullTranslationHelper)
+ 	require.NoError(t, toolsnaps.Test(tool.Name, tool))
+ 
+ 	assert.Equal(t, "search_issues", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "query")
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
+ 	assert.Contains(t, tool.InputSchema.Properties, "sort")
+ 	assert.Contains(t, tool.InputSchema.Properties, "order")
+ 	assert.Contains(t, tool.InputSchema.Properties, "perPage")
+ 	assert.Contains(t, tool.InputSchema.Properties, "page")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"query"})
+ 
+ 	// Setup mock search results
+ 	mockSearchResult := &github.IssuesSearchResult{
+ 		Total:             github.Ptr(2),
+ 		IncompleteResults: github.Ptr(false),
+ 		Issues: []*github.Issue{
+ 			{
+ 				Number:   github.Ptr(42),
+ 				Title:    github.Ptr("Bug: Something is broken"),
+ 				Body:     github.Ptr("This is a bug report"),
+ 				State:    github.Ptr("open"),
+ 				HTMLURL:  github.Ptr("https://github.com/owner/repo/issues/42"),
+ 				Comments: github.Ptr(5),
+ 				User: &github.User{
+ 					Login: github.Ptr("user1"),
+ 				},
+ 			},
+ 			{
+ 				Number:   github.Ptr(43),
+ 				Title:    github.Ptr("Feature: Add new functionality"),
+ 				Body:     github.Ptr("This is a feature request"),
+ 				State:    github.Ptr("open"),
+ 				HTMLURL:  github.Ptr("https://github.com/owner/repo/issues/43"),
+ 				Comments: github.Ptr(3),
+ 				User: &github.User{
+ 					Login: github.Ptr("user2"),
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	tests := []struct {
+ 		name           string
+ 		mockedClient   *http.Client
+ 		requestArgs    map[string]interface{}
+ 		expectError    bool
+ 		expectedResult *github.IssuesSearchResult
+ 		expectedErrMsg string
+ 	}{
+ 		{
+ 			name: "successful issues search with all parameters",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetSearchIssues,
+ 					expectQueryParams(
+ 						t,
+ 						map[string]string{
+ 							"q":        "is:issue repo:owner/repo is:open",
+ 							"sort":     "created",
+ 							"order":    "desc",
+ 							"page":     "1",
+ 							"per_page": "30",
+ 						},
+ 					).andThen(
+ 						mockResponse(t, http.StatusOK, mockSearchResult),
+ 					),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"query":   "repo:owner/repo is:open",
+ 				"sort":    "created",
+ 				"order":   "desc",
+ 				"page":    float64(1),
+ 				"perPage": float64(30),
+ 			},
+ 			expectError:    false,
+ 			expectedResult: mockSearchResult,
+ 		},
+ 		{
+ 			name: "issues search with owner and repo parameters",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetSearchIssues,
+ 					expectQueryParams(
+ 						t,
+ 						map[string]string{
+ 							"q":        "repo:test-owner/test-repo is:issue is:open",
+ 							"sort":     "created",
+ 							"order":    "asc",
+ 							"page":     "1",
+ 							"per_page": "30",
+ 						},
+ 					).andThen(
+ 						mockResponse(t, http.StatusOK, mockSearchResult),
+ 					),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"query": "is:open",
+ 				"owner": "test-owner",
+ 				"repo":  "test-repo",
+ 				"sort":  "created",
+ 				"order": "asc",
+ 			},
+ 			expectError:    false,
+ 			expectedResult: mockSearchResult,
+ 		},
+ 		{
+ 			name: "issues search with only owner parameter (should ignore it)",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetSearchIssues,
+ 					expectQueryParams(
+ 						t,
+ 						map[string]string{
+ 							"q":        "is:issue bug",
+ 							"page":     "1",
+ 							"per_page": "30",
+ 						},
+ 					).andThen(
+ 						mockResponse(t, http.StatusOK, mockSearchResult),
+ 					),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"query": "bug",
+ 				"owner": "test-owner",
+ 			},
+ 			expectError:    false,
+ 			expectedResult: mockSearchResult,
+ 		},
+ 		{
+ 			name: "issues search with only repo parameter (should ignore it)",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetSearchIssues,
+ 					expectQueryParams(
+ 						t,
+ 						map[string]string{
+ 							"q":        "is:issue feature",
+ 							"page":     "1",
+ 							"per_page": "30",
+ 						},
+ 					).andThen(
+ 						mockResponse(t, http.StatusOK, mockSearchResult),
+ 					),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"query": "feature",
+ 				"repo":  "test-repo",
+ 			},
+ 			expectError:    false,
+ 			expectedResult: mockSearchResult,
+ 		},
+ 		{
+ 			name: "issues search with minimal parameters",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatch(
+ 					mock.GetSearchIssues,
+ 					mockSearchResult,
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"query": "is:issue repo:owner/repo is:open",
+ 			},
+ 			expectError:    false,
+ 			expectedResult: mockSearchResult,
+ 		},
+ 		{
+ 			name: "search issues fails",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetSearchIssues,
+ 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+ 						w.WriteHeader(http.StatusBadRequest)
+ 						_, _ = w.Write([]byte(`{"message": "Validation Failed"}`))
+ 					}),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"query": "invalid:query",
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "failed to search issues",
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			// Setup client with mock
+ 			client := github.NewClient(tc.mockedClient)
+ 			_, handler := SearchIssues(stubGetClientFn(client), translations.NullTranslationHelper)
+ 
+ 			// Create call request
+ 			request := createMCPRequest(tc.requestArgs)
+ 
+ 			// Call handler
+ 			result, err := handler(context.Background(), request)
+ 
+ 			// Verify results
+ 			if tc.expectError {
+ 				require.Error(t, err)
+ 				assert.Contains(t, err.Error(), tc.expectedErrMsg)
+ 				return
+ 			}
+ 
+ 			require.NoError(t, err)
+ 
+ 			// Parse the result and get the text content if no error
+ 			textContent := getTextResult(t, result)
+ 
+ 			// Unmarshal and verify the result
+ 			var returnedResult github.IssuesSearchResult
+ 			err = json.Unmarshal([]byte(textContent.Text), &returnedResult)
+ 			require.NoError(t, err)
+ 			assert.Equal(t, *tc.expectedResult.Total, *returnedResult.Total)
+ 			assert.Equal(t, *tc.expectedResult.IncompleteResults, *returnedResult.IncompleteResults)
+ 			assert.Len(t, returnedResult.Issues, len(tc.expectedResult.Issues))
+ 			for i, issue := range returnedResult.Issues {
+ 				assert.Equal(t, *tc.expectedResult.Issues[i].Number, *issue.Number)
+ 				assert.Equal(t, *tc.expectedResult.Issues[i].Title, *issue.Title)
+ 				assert.Equal(t, *tc.expectedResult.Issues[i].State, *issue.State)
+ 				assert.Equal(t, *tc.expectedResult.Issues[i].HTMLURL, *issue.HTMLURL)
+ 				assert.Equal(t, *tc.expectedResult.Issues[i].User.Login, *issue.User.Login)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func Test_CreateIssue(t *testing.T) {
+ 	// Verify tool definition once
+ 	mockClient := github.NewClient(nil)
+ 	tool, _ := CreateIssue(stubGetClientFn(mockClient), translations.NullTranslationHelper)
+ 	require.NoError(t, toolsnaps.Test(tool.Name, tool))
+ 
+ 	assert.Equal(t, "create_issue", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
+ 	assert.Contains(t, tool.InputSchema.Properties, "title")
+ 	assert.Contains(t, tool.InputSchema.Properties, "body")
+ 	assert.Contains(t, tool.InputSchema.Properties, "assignees")
+ 	assert.Contains(t, tool.InputSchema.Properties, "labels")
+ 	assert.Contains(t, tool.InputSchema.Properties, "milestone")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "title"})
+ 
+ 	// Setup mock issue for success case
+ 	mockIssue := &github.Issue{
+ 		Number:    github.Ptr(123),
+ 		Title:     github.Ptr("Test Issue"),
+ 		Body:      github.Ptr("This is a test issue"),
+ 		State:     github.Ptr("open"),
+ 		HTMLURL:   github.Ptr("https://github.com/owner/repo/issues/123"),
+ 		Assignees: []*github.User{{Login: github.Ptr("user1")}, {Login: github.Ptr("user2")}},
+ 		Labels:    []*github.Label{{Name: github.Ptr("bug")}, {Name: github.Ptr("help wanted")}},
+ 		Milestone: &github.Milestone{Number: github.Ptr(5)},
+ 	}
+ 
+ 	tests := []struct {
+ 		name           string
+ 		mockedClient   *http.Client
+ 		requestArgs    map[string]interface{}
+ 		expectError    bool
+ 		expectedIssue  *github.Issue
+ 		expectedErrMsg string
+ 	}{
+ 		{
+ 			name: "successful issue creation with all fields",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PostReposIssuesByOwnerByRepo,
+ 					expectRequestBody(t, map[string]any{
+ 						"title":     "Test Issue",
+ 						"body":      "This is a test issue",
+ 						"labels":    []any{"bug", "help wanted"},
+ 						"assignees": []any{"user1", "user2"},
+ 						"milestone": float64(5),
+ 					}).andThen(
+ 						mockResponse(t, http.StatusCreated, mockIssue),
+ 					),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":     "owner",
+ 				"repo":      "repo",
+ 				"title":     "Test Issue",
+ 				"body":      "This is a test issue",
+ 				"assignees": []any{"user1", "user2"},
+ 				"labels":    []any{"bug", "help wanted"},
+ 				"milestone": float64(5),
+ 			},
+ 			expectError:   false,
+ 			expectedIssue: mockIssue,
+ 		},
+ 		{
+ 			name: "successful issue creation with minimal fields",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PostReposIssuesByOwnerByRepo,
+ 					mockResponse(t, http.StatusCreated, &github.Issue{
+ 						Number:  github.Ptr(124),
+ 						Title:   github.Ptr("Minimal Issue"),
+ 						HTMLURL: github.Ptr("https://github.com/owner/repo/issues/124"),
+ 						State:   github.Ptr("open"),
+ 					}),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":     "owner",
+ 				"repo":      "repo",
+ 				"title":     "Minimal Issue",
+ 				"assignees": nil, // Expect no failure with nil optional value.
+ 			},
+ 			expectError: false,
+ 			expectedIssue: &github.Issue{
+ 				Number:  github.Ptr(124),
+ 				Title:   github.Ptr("Minimal Issue"),
+ 				HTMLURL: github.Ptr("https://github.com/owner/repo/issues/124"),
+ 				State:   github.Ptr("open"),
+ 			},
+ 		},
+ 		{
+ 			name: "issue creation fails",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PostReposIssuesByOwnerByRepo,
+ 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+ 						w.WriteHeader(http.StatusUnprocessableEntity)
+ 						_, _ = w.Write([]byte(`{"message": "Validation failed"}`))
+ 					}),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner": "owner",
+ 				"repo":  "repo",
+ 				"title": "",
+ 			},
+ 			expectError:    false,
+ 			expectedErrMsg: "missing required parameter: title",
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			// Setup client with mock
+ 			client := github.NewClient(tc.mockedClient)
+ 			_, handler := CreateIssue(stubGetClientFn(client), translations.NullTranslationHelper)
+ 
+ 			// Create call request
+ 			request := createMCPRequest(tc.requestArgs)
+ 
+ 			// Call handler
+ 			result, err := handler(context.Background(), request)
+ 
+ 			// Verify results
+ 			if tc.expectError {
+ 				require.Error(t, err)
+ 				assert.Contains(t, err.Error(), tc.expectedErrMsg)
+ 				return
+ 			}
+ 
+ 			if tc.expectedErrMsg != "" {
+ 				require.NotNil(t, result)
+ 				textContent := getTextResult(t, result)
+ 				assert.Contains(t, textContent.Text, tc.expectedErrMsg)
+ 				return
+ 			}
+ 
+ 			require.NoError(t, err)
+ 			textContent := getTextResult(t, result)
+ 
+ 			// Unmarshal and verify the result
+ 			var returnedIssue github.Issue
+ 			err = json.Unmarshal([]byte(textContent.Text), &returnedIssue)
+ 			require.NoError(t, err)
+ 
+ 			assert.Equal(t, *tc.expectedIssue.Number, *returnedIssue.Number)
+ 			assert.Equal(t, *tc.expectedIssue.Title, *returnedIssue.Title)
+ 			assert.Equal(t, *tc.expectedIssue.State, *returnedIssue.State)
+ 			assert.Equal(t, *tc.expectedIssue.HTMLURL, *returnedIssue.HTMLURL)
+ 
+ 			if tc.expectedIssue.Body != nil {
+ 				assert.Equal(t, *tc.expectedIssue.Body, *returnedIssue.Body)
+ 			}
+ 
+ 			// Check assignees if expected
+ 			if len(tc.expectedIssue.Assignees) > 0 {
+ 				assert.Equal(t, len(tc.expectedIssue.Assignees), len(returnedIssue.Assignees))
+ 				for i, assignee := range returnedIssue.Assignees {
+ 					assert.Equal(t, *tc.expectedIssue.Assignees[i].Login, *assignee.Login)
+ 				}
+ 			}
+ 
+ 			// Check labels if expected
+ 			if len(tc.expectedIssue.Labels) > 0 {
+ 				assert.Equal(t, len(tc.expectedIssue.Labels), len(returnedIssue.Labels))
+ 				for i, label := range returnedIssue.Labels {
+ 					assert.Equal(t, *tc.expectedIssue.Labels[i].Name, *label.Name)
+ 				}
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func Test_ListIssues(t *testing.T) {
+ 	// Verify tool definition
+ 	mockClient := github.NewClient(nil)
+ 	tool, _ := ListIssues(stubGetClientFn(mockClient), translations.NullTranslationHelper)
+ 	require.NoError(t, toolsnaps.Test(tool.Name, tool))
+ 
+ 	assert.Equal(t, "list_issues", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
+ 	assert.Contains(t, tool.InputSchema.Properties, "state")
+ 	assert.Contains(t, tool.InputSchema.Properties, "labels")
+ 	assert.Contains(t, tool.InputSchema.Properties, "sort")
+ 	assert.Contains(t, tool.InputSchema.Properties, "direction")
+ 	assert.Contains(t, tool.InputSchema.Properties, "since")
+ 	assert.Contains(t, tool.InputSchema.Properties, "page")
+ 	assert.Contains(t, tool.InputSchema.Properties, "perPage")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo"})
+ 
+ 	// Setup mock issues for success case
+ 	mockIssues := []*github.Issue{
+ 		{
+ 			Number:    github.Ptr(123),
+ 			Title:     github.Ptr("First Issue"),
+ 			Body:      github.Ptr("This is the first test issue"),
+ 			State:     github.Ptr("open"),
+ 			HTMLURL:   github.Ptr("https://github.com/owner/repo/issues/123"),
+ 			CreatedAt: &github.Timestamp{Time: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)},
+ 		},
+ 		{
+ 			Number:    github.Ptr(456),
+ 			Title:     github.Ptr("Second Issue"),
+ 			Body:      github.Ptr("This is the second test issue"),
+ 			State:     github.Ptr("open"),
+ 			HTMLURL:   github.Ptr("https://github.com/owner/repo/issues/456"),
+ 			Labels:    []*github.Label{{Name: github.Ptr("bug")}},
+ 			CreatedAt: &github.Timestamp{Time: time.Date(2023, 2, 1, 0, 0, 0, 0, time.UTC)},
+ 		},
+ 	}
+ 
+ 	tests := []struct {
+ 		name           string
+ 		mockedClient   *http.Client
+ 		requestArgs    map[string]interface{}
+ 		expectError    bool
+ 		expectedIssues []*github.Issue
+ 		expectedErrMsg string
+ 	}{
+ 		{
+ 			name: "list issues with minimal parameters",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatch(
+ 					mock.GetReposIssuesByOwnerByRepo,
+ 					mockIssues,
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner": "owner",
+ 				"repo":  "repo",
+ 			},
+ 			expectError:    false,
+ 			expectedIssues: mockIssues,
+ 		},
+ 		{
+ 			name: "list issues with all parameters",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetReposIssuesByOwnerByRepo,
+ 					expectQueryParams(t, map[string]string{
+ 						"state":     "open",
+ 						"labels":    "bug,enhancement",
+ 						"sort":      "created",
+ 						"direction": "desc",
+ 						"since":     "2023-01-01T00:00:00Z",
+ 						"page":      "1",
+ 						"per_page":  "30",
+ 					}).andThen(
+ 						mockResponse(t, http.StatusOK, mockIssues),
+ 					),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":     "owner",
+ 				"repo":      "repo",
+ 				"state":     "open",
+ 				"labels":    []any{"bug", "enhancement"},
+ 				"sort":      "created",
+ 				"direction": "desc",
+ 				"since":     "2023-01-01T00:00:00Z",
+ 				"page":      float64(1),
+ 				"perPage":   float64(30),
+ 			},
+ 			expectError:    false,
+ 			expectedIssues: mockIssues,
+ 		},
+ 		{
+ 			name: "invalid since parameter",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatch(
+ 					mock.GetReposIssuesByOwnerByRepo,
+ 					mockIssues,
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner": "owner",
+ 				"repo":  "repo",
+ 				"since": "invalid-date",
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "invalid ISO 8601 timestamp",
+ 		},
+ 		{
+ 			name: "list issues fails with error",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetReposIssuesByOwnerByRepo,
+ 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+ 						w.WriteHeader(http.StatusNotFound)
+ 						_, _ = w.Write([]byte(`{"message": "Repository not found"}`))
+ 					}),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner": "nonexistent",
+ 				"repo":  "repo",
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "failed to list issues",
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			// Setup client with mock
+ 			client := github.NewClient(tc.mockedClient)
+ 			_, handler := ListIssues(stubGetClientFn(client), translations.NullTranslationHelper)
+ 
+ 			// Create call request
+ 			request := createMCPRequest(tc.requestArgs)
+ 
+ 			// Call handler
+ 			result, err := handler(context.Background(), request)
+ 
+ 			// Verify results
+ 			if tc.expectError {
+ 				if err != nil {
+ 					assert.Contains(t, err.Error(), tc.expectedErrMsg)
+ 				} else {
+ 					// For errors returned as part of the result, not as an error
+ 					assert.NotNil(t, result)
+ 					textContent := getTextResult(t, result)
+ 					assert.Contains(t, textContent.Text, tc.expectedErrMsg)
+ 				}
+ 				return
+ 			}
+ 
+ 			require.NoError(t, err)
+ 
+ 			// Parse the result and get the text content if no error
+ 			textContent := getTextResult(t, result)
+ 
+ 			// Unmarshal and verify the result
+ 			var returnedIssues []*github.Issue
+ 			err = json.Unmarshal([]byte(textContent.Text), &returnedIssues)
+ 			require.NoError(t, err)
+ 
+ 			assert.Len(t, returnedIssues, len(tc.expectedIssues))
+ 			for i, issue := range returnedIssues {
+ 				assert.Equal(t, *tc.expectedIssues[i].Number, *issue.Number)
+ 				assert.Equal(t, *tc.expectedIssues[i].Title, *issue.Title)
+ 				assert.Equal(t, *tc.expectedIssues[i].State, *issue.State)
+ 				assert.Equal(t, *tc.expectedIssues[i].HTMLURL, *issue.HTMLURL)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func Test_UpdateIssue(t *testing.T) {
+ 	// Verify tool definition
+ 	mockClient := github.NewClient(nil)
+ 	tool, _ := UpdateIssue(stubGetClientFn(mockClient), translations.NullTranslationHelper)
+ 	require.NoError(t, toolsnaps.Test(tool.Name, tool))
+ 
+ 	assert.Equal(t, "update_issue", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
+ 	assert.Contains(t, tool.InputSchema.Properties, "issue_number")
+ 	assert.Contains(t, tool.InputSchema.Properties, "title")
+ 	assert.Contains(t, tool.InputSchema.Properties, "body")
+ 	assert.Contains(t, tool.InputSchema.Properties, "state")
+ 	assert.Contains(t, tool.InputSchema.Properties, "labels")
+ 	assert.Contains(t, tool.InputSchema.Properties, "assignees")
+ 	assert.Contains(t, tool.InputSchema.Properties, "milestone")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issue_number"})
+ 
+ 	// Setup mock issue for success case
+ 	mockIssue := &github.Issue{
+ 		Number:    github.Ptr(123),
+ 		Title:     github.Ptr("Updated Issue Title"),
+ 		Body:      github.Ptr("Updated issue description"),
+ 		State:     github.Ptr("closed"),
+ 		HTMLURL:   github.Ptr("https://github.com/owner/repo/issues/123"),
+ 		Assignees: []*github.User{{Login: github.Ptr("assignee1")}, {Login: github.Ptr("assignee2")}},
+ 		Labels:    []*github.Label{{Name: github.Ptr("bug")}, {Name: github.Ptr("priority")}},
+ 		Milestone: &github.Milestone{Number: github.Ptr(5)},
+ 	}
+ 
+ 	tests := []struct {
+ 		name           string
+ 		mockedClient   *http.Client
+ 		requestArgs    map[string]interface{}
+ 		expectError    bool
+ 		expectedIssue  *github.Issue
+ 		expectedErrMsg string
+ 	}{
+ 		{
+ 			name: "update issue with all fields",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PatchReposIssuesByOwnerByRepoByIssueNumber,
+ 					expectRequestBody(t, map[string]any{
+ 						"title":     "Updated Issue Title",
+ 						"body":      "Updated issue description",
+ 						"state":     "closed",
+ 						"labels":    []any{"bug", "priority"},
+ 						"assignees": []any{"assignee1", "assignee2"},
+ 						"milestone": float64(5),
+ 					}).andThen(
+ 						mockResponse(t, http.StatusOK, mockIssue),
+ 					),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(123),
+ 				"title":        "Updated Issue Title",
+ 				"body":         "Updated issue description",
+ 				"state":        "closed",
+ 				"labels":       []any{"bug", "priority"},
+ 				"assignees":    []any{"assignee1", "assignee2"},
+ 				"milestone":    float64(5),
+ 			},
+ 			expectError:   false,
+ 			expectedIssue: mockIssue,
+ 		},
+ 		{
+ 			name: "update issue with minimal fields",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PatchReposIssuesByOwnerByRepoByIssueNumber,
+ 					mockResponse(t, http.StatusOK, &github.Issue{
+ 						Number:  github.Ptr(123),
+ 						Title:   github.Ptr("Only Title Updated"),
+ 						HTMLURL: github.Ptr("https://github.com/owner/repo/issues/123"),
+ 						State:   github.Ptr("open"),
+ 					}),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(123),
+ 				"title":        "Only Title Updated",
+ 			},
+ 			expectError: false,
+ 			expectedIssue: &github.Issue{
+ 				Number:  github.Ptr(123),
+ 				Title:   github.Ptr("Only Title Updated"),
+ 				HTMLURL: github.Ptr("https://github.com/owner/repo/issues/123"),
+ 				State:   github.Ptr("open"),
+ 			},
+ 		},
+ 		{
+ 			name: "update issue fails with not found",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PatchReposIssuesByOwnerByRepoByIssueNumber,
+ 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+ 						w.WriteHeader(http.StatusNotFound)
+ 						_, _ = w.Write([]byte(`{"message": "Issue not found"}`))
+ 					}),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(999),
+ 				"title":        "This issue doesn't exist",
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "failed to update issue",
+ 		},
+ 		{
+ 			name: "update issue fails with validation error",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.PatchReposIssuesByOwnerByRepoByIssueNumber,
+ 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+ 						w.WriteHeader(http.StatusUnprocessableEntity)
+ 						_, _ = w.Write([]byte(`{"message": "Invalid state value"}`))
+ 					}),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(123),
+ 				"state":        "invalid_state",
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "failed to update issue",
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			// Setup client with mock
+ 			client := github.NewClient(tc.mockedClient)
+ 			_, handler := UpdateIssue(stubGetClientFn(client), translations.NullTranslationHelper)
+ 
+ 			// Create call request
+ 			request := createMCPRequest(tc.requestArgs)
+ 
+ 			// Call handler
+ 			result, err := handler(context.Background(), request)
+ 
+ 			// Verify results
+ 			if tc.expectError {
+ 				if err != nil {
+ 					assert.Contains(t, err.Error(), tc.expectedErrMsg)
+ 				} else {
+ 					// For errors returned as part of the result, not as an error
+ 					require.NotNil(t, result)
+ 					textContent := getTextResult(t, result)
+ 					assert.Contains(t, textContent.Text, tc.expectedErrMsg)
+ 				}
+ 				return
+ 			}
+ 
+ 			require.NoError(t, err)
+ 
+ 			// Parse the result and get the text content if no error
+ 			textContent := getTextResult(t, result)
+ 
+ 			// Unmarshal and verify the result
+ 			var returnedIssue github.Issue
+ 			err = json.Unmarshal([]byte(textContent.Text), &returnedIssue)
+ 			require.NoError(t, err)
+ 
+ 			assert.Equal(t, *tc.expectedIssue.Number, *returnedIssue.Number)
+ 			assert.Equal(t, *tc.expectedIssue.Title, *returnedIssue.Title)
+ 			assert.Equal(t, *tc.expectedIssue.State, *returnedIssue.State)
+ 			assert.Equal(t, *tc.expectedIssue.HTMLURL, *returnedIssue.HTMLURL)
+ 
+ 			if tc.expectedIssue.Body != nil {
+ 				assert.Equal(t, *tc.expectedIssue.Body, *returnedIssue.Body)
+ 			}
+ 
+ 			// Check assignees if expected
+ 			if len(tc.expectedIssue.Assignees) > 0 {
+ 				assert.Len(t, returnedIssue.Assignees, len(tc.expectedIssue.Assignees))
+ 				for i, assignee := range returnedIssue.Assignees {
+ 					assert.Equal(t, *tc.expectedIssue.Assignees[i].Login, *assignee.Login)
+ 				}
+ 			}
+ 
+ 			// Check labels if expected
+ 			if len(tc.expectedIssue.Labels) > 0 {
+ 				assert.Len(t, returnedIssue.Labels, len(tc.expectedIssue.Labels))
+ 				for i, label := range returnedIssue.Labels {
+ 					assert.Equal(t, *tc.expectedIssue.Labels[i].Name, *label.Name)
+ 				}
+ 			}
+ 
+ 			// Check milestone if expected
+ 			if tc.expectedIssue.Milestone != nil {
+ 				assert.NotNil(t, returnedIssue.Milestone)
+ 				assert.Equal(t, *tc.expectedIssue.Milestone.Number, *returnedIssue.Milestone.Number)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func Test_ParseISOTimestamp(t *testing.T) {
+ 	tests := []struct {
+ 		name         string
+ 		input        string
+ 		expectedErr  bool
+ 		expectedTime time.Time
+ 	}{
+ 		{
+ 			name:         "valid RFC3339 format",
+ 			input:        "2023-01-15T14:30:00Z",
+ 			expectedErr:  false,
+ 			expectedTime: time.Date(2023, 1, 15, 14, 30, 0, 0, time.UTC),
+ 		},
+ 		{
+ 			name:         "valid date only format",
+ 			input:        "2023-01-15",
+ 			expectedErr:  false,
+ 			expectedTime: time.Date(2023, 1, 15, 0, 0, 0, 0, time.UTC),
+ 		},
+ 		{
+ 			name:        "empty timestamp",
+ 			input:       "",
+ 			expectedErr: true,
+ 		},
+ 		{
+ 			name:        "invalid format",
+ 			input:       "15/01/2023",
+ 			expectedErr: true,
+ 		},
+ 		{
+ 			name:        "invalid date",
+ 			input:       "2023-13-45",
+ 			expectedErr: true,
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			parsedTime, err := parseISOTimestamp(tc.input)
+ 
+ 			if tc.expectedErr {
+ 				assert.Error(t, err)
+ 			} else {
+ 				assert.NoError(t, err)
+ 				assert.Equal(t, tc.expectedTime, parsedTime)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func Test_GetIssueComments(t *testing.T) {
+ 	// Verify tool definition once
+ 	mockClient := github.NewClient(nil)
+ 	tool, _ := GetIssueComments(stubGetClientFn(mockClient), translations.NullTranslationHelper)
+ 	require.NoError(t, toolsnaps.Test(tool.Name, tool))
+ 
+ 	assert.Equal(t, "get_issue_comments", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
+ 	assert.Contains(t, tool.InputSchema.Properties, "issue_number")
+ 	assert.Contains(t, tool.InputSchema.Properties, "page")
+ 	assert.Contains(t, tool.InputSchema.Properties, "perPage")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issue_number"})
+ 
+ 	// Setup mock comments for success case
+ 	mockComments := []*github.IssueComment{
+ 		{
+ 			ID:   github.Ptr(int64(123)),
+ 			Body: github.Ptr("This is the first comment"),
+ 			User: &github.User{
+ 				Login: github.Ptr("user1"),
+ 			},
+ 			CreatedAt: &github.Timestamp{Time: time.Now().Add(-time.Hour * 24)},
+ 		},
+ 		{
+ 			ID:   github.Ptr(int64(456)),
+ 			Body: github.Ptr("This is the second comment"),
+ 			User: &github.User{
+ 				Login: github.Ptr("user2"),
+ 			},
+ 			CreatedAt: &github.Timestamp{Time: time.Now().Add(-time.Hour)},
+ 		},
+ 	}
+ 
+ 	tests := []struct {
+ 		name             string
+ 		mockedClient     *http.Client
+ 		requestArgs      map[string]interface{}
+ 		expectError      bool
+ 		expectedComments []*github.IssueComment
+ 		expectedErrMsg   string
+ 	}{
+ 		{
+ 			name: "successful comments retrieval",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatch(
+ 					mock.GetReposIssuesCommentsByOwnerByRepoByIssueNumber,
+ 					mockComments,
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(42),
+ 			},
+ 			expectError:      false,
+ 			expectedComments: mockComments,
+ 		},
+ 		{
+ 			name: "successful comments retrieval with pagination",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetReposIssuesCommentsByOwnerByRepoByIssueNumber,
+ 					expectQueryParams(t, map[string]string{
+ 						"page":     "2",
+ 						"per_page": "10",
+ 					}).andThen(
+ 						mockResponse(t, http.StatusOK, mockComments),
+ 					),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(42),
+ 				"page":         float64(2),
+ 				"perPage":      float64(10),
+ 			},
+ 			expectError:      false,
+ 			expectedComments: mockComments,
+ 		},
+ 		{
+ 			name: "issue not found",
+ 			mockedClient: mock.NewMockedHTTPClient(
+ 				mock.WithRequestMatchHandler(
+ 					mock.GetReposIssuesCommentsByOwnerByRepoByIssueNumber,
+ 					mockResponse(t, http.StatusNotFound, `{"message": "Issue not found"}`),
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+ 				"owner":        "owner",
+ 				"repo":         "repo",
+ 				"issue_number": float64(999),
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "failed to get issue comments",
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			// Setup client with mock
+ 			client := github.NewClient(tc.mockedClient)
+ 			_, handler := GetIssueComments(stubGetClientFn(client), translations.NullTranslationHelper)
+ 
+ 			// Create call request
+ 			request := createMCPRequest(tc.requestArgs)
+ 
+ 			// Call handler
+ 			result, err := handler(context.Background(), request)
+ 
+ 			// Verify results
+ 			if tc.expectError {
+ 				require.Error(t, err)
+ 				assert.Contains(t, err.Error(), tc.expectedErrMsg)
+ 				return
+ 			}
+ 
+ 			require.NoError(t, err)
+ 			textContent := getTextResult(t, result)
+ 
+ 			// Unmarshal and verify the result
+ 			var returnedComments []*github.IssueComment
+ 			err = json.Unmarshal([]byte(textContent.Text), &returnedComments)
+ 			require.NoError(t, err)
+ 			assert.Equal(t, len(tc.expectedComments), len(returnedComments))
+ 			if len(returnedComments) > 0 {
+ 				assert.Equal(t, *tc.expectedComments[0].Body, *returnedComments[0].Body)
+ 				assert.Equal(t, *tc.expectedComments[0].User.Login, *returnedComments[0].User.Login)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestAssignCopilotToIssue(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	// Verify tool definition
+ 	mockClient := githubv4.NewClient(nil)
+ 	tool, _ := AssignCopilotToIssue(stubGetGQLClientFn(mockClient), translations.NullTranslationHelper)
+ 	require.NoError(t, toolsnaps.Test(tool.Name, tool))
+ 
+ 	assert.Equal(t, "assign_copilot_to_issue", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
+ 	assert.Contains(t, tool.InputSchema.Properties, "issueNumber")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issueNumber"})
+ 
+ 	var pageOfFakeBots = func(n int) []struct{} {
+ 		// We don't _really_ need real bots here, just objects that count as entries for the page
+ 		bots := make([]struct{}, n)
+ 		for i := range n {
+ 			bots[i] = struct{}{}
+ 		}
+ 		return bots
+ 	}
+ 
+ 	tests := []struct {
+ 		name               string
+ 		requestArgs        map[string]any
+ 		mockedClient       *http.Client
+ 		expectToolError    bool
+ 		expectedToolErrMsg string
+ 	}{
+ 		{
+ 			name: "successful assignment when there are no existing assignees",
+ 			requestArgs: map[string]any{
+ 				"owner":       "owner",
+ 				"repo":        "repo",
+ 				"issueNumber": float64(123),
+ 			},
+ 			mockedClient: githubv4mock.NewMockedHTTPClient(
+ 				githubv4mock.NewQueryMatcher(
+ 					struct {
+ 						Repository struct {
+ 							SuggestedActors struct {
+ 								Nodes []struct {
+ 									Bot struct {
+ 										ID       githubv4.ID
+ 										Login    githubv4.String
+ 										TypeName string `graphql:"__typename"`
+ 									} `graphql:"... on Bot"`
+ 								}
+ 								PageInfo struct {
+ 									HasNextPage bool
+ 									EndCursor   string
+ 								}
+ 							} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
+ 						} `graphql:"repository(owner: $owner, name: $name)"`
+ 					}{},
+ 					map[string]any{
+ 						"owner":     githubv4.String("owner"),
+ 						"name":      githubv4.String("repo"),
+ 						"endCursor": (*githubv4.String)(nil),
+ 					},
+ 					githubv4mock.DataResponse(map[string]any{
+ 						"repository": map[string]any{
+ 							"suggestedActors": map[string]any{
+ 								"nodes": []any{
+ 									map[string]any{
+ 										"id":         githubv4.ID("copilot-swe-agent-id"),
+ 										"login":      githubv4.String("copilot-swe-agent"),
+ 										"__typename": "Bot",
+ 									},
+ 								},
+ 							},
+ 						},
+ 					}),
+ 				),
+ 				githubv4mock.NewQueryMatcher(
+ 					struct {
+ 						Repository struct {
+ 							Issue struct {
+ 								ID        githubv4.ID
+ 								Assignees struct {
+ 									Nodes []struct {
+ 										ID githubv4.ID
+ 									}
+ 								} `graphql:"assignees(first: 100)"`
+ 							} `graphql:"issue(number: $number)"`
+ 						} `graphql:"repository(owner: $owner, name: $name)"`
+ 					}{},
+ 					map[string]any{
+ 						"owner":  githubv4.String("owner"),
+ 						"name":   githubv4.String("repo"),
+ 						"number": githubv4.Int(123),
+ 					},
+ 					githubv4mock.DataResponse(map[string]any{
+ 						"repository": map[string]any{
+ 							"issue": map[string]any{
+ 								"id": githubv4.ID("test-issue-id"),
+ 								"assignees": map[string]any{
+ 									"nodes": []any{},
+ 								},
+ 							},
+ 						},
+ 					}),
+ 				),
+ 				githubv4mock.NewMutationMatcher(
+ 					struct {
+ 						ReplaceActorsForAssignable struct {
+ 							Typename string `graphql:"__typename"`
+ 						} `graphql:"replaceActorsForAssignable(input: $input)"`
+ 					}{},
+ 					ReplaceActorsForAssignableInput{
+ 						AssignableID: githubv4.ID("test-issue-id"),
+ 						ActorIDs:     []githubv4.ID{githubv4.ID("copilot-swe-agent-id")},
+ 					},
+ 					nil,
+ 					githubv4mock.DataResponse(map[string]any{}),
+ 				),
+ 			),
+ 		},
+ 		{
+ 			name: "successful assignment when there are existing assignees",
+ 			requestArgs: map[string]any{
+ 				"owner":       "owner",
+ 				"repo":        "repo",
+ 				"issueNumber": float64(123),
+ 			},
+ 			mockedClient: githubv4mock.NewMockedHTTPClient(
+ 				githubv4mock.NewQueryMatcher(
+ 					struct {
+ 						Repository struct {
+ 							SuggestedActors struct {
+ 								Nodes []struct {
+ 									Bot struct {
+ 										ID       githubv4.ID
+ 										Login    githubv4.String
+ 										TypeName string `graphql:"__typename"`
+ 									} `graphql:"... on Bot"`
+ 								}
+ 								PageInfo struct {
+ 									HasNextPage bool
+ 									EndCursor   string
+ 								}
+ 							} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
+ 						} `graphql:"repository(owner: $owner, name: $name)"`
+ 					}{},
+ 					map[string]any{
+ 						"owner":     githubv4.String("owner"),
+ 						"name":      githubv4.String("repo"),
+ 						"endCursor": (*githubv4.String)(nil),
+ 					},
+ 					githubv4mock.DataResponse(map[string]any{
+ 						"repository": map[string]any{
+ 							"suggestedActors": map[string]any{
+ 								"nodes": []any{
+ 									map[string]any{
+ 										"id":         githubv4.ID("copilot-swe-agent-id"),
+ 										"login":      githubv4.String("copilot-swe-agent"),
+ 										"__typename": "Bot",
+ 									},
+ 								},
+ 							},
+ 						},
+ 					}),
+ 				),
+ 				githubv4mock.NewQueryMatcher(
+ 					struct {
+ 						Repository struct {
+ 							Issue struct {
+ 								ID        githubv4.ID
+ 								Assignees struct {
+ 									Nodes []struct {
+ 										ID githubv4.ID
+ 									}
+ 								} `graphql:"assignees(first: 100)"`
+ 							} `graphql:"issue(number: $number)"`
+ 						} `graphql:"repository(owner: $owner, name: $name)"`
+ 					}{},
+ 					map[string]any{
+ 						"owner":  githubv4.String("owner"),
+ 						"name":   githubv4.String("repo"),
+ 						"number": githubv4.Int(123),
+ 					},
+ 					githubv4mock.DataResponse(map[string]any{
+ 						"repository": map[string]any{
+ 							"issue": map[string]any{
+ 								"id": githubv4.ID("test-issue-id"),
+ 								"assignees": map[string]any{
+ 									"nodes": []any{
+ 										map[string]any{
+ 											"id": githubv4.ID("existing-assignee-id"),
+ 										},
+ 										map[string]any{
+ 											"id": githubv4.ID("existing-assignee-id-2"),
+ 										},
+ 									},
+ 								},
+ 							},
+ 						},
+ 					}),
+ 				),
+ 				githubv4mock.NewMutationMatcher(
+ 					struct {
+ 						ReplaceActorsForAssignable struct {
+ 							Typename string `graphql:"__typename"`
+ 						} `graphql:"replaceActorsForAssignable(input: $input)"`
+ 					}{},
+ 					ReplaceActorsForAssignableInput{
+ 						AssignableID: githubv4.ID("test-issue-id"),
+ 						ActorIDs: []githubv4.ID{
+ 							githubv4.ID("existing-assignee-id"),
+ 							githubv4.ID("existing-assignee-id-2"),
+ 							githubv4.ID("copilot-swe-agent-id"),
+ 						},
+ 					},
+ 					nil,
+ 					githubv4mock.DataResponse(map[string]any{}),
+ 				),
+ 			),
+ 		},
+ 		{
+ 			name: "copilot bot not on first page of suggested actors",
+ 			requestArgs: map[string]any{
+ 				"owner":       "owner",
+ 				"repo":        "repo",
+ 				"issueNumber": float64(123),
+ 			},
+ 			mockedClient: githubv4mock.NewMockedHTTPClient(
+ 				// First page of suggested actors
+ 				githubv4mock.NewQueryMatcher(
+ 					struct {
+ 						Repository struct {
+ 							SuggestedActors struct {
+ 								Nodes []struct {
+ 									Bot struct {
+ 										ID       githubv4.ID
+ 										Login    githubv4.String
+ 										TypeName string `graphql:"__typename"`
+ 									} `graphql:"... on Bot"`
+ 								}
+ 								PageInfo struct {
+ 									HasNextPage bool
+ 									EndCursor   string
+ 								}
+ 							} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
+ 						} `graphql:"repository(owner: $owner, name: $name)"`
+ 					}{},
+ 					map[string]any{
+ 						"owner":     githubv4.String("owner"),
+ 						"name":      githubv4.String("repo"),
+ 						"endCursor": (*githubv4.String)(nil),
+ 					},
+ 					githubv4mock.DataResponse(map[string]any{
+ 						"repository": map[string]any{
+ 							"suggestedActors": map[string]any{
+ 								"nodes": pageOfFakeBots(100),
+ 								"pageInfo": map[string]any{
+ 									"hasNextPage": true,
+ 									"endCursor":   githubv4.String("next-page-cursor"),
+ 								},
+ 							},
+ 						},
+ 					}),
+ 				),
+ 				// Second page of suggested actors
+ 				githubv4mock.NewQueryMatcher(
+ 					struct {
+ 						Repository struct {
+ 							SuggestedActors struct {
+ 								Nodes []struct {
+ 									Bot struct {
+ 										ID       githubv4.ID
+ 										Login    githubv4.String
+ 										TypeName string `graphql:"__typename"`
+ 									} `graphql:"... on Bot"`
+ 								}
+ 								PageInfo struct {
+ 									HasNextPage bool
+ 									EndCursor   string
+ 								}
+ 							} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
+ 						} `graphql:"repository(owner: $owner, name: $name)"`
+ 					}{},
+ 					map[string]any{
+ 						"owner":     githubv4.String("owner"),
+ 						"name":      githubv4.String("repo"),
+ 						"endCursor": githubv4.String("next-page-cursor"),
+ 					},
+ 					githubv4mock.DataResponse(map[string]any{
+ 						"repository": map[string]any{
+ 							"suggestedActors": map[string]any{
+ 								"nodes": []any{
+ 									map[string]any{
+ 										"id":         githubv4.ID("copilot-swe-agent-id"),
+ 										"login":      githubv4.String("copilot-swe-agent"),
+ 										"__typename": "Bot",
+ 									},
+ 								},
+ 							},
+ 						},
+ 					}),
+ 				),
+ 				githubv4mock.NewQueryMatcher(
+ 					struct {
+ 						Repository struct {
+ 							Issue struct {
+ 								ID        githubv4.ID
+ 								Assignees struct {
+ 									Nodes []struct {
+ 										ID githubv4.ID
+ 									}
+ 								} `graphql:"assignees(first: 100)"`
+ 							} `graphql:"issue(number: $number)"`
+ 						} `graphql:"repository(owner: $owner, name: $name)"`
+ 					}{},
+ 					map[string]any{
+ 						"owner":  githubv4.String("owner"),
+ 						"name":   githubv4.String("repo"),
+ 						"number": githubv4.Int(123),
+ 					},
+ 					githubv4mock.DataResponse(map[string]any{
+ 						"repository": map[string]any{
+ 							"issue": map[string]any{
+ 								"id": githubv4.ID("test-issue-id"),
+ 								"assignees": map[string]any{
+ 									"nodes": []any{},
+ 								},
+ 							},
+ 						},
+ 					}),
+ 				),
+ 				githubv4mock.NewMutationMatcher(
+ 					struct {
+ 						ReplaceActorsForAssignable struct {
+ 							Typename string `graphql:"__typename"`
+ 						} `graphql:"replaceActorsForAssignable(input: $input)"`
+ 					}{},
+ 					ReplaceActorsForAssignableInput{
+ 						AssignableID: githubv4.ID("test-issue-id"),
+ 						ActorIDs:     []githubv4.ID{githubv4.ID("copilot-swe-agent-id")},
+ 					},
+ 					nil,
+ 					githubv4mock.DataResponse(map[string]any{}),
+ 				),
+ 			),
+ 		},
+ 		{
+ 			name: "copilot not a suggested actor",
+ 			requestArgs: map[string]any{
+ 				"owner":       "owner",
+ 				"repo":        "repo",
+ 				"issueNumber": float64(123),
+ 			},
+ 			mockedClient: githubv4mock.NewMockedHTTPClient(
+ 				githubv4mock.NewQueryMatcher(
+ 					struct {
+ 						Repository struct {
+ 							SuggestedActors struct {
+ 								Nodes []struct {
+ 									Bot struct {
+ 										ID       githubv4.ID
+ 										Login    githubv4.String
+ 										TypeName string `graphql:"__typename"`
+ 									} `graphql:"... on Bot"`
+ 								}
+ 								PageInfo struct {
+ 									HasNextPage bool
+ 									EndCursor   string
+ 								}
+ 							} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
+ 						} `graphql:"repository(owner: $owner, name: $name)"`
+ 					}{},
+ 					map[string]any{
+ 						"owner":     githubv4.String("owner"),
+ 						"name":      githubv4.String("repo"),
+ 						"endCursor": (*githubv4.String)(nil),
+ 					},
+ 					githubv4mock.DataResponse(map[string]any{
+ 						"repository": map[string]any{
+ 							"suggestedActors": map[string]any{
+ 								"nodes": []any{},
+ 							},
+ 						},
+ 					}),
+ 				),
+ 			),
+ 			expectToolError:    true,
+ 			expectedToolErrMsg: "copilot isn't available as an assignee for this issue. Please inform the user to visit https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent-to-work-on-tasks/about-assigning-tasks-to-copilot for more information.",
+ 		},
+ 	}
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 
+ 			t.Parallel()
+ 			// Setup client with mock
+ 			client := githubv4.NewClient(tc.mockedClient)
+ 			_, handler := AssignCopilotToIssue(stubGetGQLClientFn(client), translations.NullTranslationHelper)
+ 
+ 			// Create call request
+ 			request := createMCPRequest(tc.requestArgs)
+ 
+ 			// Call handler
+ 			result, err := handler(context.Background(), request)
+ 			require.NoError(t, err)
+ 
+ 			textContent := getTextResult(t, result)
+ 
+ 			if tc.expectToolError {
+ 				require.True(t, result.IsError)
+ 				assert.Contains(t, textContent.Text, tc.expectedToolErrMsg)
+ 				return
+ 			}
+ 
+ 			require.False(t, result.IsError, fmt.Sprintf("expected there to be no tool error, text was %s", textContent.Text))
+ 			require.Equal(t, textContent.Text, "successfully assigned copilot to issue")
+ 		})
+ 	}
+ }
++
++var (
++	getReposIssuesSubIssuesByOwnerByRepoByIssueNumber = mock.EndpointPattern{
++		Pattern: "/repos/{owner}/{repo}/issues/{issue_number}/sub_issues",
++		Method:  http.MethodGet,
++	}
++	postReposIssuesSubIssuesByOwnerByRepoByIssueNumber = mock.EndpointPattern{
++		Pattern: "/repos/{owner}/{repo}/issues/{issue_number}/sub_issues",
++		Method:  http.MethodPost,
++	}
++	deleteReposIssuesSubIssueByOwnerByRepoByIssueNumber = mock.EndpointPattern{
++		Pattern: "/repos/{owner}/{repo}/issues/{issue_number}/sub_issue",
++		Method:  http.MethodDelete,
++	}
++	patchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber = mock.EndpointPattern{
++		Pattern: "/repos/{owner}/{repo}/issues/{issue_number}/sub_issues/priority",
++		Method:  http.MethodPatch,
++	}
++)
++
++// subIssueTestCase is a test case for the sub-issue tools.
++type subIssueTestCase struct {
++	name           string
++	mockedClient   *http.Client
++	requestArgs    map[string]interface{}
++	expectedErrMsg string
++	// verify checks the text of a successful result.
++	verify func(t *testing.T, text string)
++}
++
++func runSubIssueTests(t *testing.T, newTool func(GetClientFn, translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc), tests []subIssueTestCase) {
++	t.Helper()
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			client := github.NewClient(tc.mockedClient)
++			_, handler := newTool(stubGetClientFn(client), translations.NullTranslationHelper)
++
++			result, err := handler(context.Background(), createMCPRequest(tc.requestArgs))
++			require.NoError(t, err)
++
++			if tc.expectedErrMsg != "" {
++				textContent := getErrorResult(t, result)
++				assert.Contains(t, textContent.Text, tc.expectedErrMsg)
++				return
++			}
++
++			require.False(t, result.IsError)
++			tc.verify(t, getTextResult(t, result).Text)
++		})
++	}
++}
++
++func verifySubIssue(expected *github.SubIssue) func(t *testing.T, text string) {
++	return func(t *testing.T, text string) {
++		var got github.SubIssue
++		require.NoError(t, json.Unmarshal([]byte(text), &got))
++		assert.Equal(t, *expected.ID, *got.ID)
++		assert.Equal(t, *expected.Number, *got.Number)
++		assert.Equal(t, *expected.Title, *got.Title)
++	}
++}
++
++func unprocessable(message string) http.HandlerFunc {
++	return func(w http.ResponseWriter, _ *http.Request) {
++		w.WriteHeader(http.StatusUnprocessableEntity)
++		_, _ = w.Write([]byte(fmt.Sprintf(`{"message": %q}`, message)))
++	}
++}
++
++func Test_ListSubIssues(t *testing.T) {
++	mockClient := github.NewClient(nil)
++	tool, _ := ListSubIssues(stubGetClientFn(mockClient), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	assert.Equal(t, "list_sub_issues", tool.Name)
++	assert.True(t, *tool.Annotations.ReadOnlyHint)
++	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issue_number"})
++
++	mockSubIssues := []*github.SubIssue{
++		{ID: github.Ptr(int64(1001)), Number: github.Ptr(2), Title: github.Ptr("First")},
++		{ID: github.Ptr(int64(1002)), Number: github.Ptr(3), Title: github.Ptr("Second")},
++	}
++
++	verifyList := func(t *testing.T, text string) {
++		var got []*github.SubIssue
++		require.NoError(t, json.Unmarshal([]byte(text), &got))
++		require.Len(t, got, len(mockSubIssues))
++		for i := range got {
++			assert.Equal(t, *mockSubIssues[i].ID, *got[i].ID)
++			assert.Equal(t, *mockSubIssues[i].Title, *got[i].Title)
++		}
++	}
++
++	runSubIssueTests(t, ListSubIssues, []subIssueTestCase{
++		{
++			name: "default pagination",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					getReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					expect(t, expectations{
++						path:        "/repos/owner/repo/issues/42/sub_issues",
++						queryParams: map[string]string{"page": "1", "per_page": "30"},
++					}).andThen(mockResponse(t, http.StatusOK, mockSubIssues)),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++			},
++			verify: verifyList,
++		},
++		{
++			name: "custom pagination",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					getReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					expectQueryParams(t, map[string]string{"page": "2", "per_page": "10"}).
++						andThen(mockResponse(t, http.StatusOK, mockSubIssues)),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"page":         float64(2),
++				"per_page":     float64(10),
++			},
++			verify: verifyList,
++		},
++		{
++			name: "API error",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					getReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					mockResponse(t, http.StatusNotFound, `{"message": "Not Found"}`),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(999),
++			},
++			expectedErrMsg: "failed to list sub-issues",
++		},
++		{
++			name: "unexpected status",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					getReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					mockResponse(t, http.StatusAccepted, mockSubIssues),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++			},
++			expectedErrMsg: "failed to list sub-issues",
++		},
++		{
++			name:         "missing issue_number",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]interface{}{
++				"owner": "owner",
++				"repo":  "repo",
++			},
++			expectedErrMsg: "missing required parameter: issue_number",
++		},
++	})
++}
++
++func Test_AddSubIssue(t *testing.T) {
++	mockClient := github.NewClient(nil)
++	tool, _ := AddSubIssue(stubGetClientFn(mockClient), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	assert.Equal(t, "add_sub_issue", tool.Name)
++	assert.False(t, *tool.Annotations.ReadOnlyHint)
++	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issue_number", "sub_issue_id"})
++
++	mockSubIssue := &github.SubIssue{
++		ID:     github.Ptr(int64(1001)),
++		Number: github.Ptr(2),
++		Title:  github.Ptr("Sub-issue"),
++	}
++
++	runSubIssueTests(t, AddSubIssue, []subIssueTestCase{
++		{
++			name: "successful add",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					postReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					expect(t, expectations{
++						path:        "/repos/owner/repo/issues/42/sub_issues",
++						requestBody: map[string]any{"sub_issue_id": float64(1001)},
++					}).andThen(mockResponse(t, http.StatusCreated, mockSubIssue)),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++			},
++			verify: verifySubIssue(mockSubIssue),
++		},
++		{
++			name: "successful add with replace_parent",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					postReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					expectRequestBody(t, map[string]any{
++						"sub_issue_id":   float64(1001),
++						"replace_parent": true,
++					}).andThen(mockResponse(t, http.StatusCreated, mockSubIssue)),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":          "owner",
++				"repo":           "repo",
++				"issue_number":   float64(42),
++				"sub_issue_id":   float64(1001),
++				"replace_parent": true,
++			},
++			verify: verifySubIssue(mockSubIssue),
++		},
++		{
++			name: "API error",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					postReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					unprocessable("Validation Failed"),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++			},
++			expectedErrMsg: "failed to add sub-issue",
++		},
++		{
++			name: "unexpected status",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					postReposIssuesSubIssuesByOwnerByRepoByIssueNumber,
++					mockResponse(t, http.StatusOK, mockSubIssue),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++			},
++			expectedErrMsg: "failed to add sub-issue",
++		},
++		{
++			name:         "missing sub_issue_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++			},
++			expectedErrMsg: "missing required parameter: sub_issue_id",
++		},
++	})
++}
++
++func Test_RemoveSubIssue(t *testing.T) {
++	mockClient := github.NewClient(nil)
++	tool, _ := RemoveSubIssue(stubGetClientFn(mockClient), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	assert.Equal(t, "remove_sub_issue", tool.Name)
++	assert.False(t, *tool.Annotations.ReadOnlyHint)
++	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issue_number", "sub_issue_id"})
++
++	mockParent := &github.Issue{
++		ID:     github.Ptr(int64(5000)),
++		Number: github.Ptr(42),
++		Title:  github.Ptr("Parent issue"),
++	}
++
++	args := map[string]interface{}{
++		"owner":        "owner",
++		"repo":         "repo",
++		"issue_number": float64(42),
++		"sub_issue_id": float64(1001),
++	}
++
++	runSubIssueTests(t, RemoveSubIssue, []subIssueTestCase{
++		{
++			name: "successful remove",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					deleteReposIssuesSubIssueByOwnerByRepoByIssueNumber,
++					expect(t, expectations{
++						path:        "/repos/owner/repo/issues/42/sub_issue",
++						requestBody: map[string]any{"sub_issue_id": float64(1001)},
++					}).andThen(mockResponse(t, http.StatusOK, mockParent)),
++				),
++			),
++			requestArgs: args,
++			verify: func(t *testing.T, text string) {
++				var got github.Issue
++				require.NoError(t, json.Unmarshal([]byte(text), &got))
++				assert.Equal(t, *mockParent.ID, *got.ID)
++				assert.Equal(t, *mockParent.Number, *got.Number)
++				assert.Equal(t, *mockParent.Title, *got.Title)
++			},
++		},
++		{
++			name: "API error",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					deleteReposIssuesSubIssueByOwnerByRepoByIssueNumber,
++					mockResponse(t, http.StatusNotFound, `{"message": "Not Found"}`),
++				),
++			),
++			requestArgs:    args,
++			expectedErrMsg: "failed to remove sub-issue",
++		},
++		{
++			name: "unexpected status",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					deleteReposIssuesSubIssueByOwnerByRepoByIssueNumber,
++					mockResponse(t, http.StatusNoContent, ""),
++				),
++			),
++			requestArgs:    args,
++			expectedErrMsg: "failed to remove sub-issue",
++		},
++		{
++			name:         "missing sub_issue_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++			},
++			expectedErrMsg: "missing required parameter: sub_issue_id",
++		},
++	})
++}
++
++func Test_ReprioritizeSubIssue(t *testing.T) {
++	mockClient := github.NewClient(nil)
++	tool, _ := ReprioritizeSubIssue(stubGetClientFn(mockClient), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	assert.Equal(t, "reprioritize_sub_issue", tool.Name)
++	assert.False(t, *tool.Annotations.ReadOnlyHint)
++	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo", "issue_number", "sub_issue_id"})
++
++	mockSubIssue := &github.SubIssue{
++		ID:     github.Ptr(int64(1001)),
++		Number: github.Ptr(2),
++		Title:  github.Ptr("Sub-issue"),
++	}
++
++	runSubIssueTests(t, ReprioritizeSubIssue, []subIssueTestCase{
++		{
++			name: "successful reprioritize with after_id",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					patchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber,
++					expect(t, expectations{
++						path:        "/repos/owner/repo/issues/42/sub_issues/priority",
++						requestBody: map[string]any{"sub_issue_id": float64(1001), "after_id": float64(1002)},
++					}).andThen(mockResponse(t, http.StatusOK, mockSubIssue)),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++				"after_id":     float64(1002),
++			},
++			verify: verifySubIssue(mockSubIssue),
++		},
++		{
++			name: "successful reprioritize with before_id",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					patchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber,
++					expectRequestBody(t, map[string]any{"sub_issue_id": float64(1001), "before_id": float64(1003)}).
++						andThen(mockResponse(t, http.StatusOK, mockSubIssue)),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++				"before_id":    float64(1003),
++			},
++			verify: verifySubIssue(mockSubIssue),
++		},
++		{
++			name:         "neither after_id nor before_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++			},
++			expectedErrMsg: "either after_id or before_id must be specified",
++		},
++		{
++			name:         "both after_id and before_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++				"after_id":     float64(1002),
++				"before_id":    float64(1003),
++			},
++			expectedErrMsg: "only one of after_id or before_id should be specified, not both",
++		},
++		{
++			name: "API error",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					patchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber,
++					unprocessable("Validation Failed"),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++				"after_id":     float64(1002),
++			},
++			expectedErrMsg: "failed to reprioritize sub-issue",
++		},
++		{
++			name: "unexpected status",
++			mockedClient: mock.NewMockedHTTPClient(
++				mock.WithRequestMatchHandler(
++					patchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber,
++					mockResponse(t, http.StatusAccepted, mockSubIssue),
++				),
++			),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"sub_issue_id": float64(1001),
++				"after_id":     float64(1002),
++			},
++			expectedErrMsg: "failed to reprioritize sub-issue",
++		},
++		{
++			name:         "missing sub_issue_id",
++			mockedClient: mock.NewMockedHTTPClient(),
++			requestArgs: map[string]interface{}{
++				"owner":        "owner",
++				"repo":         "repo",
++				"issue_number": float64(42),
++				"after_id":     float64(1002),
++			},
++			expectedErrMsg: "missing required parameter: sub_issue_id",
++		},
++	})
++}
+diff --git a/pkg/github/tools.go b/pkg/github/tools.go
+index bd34917..e01b7cc 100644
+--- a/pkg/github/tools.go
++++ b/pkg/github/tools.go
+@@ -1,205 +1,209 @@
+ package github
+ 
+ import (
+ 	"context"
+ 
+ 	"github.com/github/github-mcp-server/pkg/raw"
+ 	"github.com/github/github-mcp-server/pkg/toolsets"
+ 	"github.com/github/github-mcp-server/pkg/translations"
+ 	"github.com/google/go-github/v73/github"
+ 	"github.com/mark3labs/mcp-go/server"
+ 	"github.com/shurcooL/githubv4"
+ )
+ 
+ type GetClientFn func(context.Context) (*github.Client, error)
+ type GetGQLClientFn func(context.Context) (*githubv4.Client, error)
+ 
+ var DefaultTools = []string{"all"}
+ 
+ func DefaultToolsetGroup(readOnly bool, getClient GetClientFn, getGQLClient GetGQLClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) *toolsets.ToolsetGroup {
+ 	tsg := toolsets.NewToolsetGroup(readOnly)
+ 
+ 	// Define all available features with their default state (disabled)
+ 	// Create toolsets
+ 	repos := toolsets.NewToolset("repos", "GitHub Repository related tools").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(SearchRepositories(getClient, t)),
+ 			toolsets.NewServerTool(GetFileContents(getClient, getRawClient, t)),
+ 			toolsets.NewServerTool(ListCommits(getClient, t)),
+ 			toolsets.NewServerTool(SearchCode(getClient, t)),
+ 			toolsets.NewServerTool(GetCommit(getClient, t)),
+ 			toolsets.NewServerTool(ListBranches(getClient, t)),
+ 			toolsets.NewServerTool(ListTags(getClient, t)),
+ 			toolsets.NewServerTool(GetTag(getClient, t)),
+ 		).
+ 		AddWriteTools(
+ 			toolsets.NewServerTool(CreateOrUpdateFile(getClient, t)),
+ 			toolsets.NewServerTool(CreateRepository(getClient, t)),
+ 			toolsets.NewServerTool(ForkRepository(getClient, t)),
+ 			toolsets.NewServerTool(CreateBranch(getClient, t)),
+ 			toolsets.NewServerTool(PushFiles(getClient, t)),
+ 			toolsets.NewServerTool(DeleteFile(getClient, t)),
+ 		).
+ 		AddResourceTemplates(
+ 			toolsets.NewServerResourceTemplate(GetRepositoryResourceContent(getClient, getRawClient, t)),
+ 			toolsets.NewServerResourceTemplate(GetRepositoryResourceBranchContent(getClient, getRawClient, t)),
+ 			toolsets.NewServerResourceTemplate(GetRepositoryResourceCommitContent(getClient, getRawClient, t)),
+ 			toolsets.NewServerResourceTemplate(GetRepositoryResourceTagContent(getClient, getRawClient, t)),
+ 			toolsets.NewServerResourceTemplate(GetRepositoryResourcePrContent(getClient, getRawClient, t)),
+ 		)
+ 	issues := toolsets.NewToolset("issues", "GitHub Issues related tools").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(GetIssue(getClient, t)),
+ 			toolsets.NewServerTool(SearchIssues(getClient, t)),
+ 			toolsets.NewServerTool(ListIssues(getClient, t)),
+ 			toolsets.NewServerTool(GetIssueComments(getClient, t)),
++			toolsets.NewServerTool(ListSubIssues(getClient, t)),
+ 		).
+ 		AddWriteTools(
+ 			toolsets.NewServerTool(CreateIssue(getClient, t)),
+ 			toolsets.NewServerTool(AddIssueComment(getClient, t)),
+ 			toolsets.NewServerTool(UpdateIssue(getClient, t)),
+ 			toolsets.NewServerTool(AssignCopilotToIssue(getGQLClient, t)),
++			toolsets.NewServerTool(AddSubIssue(getClient, t)),
++			toolsets.NewServerTool(RemoveSubIssue(getClient, t)),
++			toolsets.NewServerTool(ReprioritizeSubIssue(getClient, t)),
+ 		).AddPrompts(toolsets.NewServerPrompt(AssignCodingAgentPrompt(t)))
+ 	users := toolsets.NewToolset("users", "GitHub User related tools").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(SearchUsers(getClient, t)),
+ 		)
+ 	orgs := toolsets.NewToolset("orgs", "GitHub Organization related tools").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(SearchOrgs(getClient, t)),
+ 		)
+ 	pullRequests := toolsets.NewToolset("pull_requests", "GitHub Pull Request related tools").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(GetPullRequest(getClient, t)),
+ 			toolsets.NewServerTool(ListPullRequests(getClient, t)),
+ 			toolsets.NewServerTool(GetPullRequestFiles(getClient, t)),
+ 			toolsets.NewServerTool(SearchPullRequests(getClient, t)),
+ 			toolsets.NewServerTool(GetPullRequestStatus(getClient, t)),
+ 			toolsets.NewServerTool(GetPullRequestComments(getClient, t)),
+ 			toolsets.NewServerTool(GetPullRequestReviews(getClient, t)),
+ 			toolsets.NewServerTool(GetPullRequestDiff(getClient, t)),
+ 		).
+ 		AddWriteTools(
+ 			toolsets.NewServerTool(MergePullRequest(getClient, t)),
+ 			toolsets.NewServerTool(UpdatePullRequestBranch(getClient, t)),
+ 			toolsets.NewServerTool(CreatePullRequest(getClient, t)),
+ 			toolsets.NewServerTool(UpdatePullRequest(getClient, t)),
+ 			toolsets.NewServerTool(RequestCopilotReview(getClient, t)),
+ 
+ 			// Reviews
+ 			toolsets.NewServerTool(CreateAndSubmitPullRequestReview(getGQLClient, t)),
+ 			toolsets.NewServerTool(CreatePendingPullRequestReview(getGQLClient, t)),
+ 			toolsets.NewServerTool(AddCommentToPendingReview(getGQLClient, t)),
+ 			toolsets.NewServerTool(SubmitPendingPullRequestReview(getGQLClient, t)),
+ 			toolsets.NewServerTool(DeletePendingPullRequestReview(getGQLClient, t)),
+ 		)
+ 	codeSecurity := toolsets.NewToolset("code_security", "Code security related tools, such as GitHub Code Scanning").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(GetCodeScanningAlert(getClient, t)),
+ 			toolsets.NewServerTool(ListCodeScanningAlerts(getClient, t)),
+ 		)
+ 	secretProtection := toolsets.NewToolset("secret_protection", "Secret protection related tools, such as GitHub Secret Scanning").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(GetSecretScanningAlert(getClient, t)),
+ 			toolsets.NewServerTool(ListSecretScanningAlerts(getClient, t)),
+ 		)
+ 	dependabot := toolsets.NewToolset("dependabot", "Dependabot tools").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(GetDependabotAlert(getClient, t)),
+ 			toolsets.NewServerTool(ListDependabotAlerts(getClient, t)),
+ 		)
+ 
+ 	notifications := toolsets.NewToolset("notifications", "GitHub Notifications related tools").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(ListNotifications(getClient, t)),
+ 			toolsets.NewServerTool(GetNotificationDetails(getClient, t)),
+ 		).
+ 		AddWriteTools(
+ 			toolsets.NewServerTool(DismissNotification(getClient, t)),
+ 			toolsets.NewServerTool(MarkAllNotificationsRead(getClient, t)),
+ 			toolsets.NewServerTool(ManageNotificationSubscription(getClient, t)),
+ 			toolsets.NewServerTool(ManageRepositoryNotificationSubscription(getClient, t)),
+ 		)
+ 
+ 	discussions := toolsets.NewToolset("discussions", "GitHub Discussions related tools").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(ListDiscussions(getGQLClient, t)),
+ 			toolsets.NewServerTool(GetDiscussion(getGQLClient, t)),
+ 			toolsets.NewServerTool(GetDiscussionComments(getGQLClient, t)),
+ 			toolsets.NewServerTool(ListDiscussionCategories(getGQLClient, t)),
+ 		)
+ 
+ 	actions := toolsets.NewToolset("actions", "GitHub Actions workflows and CI/CD operations").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(ListWorkflows(getClient, t)),
+ 			toolsets.NewServerTool(ListWorkflowRuns(getClient, t)),
+ 			toolsets.NewServerTool(GetWorkflowRun(getClient, t)),
+ 			toolsets.NewServerTool(GetWorkflowRunLogs(getClient, t)),
+ 			toolsets.NewServerTool(ListWorkflowJobs(getClient, t)),
+ 			toolsets.NewServerTool(GetJobLogs(getClient, t)),
+ 			toolsets.NewServerTool(ListWorkflowRunArtifacts(getClient, t)),
+ 			toolsets.NewServerTool(DownloadWorkflowRunArtifact(getClient, t)),
+ 			toolsets.NewServerTool(GetWorkflowRunUsage(getClient, t)),
+ 		).
+ 		AddWriteTools(
+ 			toolsets.NewServerTool(RunWorkflow(getClient, t)),
+ 			toolsets.NewServerTool(RerunWorkflowRun(getClient, t)),
+ 			toolsets.NewServerTool(RerunFailedJobs(getClient, t)),
+ 			toolsets.NewServerTool(CancelWorkflowRun(getClient, t)),
+ 			toolsets.NewServerTool(DeleteWorkflowRunLogs(getClient, t)),
+ 		)
+ 
+ 	// Keep experiments alive so the system doesn't error out when it's always enabled
+ 	experiments := toolsets.NewToolset("experiments", "Experimental features that are not considered stable yet")
+ 
+ 	contextTools := toolsets.NewToolset("context", "Tools that provide context about the current user and GitHub context you are operating in").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(GetMe(getClient, t)),
+ 		)
+ 
+ 	// Add toolsets to the group
+ 	tsg.AddToolset(contextTools)
+ 	tsg.AddToolset(repos)
+ 	tsg.AddToolset(issues)
+ 	tsg.AddToolset(orgs)
+ 	tsg.AddToolset(users)
+ 	tsg.AddToolset(pullRequests)
+ 	tsg.AddToolset(actions)
+ 	tsg.AddToolset(codeSecurity)
+ 	tsg.AddToolset(secretProtection)
+ 	tsg.AddToolset(dependabot)
+ 	tsg.AddToolset(notifications)
+ 	tsg.AddToolset(experiments)
+ 	tsg.AddToolset(discussions)
+ 
+ 	return tsg
+ }
+ 
+ // InitDynamicToolset creates a dynamic toolset that can be used to enable other toolsets, and so requires the server and toolset group as arguments
+ func InitDynamicToolset(s *server.MCPServer, tsg *toolsets.ToolsetGroup, t translations.TranslationHelperFunc) *toolsets.Toolset {
+ 	// Create a new dynamic toolset
+ 	// Need to add the dynamic toolset last so it can be used to enable other toolsets
+ 	dynamicToolSelection := toolsets.NewToolset("dynamic", "Discover GitHub MCP tools that can help achieve tasks by enabling additional sets of tools, you can control the enablement of any toolset to access its tools when this toolset is enabled.").
+ 		AddReadTools(
+ 			toolsets.NewServerTool(ListAvailableToolsets(tsg, t)),
+ 			toolsets.NewServerTool(GetToolsetsTools(tsg, t)),
+ 			toolsets.NewServerTool(EnableToolset(s, tsg, t)),
+ 		)
+ 
+ 	dynamicToolSelection.Enabled = true
+ 	return dynamicToolSelection
+ }
+ 
+ // ToBoolPtr converts a bool to a *bool pointer.
+ func ToBoolPtr(b bool) *bool {
+ 	return &b
+ }
+ 
+ // ToStringPtr converts a string to a *string pointer.
+ // Returns nil if the string is empty.
+ func ToStringPtr(s string) *string {
+ 	if s == "" {
+ 		return nil
+ 	}
+ 	return &s
+ }
