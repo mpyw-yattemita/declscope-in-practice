@@ -19,6 +19,26 @@ The same holds for members:
 
 When code in one file needs an unexported declaration of another file, that is a crossing. Avoid creating new ones.
 
+## Names carry their file's name
+
+A file's name, without `.go` and in camelCase, is a word that the names declared in it carry. `user_repository.go` gives `userRepository`.
+
+| Declaration | Its name |
+| --- | --- |
+| A package-level function, type, variable or constant, exported or not | Contains the file's word, beginning where a word in the name begins: `newUserRepository`, `UserRepositoryOption`, `findUserRepositoryRows` |
+| A method written in its type's file, a field, an interface method | Free |
+| A method written in another file | Contains that other file's word |
+| A helper in a test file | Contains the word of the source file the test file goes with |
+| `TestXxx`, `BenchmarkXxx`, `FuzzXxx`, `ExampleXxx` | Free |
+
+This applies once the package has more than one file with declarations.
+
+- Fit the word where it reads naturally: as a modifier (`userProfile`), as an object (`loadUser`), or later in the phrase (`addToCollection`). Read the name aloud.
+- Name the thing accurately first, then make sure the word is in it. Do not bend a name only to carry the word.
+- When the word reads badly in a name, the declaration is usually in the wrong file. Move it rather than force the name.
+- When a name is fixed, for example by the task, put the declaration in a file whose word that name carries.
+- Do not rename existing declarations only to follow this.
+
 ## Where a new declaration goes
 
 | The declaration is used by | Put it |

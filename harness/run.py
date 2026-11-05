@@ -156,9 +156,20 @@ def warm(task, ws):
         raise RuntimeError("warming changed " + ", ".join(f for f in before if before[f] != after[f]))
 
 
+# The configuration arm G runs under. The naming rule is on, for exported
+# names too, so the stated rule in rule.md covers names as well.
+DECLSCOPE_CONFIG = """\
+rules:
+  naming:
+    qualify: ondemand
+    exported: true
+"""
+
+
 def setup_guardrail(task, ws):
     env = agent_env(task, "G")
     md = module_dir(task, ws)
+    (md / ".declscope.yaml").write_text(DECLSCOPE_CONFIG)
     sh(["declscope", "baseline", "./..."], cwd=md, env=env)
     skills = ws / ".claude" / "skills"
     skills.mkdir(parents=True, exist_ok=True)
@@ -362,8 +373,9 @@ def literals_preserved(before, after, removed):
 
 def strip_tool(ws):
     """Remove every trace of declscope, so a reader cannot tell the arm."""
-    for p in ws.rglob(".declscope-baseline.yaml"):
-        p.unlink()
+    for name in (".declscope-baseline.yaml", ".declscope.yaml"):
+        for p in ws.rglob(name):
+            p.unlink()
     shutil.rmtree(ws / ".claude" / "skills", ignore_errors=True)
     for p in ws.rglob("*.go"):
         s = p.read_text()

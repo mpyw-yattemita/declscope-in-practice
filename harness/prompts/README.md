@@ -16,7 +16,14 @@
 | P | 課題文、`rule.md`、`self-review.md` | A と同じ |
 | G | 課題文、`rule.md`、`guardrail.md`、`self-review.md` | A に加えて `declscope ./...`、`declscope shrink ./...` |
 
-G 群は、さらに `declscope-authoring` を project skill として受け取る。
+G 群は、さらに `declscope-authoring` を project skill として受け取る。ワークスペースには次の `.declscope.yaml` を置き、baseline もこの設定で記録する。
+
+```yaml
+rules:
+  naming:
+    qualify: ondemand
+    exported: true
+```
 
 ## rule.md の作り方
 
@@ -29,12 +36,12 @@ G 群は、さらに `declscope-authoring` を project skill として受け取�
 | 新しい宣言の置き場所、よくある変更、隠してはいけないこと | ルールを守るための判断の指針で、skill の中心 |
 | `internal/` の中で、ほかの package が使わないものを export しない | `declscope shrink` が検査する内容 |
 | 宣言の並べ方 | skill に書いてある慣習で、G 群も読む |
+| 命名のルール（名前にファイル名の語を含める） | G 群は `qualify: ondemand`、`exported: true` で検査されるので、P 群にも同じルールを伝える |
 
 | 取り除いたもの | 理由 |
 | --- | --- |
 | コマンド、ディレクティブ、設定、baseline、診断の読み方 | ツールそのもの |
 | namespace、private、shared、boundary、core といった用語 | 用語を見ると、P 群がツールの存在を推測できる。また design.md の隔離の決まりで禁じている |
-| 命名のルール | デフォルト設定では無効で、G 群でも検査されない |
 
 既存のコードはルールに従っていないことが多い（seed は declscope を使っていないプロジェクト）。そこで rule.md には「既存のコードは課題に必要な範囲を超えて直さず、足したり変えたりするコードでルールに従う」と書いた。G 群で baseline が既存の指摘を吸収するのと同じ扱いになる。
 

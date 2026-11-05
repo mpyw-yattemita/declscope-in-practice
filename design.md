@@ -26,6 +26,7 @@
 | 自己レビュー手順 | あり | あり | あり |
 | プロンプトの中の置き場所のルール | なし | あり | あり |
 | `PATH` 上の declscope と、seed の指摘の baseline | なし | なし | あり |
+| declscope の設定（`.declscope.yaml`） | なし | なし | `rules.naming.qualify: ondemand`、`rules.naming.exported: true` |
 | 終える前に実行するチェック | `go vet`、`go test` | `go vet`、`go test` | `go vet`、`go test`、`declscope ./...`、`declscope shrink ./...` |
 | project skill としての `declscope-authoring` | なし | なし | あり |
 | モデルとツール | 同じ | 同じ | 同じ |
@@ -39,6 +40,8 @@ you would flag in code review. Then run the checks below until they pass.
 
 > [!IMPORTANT]
 > この手順で、どの群にも見直す機会を同じだけ与える。これがないと、指摘を受けて直す機会があるのは G 群だけになる。そうなると、G の結果に「declscope の効果」と「見直しが1回多い効果」が混ざる。
+
+G 群では命名のルールを有効にし、export された名前にも当てる。名前にファイル名の語を含めることは、置き場所の判断と結びついているからだ。P 群のルールにも、同じ命名のルールを平易な言葉で入れる。
 
 P 群のルールは、`declscope-authoring` の内容からツールを取り除いたものにする。中身は declscope が検査するものと同じにし、コマンド、ディレクティブ、設定の名前は書かない。P と G の違いは、ルールを機械が検査するかどうかだけにする。
 
