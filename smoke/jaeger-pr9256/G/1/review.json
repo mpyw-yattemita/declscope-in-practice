@@ -1,0 +1,152 @@
+{
+  "arm": "G",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/filter.go",
+      "line": 48,
+      "problem": "The receivers don't match. IsEmpty uses a pointer receiver and is nil-safe, but SupportsLevel (line 48) and SupportsOperator (line 56) use value receivers. SearchCapabilities.Filter is a *FilterCapabilities, so the natural call `caps.Filter.SupportsOperator(op)` panics with a nil dereference when a reader leaves Filter nil, which the docs describe as the normal 'no filter support' case. The doc says a nil Filter means the same as an empty one, but only IsEmpty behaves that way.",
+      "fix": "Make Filter a plain value (see the search_capabilities.go:28 finding) and give all three methods value receivers. If the pointer is kept, give SupportsLevel and SupportsOperator pointer receivers that treat nil as the zero value (`c == nil` → `level == \"\"` and `false`), and add nil-receiver cases to filter_test.go."
+    },
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 28,
+      "problem": "`Filter *FilterCapabilities` has two encodings for one state: nil and &FilterCapabilities{} both mean 'no filter support'. The docs then have to tell every caller to use IsEmpty instead of comparing against nil. The pointer adds no information, and it makes `assert.Equal` on forwarded SearchCapabilities depend on which encoding was used. It also clashes with the type's own rule that the zero value is the least capable reader.",
+      "fix": "Change the field to `Filter FilterCapabilities`, drop the nil case from the doc comments here and on FilterCapabilities (filter.go:28-30, 41-42), switch IsEmpty to a value receiver, and remove the nil case from TestFilterCapabilities_IsEmpty."
+    },
+    {
+      "file": "pkg/search_capabilities_test.go",
+      "line": 18,
+      "problem": "The field-count guard doesn't do its job. The count is already 3, but TestReadMetricsDecorator_SearchCapabilities (tracestoremetrics/reader_metrics_test.go:265-268) only covers WithoutServiceName and never sets SameSpanConjunction or Filter, so the guard passed while the table was never extended. The comment also points to a queryinterceptor test that is not in this package. Forwarding returns the whole struct (reader_metrics.go:134), so listing every field case by case adds nothing.",
+      "fix": "Delete TestSearchCapabilities_FieldCount. Replace the decorator's case table with a single case where every field is non-zero, e.g. `{WithoutServiceName: true, SameSpanConjunction: true, Filter: FilterCapabilities{Levels: []expression.Level{expression.LevelSpan}, Operators: []expression.Operator{expression.OpAnd}}}`, plus the zero value. Also add a case where the inner reader returns an error wrapping errors.ErrUnsupported, and check that the error is forwarded."
+    },
+    {
+      "file": "pkg/tracestoremetrics/reader_metrics.go",
+      "line": 130,
+      "problem": "SearchCapabilities was inserted between GetServices and its doc comment. `// GetServices implements tracestore.Reader#GetServices` now sits above the SearchCapabilities comment block, so godoc attaches it to the wrong method and GetServices has no doc.",
+      "fix": "Move the `// GetServices implements tracestore.Reader#GetServices` line to just above `func (m *ReadMetricsDecorator) GetServices`, and keep SearchCapabilities' own two-line comment directly above it."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 46,
+      "problem": "The FindTraces doc still says there is an 'implementation-dependent ambiguity' about whether conjunctive filters must match the same span. SearchCapabilities.SameSpanConjunction now settles that per reader. The doc also says nothing about the new Filter field or the errors a reader must return for it: ErrFilterUnsupported and ErrFilterInvalid are declared in filter.go but nothing in the Reader contract refers to them.",
+      "fix": "Replace the ambiguity paragraph with: whether a conjunction is satisfied within a single span is declared by SearchCapabilities().SameSpanConjunction. Then add: a reader given a Filter beyond its SearchCapabilities().Filter returns an error wrapping ErrFilterUnsupported, and one given a value that does not fit its field returns an error wrapping ErrFilterInvalid. Point FindTraceIDs and FindTraceSummaries at this rule."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 120,
+      "problem": "The comment says Filter is mutually exclusive with the predicate fields, but nothing in the package enforces that or says what a reader does when both are set. Every backend has to re-implement the check, or skip it, and in practice the check will drift between backends.",
+      "fix": "Add a `func (p TraceQueryParams) Validate() error` (or a narrower `checkFilterExclusive`) to reader.go. It returns an error wrapping ErrFilterInvalid when Filter != nil and any of ServiceName, OperationName, Attributes.Len() > 0, DurationMin or DurationMax is set. Document in FindTraces that readers call it, and test it in reader_test.go, which is currently empty."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/filter.go",
+      "line": 48,
+      "problem": "The receivers don't match. IsEmpty uses a pointer receiver and is nil-safe, but SupportsLevel (line 48) and SupportsOperator (line 56) use value receivers. SearchCapabilities.Filter is a *FilterCapabilities, so the natural call `caps.Filter.SupportsOperator(op)` panics with a nil dereference when a reader leaves Filter nil, which the docs describe as the normal 'no filter support' case. The doc says a nil Filter means the same as an empty one, but only IsEmpty behaves that way.",
+      "fix": "Make Filter a plain value (see the search_capabilities.go:28 finding) and give all three methods value receivers. If the pointer is kept, give SupportsLevel and SupportsOperator pointer receivers that treat nil as the zero value (`c == nil` → `level == \"\"` and `false`), and add nil-receiver cases to filter_test.go.",
+      "category": "other",
+      "why": "Confirmed. SearchCapabilities.Filter is a *FilterCapabilities (search_capabilities.go:28). IsEmpty has a pointer receiver and checks for nil (filter.go:43-45), but SupportsLevel (filter.go:48) and SupportsOperator (filter.go:56) have value receivers. So calling caps.Filter.SupportsOperator(op) on a nil Filter dereferences nil and panics. The docs call nil the normal 'no filter support' case, so this is a real crash, and only IsEmpty is nil-safe. filter_test.go has no nil cases for these two methods.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 28,
+      "problem": "`Filter *FilterCapabilities` has two encodings for one state: nil and &FilterCapabilities{} both mean 'no filter support'. The docs then have to tell every caller to use IsEmpty instead of comparing against nil. The pointer adds no information, and it makes `assert.Equal` on forwarded SearchCapabilities depend on which encoding was used. It also clashes with the type's own rule that the zero value is the least capable reader.",
+      "fix": "Change the field to `Filter FilterCapabilities`, drop the nil case from the doc comments here and on FilterCapabilities (filter.go:28-30, 41-42), switch IsEmpty to a value receiver, and remove the nil case from TestFilterCapabilities_IsEmpty.",
+      "category": "other",
+      "why": "Confirmed. Both the field doc (search_capabilities.go:25-27) and the type doc (filter.go:28-30) say nil and an empty FilterCapabilities mean the same thing, and tell callers to use IsEmpty instead of comparing against nil. The pointer carries no extra information. It creates two encodings of one state, which breaks assert.Equal on forwarded values. It also clashes with the struct's rule that the zero value is the least capable reader. Making it a plain value also removes the cause of finding 0.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/search_capabilities_test.go",
+      "line": 18,
+      "problem": "The field-count guard doesn't do its job. The count is already 3, but TestReadMetricsDecorator_SearchCapabilities (tracestoremetrics/reader_metrics_test.go:265-268) only covers WithoutServiceName and never sets SameSpanConjunction or Filter, so the guard passed while the table was never extended. The comment also points to a queryinterceptor test that is not in this package. Forwarding returns the whole struct (reader_metrics.go:134), so listing every field case by case adds nothing.",
+      "fix": "Delete TestSearchCapabilities_FieldCount. Replace the decorator's case table with a single case where every field is non-zero, e.g. `{WithoutServiceName: true, SameSpanConjunction: true, Filter: FilterCapabilities{Levels: []expression.Level{expression.LevelSpan}, Operators: []expression.Operator{expression.OpAnd}}}`, plus the zero value. Also add a case where the inner reader returns an error wrapping errors.ErrUnsupported, and check that the error is forwarded.",
+      "category": "other",
+      "why": "Confirmed. The guard asserts NumField()==3 and passes. But the decorator table (reader_metrics_test.go:265-268) only sets WithoutServiceName, so SameSpanConjunction and Filter were never added and the guard missed it. Its comment also points to a queryinterceptor test that is not in this package. Forwarding returns the whole struct (reader_metrics.go:134), so one case with every field set, the zero value and an error-forwarding case test more than the guard does.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/tracestoremetrics/reader_metrics.go",
+      "line": 130,
+      "problem": "SearchCapabilities was inserted between GetServices and its doc comment. `// GetServices implements tracestore.Reader#GetServices` now sits above the SearchCapabilities comment block, so godoc attaches it to the wrong method and GetServices has no doc.",
+      "fix": "Move the `// GetServices implements tracestore.Reader#GetServices` line to just above `func (m *ReadMetricsDecorator) GetServices`, and keep SearchCapabilities' own two-line comment directly above it.",
+      "category": "other",
+      "why": "Confirmed. reader_metrics.go:130 has '// GetServices implements tracestore.Reader#GetServices' directly above the SearchCapabilities comment block and func. godoc merges it into SearchCapabilities' doc, and func GetServices at line 137 has no comment.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 46,
+      "problem": "The FindTraces doc still says there is an 'implementation-dependent ambiguity' about whether conjunctive filters must match the same span. SearchCapabilities.SameSpanConjunction now settles that per reader. The doc also says nothing about the new Filter field or the errors a reader must return for it: ErrFilterUnsupported and ErrFilterInvalid are declared in filter.go but nothing in the Reader contract refers to them.",
+      "fix": "Replace the ambiguity paragraph with: whether a conjunction is satisfied within a single span is declared by SearchCapabilities().SameSpanConjunction. Then add: a reader given a Filter beyond its SearchCapabilities().Filter returns an error wrapping ErrFilterUnsupported, and one given a value that does not fit its field returns an error wrapping ErrFilterInvalid. Point FindTraceIDs and FindTraceSummaries at this rule.",
+      "category": "other",
+      "why": "Confirmed. reader.go:46-48 still calls same-span conjunction an 'implementation-dependent ambiguity', but SearchCapabilities.SameSpanConjunction now declares it per reader. ErrFilterUnsupported and ErrFilterInvalid are declared in filter.go, but nothing in the Reader contract tells a reader to return them for a Filter beyond its declared capabilities or for an invalid value. FindTraceIDs and FindTraceSummaries do not mention any of this either.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 120,
+      "problem": "The comment says Filter is mutually exclusive with the predicate fields, but nothing in the package enforces that or says what a reader does when both are set. Every backend has to re-implement the check, or skip it, and in practice the check will drift between backends.",
+      "fix": "Add a `func (p TraceQueryParams) Validate() error` (or a narrower `checkFilterExclusive`) to reader.go. It returns an error wrapping ErrFilterInvalid when Filter != nil and any of ServiceName, OperationName, Attributes.Len() > 0, DurationMin or DurationMax is set. Document in FindTraces that readers call it, and test it in reader_test.go, which is currently empty.",
+      "category": "other",
+      "why": "Confirmed. The Filter doc (reader.go:117-120) says Filter is mutually exclusive with ServiceName, OperationName, Attributes and the duration bounds. Nothing in the package checks this, and no doc says what a reader returns when both are set. So the contract is incomplete and every backend has to decide alone. A shared Validate that returns an error wrapping ErrFilterInvalid, tested in the currently empty reader_test.go, closes that gap. The backend drift is a forecast, because no backends are in this package, so this is filed as other rather than duplication.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 4,
+  "changed_lines": 186,
+  "per_kloc": 21.51,
+  "by_category": {
+    "naming": 0,
+    "duplication": 0,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 4
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 4,
+    "tokens": 133870,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 22962,
+      "cache_read_input_tokens": 107576,
+      "output_tokens": 3324,
+      "output_tokens_details": {
+        "thinking_tokens": 1113
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 22962,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1967,
+          "cache_read_input_tokens": 33924,
+          "cache_creation_input_tokens": 795,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 795
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.2717232,
+    "duration_s": 40.5
+  }
+}

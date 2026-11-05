@@ -1,0 +1,92 @@
+{
+  "arm": "A",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/reader.go",
+      "line": 153,
+      "problem": "The FilterCapabilities methods use different receiver types. IsEmpty has a pointer receiver and handles nil. SupportsLevel (line 153) and SupportsOperator (line 160) have value receivers. Callers reach these methods through SearchCapabilities.Filter, which is a *FilterCapabilities and is documented to be nil when the reader serves no filter. So caps.Filter.SupportsLevel(...) or caps.Filter.SupportsOperator(...) panics with a nil dereference in exactly the case the type documents as normal. The type doc says an empty FilterCapabilities means the same as a nil one, but only IsEmpty keeps that promise.",
+      "fix": "Change SupportsLevel and SupportsOperator to pointer receivers (c *FilterCapabilities) and make them nil-safe. SupportsLevel should return `level == \"\" || (c != nil && slices.Contains(c.Levels, level))`. SupportsOperator should return `c != nil && slices.Contains(c.Operators, op)`. All three methods then share one receiver type, and a nil *FilterCapabilities answers like the zero value."
+    },
+    {
+      "file": "pkg/reader_test.go",
+      "line": 58,
+      "problem": "TestFilterCapabilities_SupportsLevel and TestFilterCapabilities_SupportsOperator check only a populated value and the zero value. They never call the methods on a nil *FilterCapabilities, which is the case SearchCapabilities.Filter produces by default. TestFilterCapabilities_IsEmpty does cover nil, so the tests do not hold all three methods to the same nil-means-empty rule.",
+      "fix": "After the receiver change, add a `var none *FilterCapabilities` case to both tests. Assert that none.SupportsLevel(\"\") is true, none.SupportsLevel(expression.LevelSpan) is false, and none.SupportsOperator(expression.OpAnd) is false, so that nil and the zero value are shown to answer the same."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/reader.go",
+      "line": 153,
+      "problem": "The FilterCapabilities methods use different receiver types. IsEmpty has a pointer receiver and handles nil. SupportsLevel (line 153) and SupportsOperator (line 160) have value receivers. Callers reach these methods through SearchCapabilities.Filter, which is a *FilterCapabilities and is documented to be nil when the reader serves no filter. So caps.Filter.SupportsLevel(...) or caps.Filter.SupportsOperator(...) panics with a nil dereference in exactly the case the type documents as normal. The type doc says an empty FilterCapabilities means the same as a nil one, but only IsEmpty keeps that promise.",
+      "fix": "Change SupportsLevel and SupportsOperator to pointer receivers (c *FilterCapabilities) and make them nil-safe. SupportsLevel should return `level == \"\" || (c != nil && slices.Contains(c.Levels, level))`. SupportsOperator should return `c != nil && slices.Contains(c.Operators, op)`. All three methods then share one receiver type, and a nil *FilterCapabilities answers like the zero value.",
+      "category": "other",
+      "why": "Confirmed at reader.go:147-161. IsEmpty uses a pointer receiver and handles nil, but SupportsLevel and SupportsOperator use value receivers. SearchCapabilities.Filter is a *FilterCapabilities and its doc says nil means 'none of it', so caps.Filter.SupportsLevel(...) panics with a nil dereference in that normal case. The type doc says an empty FilterCapabilities declares the same as a nil one, and these two methods break that. Nothing in this package calls them yet, but they are exported API meant for callers that hold the pointer. Switching to nil-safe pointer receivers fixes the panic and puts all three methods on one receiver type. This is a nil-safety bug, not one of the structural categories, so it is 'other'.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/reader_test.go",
+      "line": 58,
+      "problem": "TestFilterCapabilities_SupportsLevel and TestFilterCapabilities_SupportsOperator check only a populated value and the zero value. They never call the methods on a nil *FilterCapabilities, which is the case SearchCapabilities.Filter produces by default. TestFilterCapabilities_IsEmpty does cover nil, so the tests do not hold all three methods to the same nil-means-empty rule.",
+      "fix": "After the receiver change, add a `var none *FilterCapabilities` case to both tests. Assert that none.SupportsLevel(\"\") is true, none.SupportsLevel(expression.LevelSpan) is false, and none.SupportsOperator(expression.OpAnd) is false, so that nil and the zero value are shown to answer the same.",
+      "category": "other",
+      "why": "Confirmed at reader_test.go:58-81. The SupportsLevel and SupportsOperator tests check only a populated value and the zero value. TestFilterCapabilities_IsEmpty does include a nil case. Once finding 0's receiver change is made, a nil case (`var none *FilterCapabilities`) is needed to hold the nil-means-empty rule in place and stop the panic from coming back. It belongs with finding 0. This is a test-coverage gap, so it is 'other'.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 2,
+  "changed_lines": 168,
+  "per_kloc": 11.9,
+  "by_category": {
+    "naming": 0,
+    "duplication": 0,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 2
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 61323,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 19760,
+      "cache_read_input_tokens": 40038,
+      "output_tokens": 1521,
+      "output_tokens_details": {
+        "thinking_tokens": 692
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 19760,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 908,
+          "cache_read_input_tokens": 28281,
+          "cache_creation_input_tokens": 3236,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3236
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.19652360000000002,
+    "duration_s": 25.5
+  }
+}

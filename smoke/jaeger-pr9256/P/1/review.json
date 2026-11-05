@@ -1,0 +1,104 @@
+{
+  "arm": "P",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 29,
+      "problem": "`Filter` is a `*FilterCapabilities`, but the zero value of `FilterCapabilities` already means \"declares nothing\". The pointer adds a second way to say nothing. It also forces the receivers to differ: `IsEmpty` has a pointer receiver because it must handle nil, while `SupportsLevel` and `SupportsOperator` have value receivers. So a caller who writes `caps.Filter.SupportsOperator(op)` on a Reader that left `Filter` nil gets a nil-pointer panic. Only `IsEmpty` is safe to call, and that is why the doc comments have to tell callers to use `IsEmpty` instead of comparing against nil.",
+      "fix": "Change the field to `Filter FilterCapabilities`, a value. Give `IsEmpty` a value receiver: `func (c FilterCapabilities) IsEmpty() bool { return len(c.Levels) == 0 && len(c.Operators) == 0 }`. Remove the sentences \"Callers ask Filter.IsEmpty rather than comparing against nil\" here and \"Callers ask IsEmpty rather than comparing against nil\" in filter.go:28. Update the tests: remove the nil case in filter_test.go and use `FilterCapabilities{}` values. If you keep the pointer instead, make all three methods pointer receivers and have each one return false or true for nil, so no method can panic."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 48,
+      "problem": "The `FindTraces` doc still says it is an implementation-dependent ambiguity whether query filters must match within the same span. The new `SearchCapabilities.SameSpanConjunction` now declares exactly that, so the comment is stale. The Reader docs also never mention `TraceQueryParams.Filter`, `ErrFilterUnsupported` or `ErrFilterInvalid`. An implementer has no contract for what to return when it gets a `Filter` it cannot serve.",
+      "fix": "Replace the ambiguity paragraph with: \"Whether a conjunction must be satisfied by a single span is declared by SearchCapabilities.SameSpanConjunction. If query.Filter uses a level, operator or structure outside SearchCapabilities.Filter, the iterator yields an error wrapping ErrFilterUnsupported. If a filter value does not fit its field, it yields an error wrapping ErrFilterInvalid.\" Let `FindTraceIDs` and `FindTraceSummaries` refer to this paragraph, the way they already refer to the chunking rules."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 89,
+      "problem": "Adding `SearchCapabilities` to the `Reader` interface breaks every existing Reader and decorator at once. The package already has a pattern for this case: `UnsupportedTraceSummaries` is embedded so a backend gets the default behaviour of `FindTraceSummaries` without writing it. No such default exists for `SearchCapabilities`, so each backend has to write the same \"return SearchCapabilities{}, nil\" or the same `ErrUnsupported` stub by hand.",
+      "fix": "Add an embeddable `UnsupportedSearchCapabilities struct{}` next to `SearchCapabilities` in search_capabilities.go, following the summary.go pattern. Its method is `SearchCapabilities(context.Context) (SearchCapabilities, error)` and returns `SearchCapabilities{}` together with `fmt.Errorf(\"...: %w\", errors.ErrUnsupported)`. Mention it in the Reader doc comment the same way `UnsupportedTraceSummaries` is mentioned. Add a test like `TestUnsupportedTraceSummaries_FindTraceSummaries`."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 117,
+      "problem": "The doc says `Filter` is mutually exclusive with `ServiceName`, `OperationName`, `Attributes` and the duration bounds. Nothing in the package enforces this, so every backend has to check it itself, or not check it, and the checks will drift apart. The comment also does not say what happens on a violation.",
+      "fix": "Add `func (p TraceQueryParams) validateFilterExclusive() error`, or an exported `Validate`, in reader.go. It returns an error wrapping `ErrFilterInvalid` when `p.Filter != nil` and any predicate field is set (non-empty strings, `p.Attributes.Len() > 0`, non-zero durations). Extend the field comment: \"setting both is rejected with ErrFilterInvalid\". Also update the `ErrFilterInvalid` doc in filter.go:19, which today covers only values that do not fit their field, so it includes this case."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 29,
+      "problem": "`Filter` is a `*FilterCapabilities`, but the zero value of `FilterCapabilities` already means \"declares nothing\". The pointer adds a second way to say nothing. It also forces the receivers to differ: `IsEmpty` has a pointer receiver because it must handle nil, while `SupportsLevel` and `SupportsOperator` have value receivers. So a caller who writes `caps.Filter.SupportsOperator(op)` on a Reader that left `Filter` nil gets a nil-pointer panic. Only `IsEmpty` is safe to call, and that is why the doc comments have to tell callers to use `IsEmpty` instead of comparing against nil.",
+      "fix": "Change the field to `Filter FilterCapabilities`, a value. Give `IsEmpty` a value receiver: `func (c FilterCapabilities) IsEmpty() bool { return len(c.Levels) == 0 && len(c.Operators) == 0 }`. Remove the sentences \"Callers ask Filter.IsEmpty rather than comparing against nil\" here and \"Callers ask IsEmpty rather than comparing against nil\" in filter.go:28. Update the tests: remove the nil case in filter_test.go and use `FilterCapabilities{}` values. If you keep the pointer instead, make all three methods pointer receivers and have each one return false or true for nil, so no method can panic.",
+      "category": "other",
+      "why": "Confirmed in the code. `SearchCapabilities.Filter` is a `*FilterCapabilities`. `IsEmpty` has a pointer receiver that handles nil, but `SupportsLevel` and `SupportsOperator` have value receivers, so calling either one on a nil `Filter` panics. The zero value of `FilterCapabilities` already means 'declares nothing', so the pointer adds a second empty state and forces the 'ask IsEmpty rather than comparing against nil' comments in search_capabilities.go:28 and filter.go:28. The fix is to make `Filter` a value field and give `IsEmpty` a value receiver. Then remove the nil test case and those comment sentences.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 48,
+      "problem": "The `FindTraces` doc still says it is an implementation-dependent ambiguity whether query filters must match within the same span. The new `SearchCapabilities.SameSpanConjunction` now declares exactly that, so the comment is stale. The Reader docs also never mention `TraceQueryParams.Filter`, `ErrFilterUnsupported` or `ErrFilterInvalid`. An implementer has no contract for what to return when it gets a `Filter` it cannot serve.",
+      "fix": "Replace the ambiguity paragraph with: \"Whether a conjunction must be satisfied by a single span is declared by SearchCapabilities.SameSpanConjunction. If query.Filter uses a level, operator or structure outside SearchCapabilities.Filter, the iterator yields an error wrapping ErrFilterUnsupported. If a filter value does not fit its field, it yields an error wrapping ErrFilterInvalid.\" Let `FindTraceIDs` and `FindTraceSummaries` refer to this paragraph, the way they already refer to the chunking rules.",
+      "category": "other",
+      "why": "Confirmed. reader.go:48-50 still calls same-span matching an implementation-dependent ambiguity, but `SearchCapabilities.SameSpanConjunction` now declares exactly that, so the comment is stale. The Reader docs also never mention `TraceQueryParams.Filter`, `ErrFilterUnsupported` or `ErrFilterInvalid`, so an implementer has no contract for a filter it cannot serve. The doc fix is cheap, and `FindTraceIDs` and `FindTraceSummaries` can point to it the way they point to the chunking rules.",
+      "on_changed_lines": false
+    }
+  ],
+  "counted": 1,
+  "changed_lines": 191,
+  "per_kloc": 5.24,
+  "by_category": {
+    "naming": 0,
+    "duplication": 0,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 1
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 63778,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 20361,
+      "cache_read_input_tokens": 40496,
+      "output_tokens": 2917,
+      "output_tokens_details": {
+        "thinking_tokens": 1211
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 20361,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1980,
+          "cache_read_input_tokens": 28739,
+          "cache_creation_input_tokens": 3379,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3379
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.2293432,
+    "duration_s": 32.9
+  }
+}
