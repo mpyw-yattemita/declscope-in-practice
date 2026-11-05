@@ -1,0 +1,194 @@
+{
+  "arm": "A",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 117,
+      "problem": "The appendItem doc comment says the layout is \"described in appendItemTokens\", but there is no function called appendItemTokens. The layout rules are in splitObjectTail.",
+      "fix": "Change the comment to \"laid out as described in splitObjectTail\"."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 315,
+      "problem": "newObjectConsKeyExprFor sets `expr.wrapped = expr.children.Append(...)` directly. This skips Expression.wrap, the helper that guards against wrapping twice. parser.go:553 (parseTemplateExpr) does the same, while the new parseObjectConsExpr, parseFunctionCallExpr and parseTupleConsExpr all call wrap().",
+      "fix": "Use `expr.wrap(newQuoted(...))` here, and `expr.wrap(quoted)` in parseTemplateExpr, so every wrapped Expression is built the same way."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 214,
+      "problem": "AsObjectConsExpr, the new AsFunctionCallExpr and AsTupleConsExpr, and asQuoted repeat the same nil check and type assertion. Each new wrapped expression kind adds another copy.",
+      "fix": "Add a generic helper, `func wrappedAs[T nodeContent](e *Expression) T`, that returns the zero value when `e.wrapped == nil` or the type does not match. Make each As* method a one-line call to it."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 155,
+      "problem": "Variables finds nested traversals by asserting against an anonymous `interface{ variables() []*Traversal }`. ObjectConsExpr, FunctionCallExpr, TupleConsExpr and ObjectConsKeyExpr all depend on this unnamed contract, so a misspelled or mistyped method on a new expression kind is silently skipped.",
+      "fix": "Declare a named interface, `type variablesNode interface{ variables() []*Traversal }`, in ast_expression.go. Use it in the assertion, and add compile-time checks such as `var _ variablesNode = (*FunctionCallExpr)(nil)` for each implementer."
+    },
+    {
+      "file": "pkg/ast_function_call_expr.go",
+      "line": 44,
+      "problem": "expressionsVariables is a shared helper used by both FunctionCallExpr and TupleConsExpr, but it lives in the function-call file. Readers of ast_tuple_cons_expr.go have to look in an unrelated file to find it.",
+      "fix": "Move expressionsVariables to ast_expression.go, next to Expression.Variables, which it complements."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 234,
+      "problem": "newNewlineToken is added in the object file, but the same `{TokenNewline, '\\n'}` literal is still written out inline in ast_attribute.go:42, ast_block.go:48/60 and ast_body.go:305. The `{TokenEqual, '='}` literal is also repeated in ast_attribute.go:34 and ast_object_cons_expr.go:269, and splitObjectTail builds a comma token inline.",
+      "fix": "Move newNewlineToken to tokens.go, next to newIdentToken, and add newEqualToken and newCommaToken there. Replace the inline literals in Attribute.init, ObjectConsItem.init, splitObjectTail, Block.init and Body.AppendNewline with these helpers."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 266,
+      "problem": "ObjectConsItem.init has the same shape as Attribute.init, but only Attribute.init calls `expr.assertUnattached()`. The item version depends on its one caller, SetItem, to check. The two init functions no longer follow the same contract.",
+      "fix": "Move the `expr.assertUnattached()` call from SetItem into ObjectConsItem.init, as Attribute.init does. Keep a check in SetItem only for the replace path, before `ReplaceWith`."
+    },
+    {
+      "file": "pkg/ast_body.go",
+      "line": 212,
+      "problem": "ObjectConsExpr now has SetItem(key, expr), with SetItemRaw/Value/Traversal as one-line wrappers. Body.SetAttributeRaw/Value/Traversal still each repeat the same find-or-replace-or-append block. The two parallel APIs are built differently, and the Body copies have no unattached check on the replace path.",
+      "fix": "Add an internal `func (b *Body) setAttribute(name string, expr *Expression) *Attribute` that mirrors ObjectConsExpr.SetItem, including the `expr.assertUnattached()` check. Rewrite the three SetAttribute* methods as one-line calls to it."
+    },
+    {
+      "file": "pkg/node.go",
+      "line": 93,
+      "problem": "There are now two different \"is attached\" checks. node.assertUnattached checks `n.list` and is used by Body.appendItem at ast_body.go:34. The new inTree.assertUnattached checks the `attached` flag kept up to date by setAttached. They can disagree, and readers cannot tell which one is authoritative.",
+      "fix": "Switch Body.appendItem to the inTree check, e.g. `c.(interface{ assertUnattached() })` on the content, or a shared helper. Then delete node.assertUnattached so that attachment state is tracked only by inTree.attached."
+    },
+    {
+      "file": "pkg/node.go",
+      "line": 136,
+      "problem": "nodes.Append, nodes.Insert and nodes.AppendUnstructuredTokens set `n.list = ns` again after calling AppendNode/InsertNode, which already set it and now also call setAttached. Append also builds the node with a literal instead of newNode.",
+      "fix": "Remove the redundant `n.list = ns` lines from Append, Insert and AppendUnstructuredTokens, and use `newNode(c)` in Append and Insert."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 350,
+      "problem": "ObjectConsKeyExpr.variables checks `k.wrapped == nil`, but newObjectConsKeyExpr is the only constructor and always sets wrapped to a non-nil *Expression node. The check suggests a state that cannot happen.",
+      "fix": "Remove the nil check and return `k.wrapped.content.(*Expression).Variables()`."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr_test.go",
+      "line": 16,
+      "problem": "TestObjectConsExprVariables and TestFunctionCallAndTupleConsVariables (ast_function_call_expr_test.go:79) have the same test structure and the same loop body: check against hclsyntax, collect variables, rename, compare. TestObjectConsExprVariables also parses inline even though parseAttrExprForTest already does this. Two test cases, `tuple value`/`function call value` and `tuple in object item`/`function call in object item`, appear in both tables.",
+      "fix": "Merge the two tables into one table-driven TestExpressionVariables, for example in ast_expression_test.go, that uses parseAttrExprForTest. Remove the duplicated cases."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr_test.go",
+      "line": 133,
+      "problem": "parseObjectConsExprForTest repeats the parsing and error handling of parseAttrExprForTest from ast_function_call_expr_test.go:17 and adds only the AsObjectConsExpr call. TestObjectConsExprSetItemLayout (line 591) parses inline a third time.",
+      "fix": "Build parseObjectConsExprForTest on top of parseAttrExprForTest. Put the shared parse helpers in one test file, such as ast_test.go, and use them in TestObjectConsExprSetItemLayout."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 117,
+      "problem": "The appendItem doc comment says the layout is \"described in appendItemTokens\", but there is no function called appendItemTokens. The layout rules are in splitObjectTail.",
+      "fix": "Change the comment to \"laid out as described in splitObjectTail\".",
+      "category": "naming",
+      "why": "Nothing in the package is called appendItemTokens. The layout rules the comment points to are in splitObjectTail, so the comment names something that does not exist.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 315,
+      "problem": "newObjectConsKeyExprFor sets `expr.wrapped = expr.children.Append(...)` directly. This skips Expression.wrap, the helper that guards against wrapping twice. parser.go:553 (parseTemplateExpr) does the same, while the new parseObjectConsExpr, parseFunctionCallExpr and parseTupleConsExpr all call wrap().",
+      "fix": "Use `expr.wrap(newQuoted(...))` here, and `expr.wrap(quoted)` in parseTemplateExpr, so every wrapped Expression is built the same way.",
+      "category": "duplication",
+      "why": "newObjectConsKeyExprFor writes out wrap()'s body by hand (children.Append, then assign wrapped) and skips its double-wrap guard. The new parse functions all call wrap(), so the new constructor should call it too. parseTemplateExpr does the same thing and can be changed at the same time.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/node.go",
+      "line": 136,
+      "problem": "nodes.Append, nodes.Insert and nodes.AppendUnstructuredTokens set `n.list = ns` again after calling AppendNode/InsertNode, which already set it and now also call setAttached. Append also builds the node with a literal instead of newNode.",
+      "fix": "Remove the redundant `n.list = ns` lines from Append, Insert and AppendUnstructuredTokens, and use `newNode(c)` in Append and Insert.",
+      "category": "duplication",
+      "why": "AppendNode and InsertNode already set n.list = ns, so the extra assignments after them do nothing. Append and Insert also build the node by hand when newNode(c) does the same job.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 350,
+      "problem": "ObjectConsKeyExpr.variables checks `k.wrapped == nil`, but newObjectConsKeyExpr is the only constructor and always sets wrapped to a non-nil *Expression node. The check suggests a state that cannot happen.",
+      "fix": "Remove the nil check and return `k.wrapped.content.(*Expression).Variables()`.",
+      "category": "dead",
+      "why": "Both places that build an ObjectConsKeyExpr pass a non-nil node: parseObjectConsKeyExpr and newObjectConsKeyExprFor, which calls newNode(expr). So k.wrapped is never nil, and the nil branch can never run.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_object_cons_expr_test.go",
+      "line": 16,
+      "problem": "TestObjectConsExprVariables and TestFunctionCallAndTupleConsVariables (ast_function_call_expr_test.go:79) have the same test structure and the same loop body: check against hclsyntax, collect variables, rename, compare. TestObjectConsExprVariables also parses inline even though parseAttrExprForTest already does this. Two test cases, `tuple value`/`function call value` and `tuple in object item`/`function call in object item`, appear in both tables.",
+      "fix": "Merge the two tables into one table-driven TestExpressionVariables, for example in ast_expression_test.go, that uses parseAttrExprForTest. Remove the duplicated cases.",
+      "category": "duplication",
+      "why": "The two tests have the same table type and the same loop body: compare with hclsyntax, collect variables, rename, compare. Two pairs of cases appear in both tables, and the object test parses inline instead of calling parseAttrExprForTest.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_object_cons_expr_test.go",
+      "line": 133,
+      "problem": "parseObjectConsExprForTest repeats the parsing and error handling of parseAttrExprForTest from ast_function_call_expr_test.go:17 and adds only the AsObjectConsExpr call. TestObjectConsExprSetItemLayout (line 591) parses inline a third time.",
+      "fix": "Build parseObjectConsExprForTest on top of parseAttrExprForTest. Put the shared parse helpers in one test file, such as ast_test.go, and use them in TestObjectConsExprSetItemLayout.",
+      "category": "duplication",
+      "why": "parseObjectConsExprForTest copies the parse and error handling of parseAttrExprForTest and adds only the AsObjectConsExpr call. It should be built on parseAttrExprForTest, and the shared helpers should live in one test file. TestObjectConsExprSetItemLayout also has to find the attribute inside a nested block, so it can share only the parse-and-check-errors step.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 5,
+  "changed_lines": 1641,
+  "per_kloc": 3.05,
+  "by_category": {
+    "naming": 1,
+    "duplication": 3,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 1,
+    "other": 0
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 181535,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 79060,
+      "cache_read_input_tokens": 97852,
+      "output_tokens": 4619,
+      "output_tokens_details": {
+        "thinking_tokens": 1743
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 79060,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2867,
+          "cache_read_input_tokens": 86095,
+          "cache_creation_input_tokens": 4722,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4722
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.7444464,
+    "duration_s": 47.0
+  }
+}

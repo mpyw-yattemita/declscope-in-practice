@@ -1,0 +1,248 @@
+{
+  "arm": "G",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 145,
+      "problem": "Variables checks each wrapped type in its own branch (AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr). Every new composite expression type will need another branch here, even though all three types already have a `variables()` method.",
+      "fix": "Declare an unexported interface `interface{ variables() []*Traversal }` and write `if v, ok := e.wrapped.content.(variablesLister); ok { ret = append(ret, v.variables()...) }` once, in place of the three type-specific branches."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 211,
+      "problem": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted repeat the same nil check and type assertion on e.wrapped.",
+      "fix": "Add a generic helper `func wrappedAs[T nodeContent](e *Expression) T` that returns the zero value when e.wrapped is nil or holds another type. Make the four methods one-line calls to it."
+    },
+    {
+      "file": "pkg/tuple_cons_expr.go",
+      "line": 25,
+      "problem": "TupleConsExpr.variables is identical to FunctionCallExpr.variables (function_call_expr.go:42). Both loop over a nodeSet of *Expression and join their Variables().",
+      "fix": "Add `func variablesOf(exprs nodeSet) []*Traversal` in ast_expression.go and have both methods return `variablesOf(tuple.elems)` and `variablesOf(call.args)`."
+    },
+    {
+      "file": "pkg/tuple_cons_expr.go",
+      "line": 42,
+      "problem": "parseTupleConsExpr and parseFunctionCallExpr (function_call_expr.go:61) duplicate the same loop: partition each native sub-expression, append the tokens before it, parse it, add it to a nodeSet, append the leftover tokens, then wrap the result in an Expression. Both also build their struct inline, unlike newObjectConsExpr and the other constructors in the package.",
+      "fix": "Add newTupleConsExpr() and newFunctionCallExpr() constructors. Extract `parseExpressionList(natives []hclsyntax.Expression, from inputTokens, children *nodes) nodeSet` (or one that returns the wrapping node) and call it from both parse functions."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 496,
+      "problem": "parseTemplateExpr sets `expr.wrapped = expr.children.Append(quoted)` directly. That skips the new Expression.wrap helper, which every other wrapping parser uses and which guards against double wrapping.",
+      "fix": "Replace the line with `expr.wrap(quoted)`."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 119,
+      "problem": "variables uses a `, ok` type assertion that can never fail, because items only ever holds *ObjectConsItem nodes. It also reaches into item.key.content and item.value.content directly instead of using the KeyExpr and ValueExpr accessors defined in the same file.",
+      "fix": "Loop over o.Items(). Use `key := item.KeyExpr()` and `item.ValueExpr().Expr()`, and remove the `ok`/`continue` branch."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 268,
+      "problem": "isLineEnd, hasComma and newlineToken are methods on ObjectConsExpr but never use the receiver. isLineEnd also repeats the 'comment ends in \\n' check that already exists in parser.go:728 (partitionLineEndTokens) and format.go:438.",
+      "fix": "Turn the three methods into package-level functions, for example in tokens.go. Add one `tokenEndsLine(tok *Token) bool` helper and use it in appendItem, partitionLineEndTokens and format.go."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 142,
+      "problem": "appendItem is about 120 lines long and does four separate jobs: detecting whether the object is multi-line, splitting the tokens into gaps, rebuilding the children, and building the new key and separator. It also calls n.BuildTokens(nil) twice per item inside the gap loop.",
+      "fix": "Extract `isMultiline(itemNodes) bool`, `splitGaps(stream, itemNodes) (gaps []Tokens, tail Tokens)` and `newObjectConsKey(key string, multiline bool) *ObjectConsKeyExpr`. In the gap loop, compute `toks := n.BuildTokens(nil)` once and reuse it."
+    },
+    {
+      "file": "pkg/node.go",
+      "line": 128,
+      "problem": "nodes.Clear clears the holders but leaves each node's list, before and after links set. appendItem (ast_object_cons_expr.go:193-196) works around this by detaching every item before calling Clear, so the item nodes can be appended again.",
+      "fix": "Make Clear unlink every node: walk the list, save `next := n.after`, then set n.list, n.before and n.after to nil and call setContentHolder(nil). Then remove the Detach loop in appendItem."
+    },
+    {
+      "file": "pkg/node.go",
+      "line": 302,
+      "problem": "inTree.parent is never assigned anywhere in the package, so the parent check in the new inTree.assertUnattached can never fire. The only check that works is the one on holder.",
+      "fix": "Remove the parent field and the parent branch of assertUnattached. Keep only the holder check."
+    },
+    {
+      "file": "pkg/function_call_expr.go",
+      "line": 41,
+      "problem": "Several new doc comments end with a stray empty `//` line: function_call_expr.go:41 and :60, tuple_cons_expr.go:24 and :41, ast_object_cons_expr.go:118, parser.go:74 (inputTokens) and parser.go:383 (parseExpression).",
+      "fix": "Delete the trailing `//` line from each of these comment blocks."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 451,
+      "problem": "In the changed parseObjectConsExpr, the loop variable `node := expr.children.Append(item)` shadows the `node` type. The function also reads `.writerTokens` directly, while the rest of parser.go and the new parse functions call `.Tokens()`.",
+      "fix": "Rename the variable, for example `expr.items.Add(expr.children.Append(item))`, and replace each `x.writerTokens` with `x.Tokens()`."
+    },
+    {
+      "file": "pkg/ast_expression_test.go",
+      "line": 150,
+      "problem": "checkASTExpressionVariables compares slices with a hand-written length check and element loop. TestObjectConsExprItems (ast_object_cons_expr_test.go:89) compares them by joining strings. The package already uses go-cmp in its tests.",
+      "fix": "Use `if diff := cmp.Diff(test.want, got); diff != \"\" { t.Fatalf(...) }` in both places."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 145,
+      "problem": "Variables checks each wrapped type in its own branch (AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr). Every new composite expression type will need another branch here, even though all three types already have a `variables()` method.",
+      "fix": "Declare an unexported interface `interface{ variables() []*Traversal }` and write `if v, ok := e.wrapped.content.(variablesLister); ok { ret = append(ret, v.variables()...) }` once, in place of the three type-specific branches.",
+      "category": "duplication",
+      "why": "Confirmed at ast_expression.go:145-159. There are three branches that differ only in which As* accessor they call, and all three then call the same unexported variables() method. Checking once against a small interface removes the repeated branches, and new composite types will no longer need another one.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 211,
+      "problem": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted repeat the same nil check and type assertion on e.wrapped.",
+      "fix": "Add a generic helper `func wrappedAs[T nodeContent](e *Expression) T` that returns the zero value when e.wrapped is nil or holds another type. Make the four methods one-line calls to it.",
+      "category": "duplication",
+      "why": "Confirmed. AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted (ast_expression.go:211-260) each repeat the same steps: check e.wrapped for nil, do a comma-ok type assertion, return nil otherwise. A generic wrappedAs[T] helper turns each of them into one line.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/tuple_cons_expr.go",
+      "line": 25,
+      "problem": "TupleConsExpr.variables is identical to FunctionCallExpr.variables (function_call_expr.go:42). Both loop over a nodeSet of *Expression and join their Variables().",
+      "fix": "Add `func variablesOf(exprs nodeSet) []*Traversal` in ast_expression.go and have both methods return `variablesOf(tuple.elems)` and `variablesOf(call.args)`.",
+      "category": "duplication",
+      "why": "Confirmed. TupleConsExpr.variables (tuple_cons_expr.go:25) and FunctionCallExpr.variables (function_call_expr.go:42) are the same apart from the field name: both loop over a nodeSet of *Expression and join their Variables().",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/tuple_cons_expr.go",
+      "line": 42,
+      "problem": "parseTupleConsExpr and parseFunctionCallExpr (function_call_expr.go:61) duplicate the same loop: partition each native sub-expression, append the tokens before it, parse it, add it to a nodeSet, append the leftover tokens, then wrap the result in an Expression. Both also build their struct inline, unlike newObjectConsExpr and the other constructors in the package.",
+      "fix": "Add newTupleConsExpr() and newFunctionCallExpr() constructors. Extract `parseExpressionList(natives []hclsyntax.Expression, from inputTokens, children *nodes) nodeSet` (or one that returns the wrapping node) and call it from both parse functions.",
+      "category": "duplication",
+      "why": "Confirmed. parseTupleConsExpr and parseFunctionCallExpr have the same loop: Partition, append the tokens before, parseExpression, AppendNode, Add to the nodeSet, append the leftover tokens, then wrap. Both also build their struct inline, while ObjectConsExpr and the other node types use newX() constructors.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 496,
+      "problem": "parseTemplateExpr sets `expr.wrapped = expr.children.Append(quoted)` directly. That skips the new Expression.wrap helper, which every other wrapping parser uses and which guards against double wrapping.",
+      "fix": "Replace the line with `expr.wrap(quoted)`.",
+      "category": "duplication",
+      "why": "Confirmed at parser.go:496. The code repeats by hand what Expression.wrap (ast_expression.go:28) does, which is make a node and append it as e.wrapped, but without the double-wrap guard. parseObjectConsExpr, parseTupleConsExpr and parseFunctionCallExpr all call wrap().",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 119,
+      "problem": "variables uses a `, ok` type assertion that can never fail, because items only ever holds *ObjectConsItem nodes. It also reaches into item.key.content and item.value.content directly instead of using the KeyExpr and ValueExpr accessors defined in the same file.",
+      "fix": "Loop over o.Items(). Use `key := item.KeyExpr()` and `item.ValueExpr().Expr()`, and remove the `ok`/`continue` branch.",
+      "category": "other",
+      "why": "Confirmed. o.items only ever holds *ObjectConsItem nodes, so the `ok`/`continue` branch can never run. Items(), KeyExpr() and ValueExpr() in the same file already do these type assertions, and variables() repeats them by reaching into item.key.content and item.value.content.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 268,
+      "problem": "isLineEnd, hasComma and newlineToken are methods on ObjectConsExpr but never use the receiver. isLineEnd also repeats the 'comment ends in \\n' check that already exists in parser.go:728 (partitionLineEndTokens) and format.go:438.",
+      "fix": "Turn the three methods into package-level functions, for example in tokens.go. Add one `tokenEndsLine(tok *Token) bool` helper and use it in appendItem, partitionLineEndTokens and format.go.",
+      "category": "duplication",
+      "why": "Confirmed. isLineEnd, hasComma and newlineToken never use the receiver. isLineEnd is the same function as tokenIsNewline in format.go:431, which already exists. Better than adding a new tokenEndsLine helper: make tokenIsNewline the one shared helper (or rename it) and use it in appendItem and partitionLineEndTokens.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/node.go",
+      "line": 128,
+      "problem": "nodes.Clear clears the holders but leaves each node's list, before and after links set. appendItem (ast_object_cons_expr.go:193-196) works around this by detaching every item before calling Clear, so the item nodes can be appended again.",
+      "fix": "Make Clear unlink every node: walk the list, save `next := n.after`, then set n.list, n.before and n.after to nil and call setContentHolder(nil). Then remove the Detach loop in appendItem.",
+      "category": "other",
+      "why": "Confirmed. nodes.Clear (node.go:128) only resets holders, so the nodes keep their list, before and after links. appendItem has to Detach each item first to work around this. Body.Clear leaves stale links in the same way, and b.items still refers to those nodes. Unlinking in Clear fixes the cause, and the Detach loop can then go.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/node.go",
+      "line": 302,
+      "problem": "inTree.parent is never assigned anywhere in the package, so the parent check in the new inTree.assertUnattached can never fire. The only check that works is the one on holder.",
+      "fix": "Remove the parent field and the parent branch of assertUnattached. Keep only the holder check.",
+      "category": "dead",
+      "why": "Confirmed by grep. inTree.parent is declared (node.go:287) and read in assertUnattached (node.go:302), but nothing in the package ever assigns it. The parent branch can never fire. Only the holder check does anything.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/function_call_expr.go",
+      "line": 41,
+      "problem": "Several new doc comments end with a stray empty `//` line: function_call_expr.go:41 and :60, tuple_cons_expr.go:24 and :41, ast_object_cons_expr.go:118, parser.go:74 (inputTokens) and parser.go:383 (parseExpression).",
+      "fix": "Delete the trailing `//` line from each of these comment blocks.",
+      "category": "other",
+      "why": "Confirmed at all seven places: function_call_expr.go:41 and :60, tuple_cons_expr.go:24 and :41, ast_object_cons_expr.go:118, parser.go:74 and :383. Each comment block ends with an empty `//` line that adds nothing. It is a trivial cleanup.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 451,
+      "problem": "In the changed parseObjectConsExpr, the loop variable `node := expr.children.Append(item)` shadows the `node` type. The function also reads `.writerTokens` directly, while the rest of parser.go and the new parse functions call `.Tokens()`.",
+      "fix": "Rename the variable, for example `expr.items.Add(expr.children.Append(item))`, and replace each `x.writerTokens` with `x.Tokens()`.",
+      "category": "naming",
+      "why": "Confirmed at parser.go:465. The local `node := ...` hides the package's `node` type. parseObjectConsExpr also reads `.writerTokens` directly, while the rest of parser.go, including the new parse functions, uses the `.Tokens()` accessor (parser.go:172). That is two ways to name one thing.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_expression_test.go",
+      "line": 150,
+      "problem": "checkASTExpressionVariables compares slices with a hand-written length check and element loop. TestObjectConsExprItems (ast_object_cons_expr_test.go:89) compares them by joining strings. The package already uses go-cmp in its tests.",
+      "fix": "Use `if diff := cmp.Diff(test.want, got); diff != \"\" { t.Fatalf(...) }` in both places.",
+      "category": "other",
+      "why": "Confirmed. checkASTExpressionVariables compares slices with a hand-written length check and loop, and TestObjectConsExprItems compares them by joining strings. go-cmp is already used in this package's tests (parser_test.go, ast_body_test.go and others). cmp.Diff is shorter and gives clearer failure output.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 6,
+  "changed_lines": 1556,
+  "per_kloc": 3.86,
+  "by_category": {
+    "naming": 0,
+    "duplication": 3,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 3
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 173425,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 74711,
+      "cache_read_input_tokens": 94330,
+      "output_tokens": 4380,
+      "output_tokens_details": {
+        "thinking_tokens": 1631
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 74711,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2534,
+          "cache_read_input_tokens": 82573,
+          "cache_creation_input_tokens": 3895,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3895
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.70417,
+    "duration_s": 44.9
+  }
+}

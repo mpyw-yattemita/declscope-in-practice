@@ -1,0 +1,185 @@
+{
+  "arm": "P",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/function_call_expr.go",
+      "line": 1,
+      "problem": "The new files `function_call_expr.go` and `tuple_cons_expr.go` (and their tests) do not use the `ast_` prefix. Every other AST node type in the package uses it, for example `ast_object_cons_expr.go` and `ast_expression.go`. The parse functions are also split inconsistently: `parseFunctionCallExpr` and `parseTupleConsExpr` live next to their types, but `parseObjectConsExpr` and `parseObjectConsKeyExpr` stay in `parser.go`.",
+      "fix": "Rename the files to `ast_function_call_expr.go`, `ast_function_call_expr_test.go`, `ast_tuple_cons_expr.go` and `ast_tuple_cons_expr_test.go`. Pick one place for parse functions. Either move `parseFunctionCallExpr` and `parseTupleConsExpr` into `parser.go` next to `parseObjectConsExpr`, or move `parseObjectConsExpr` and `parseObjectConsKeyExpr` into `ast_object_cons_expr.go`."
+    },
+    {
+      "file": "pkg/tuple_cons_expr.go",
+      "line": 34,
+      "problem": "`parseTupleConsExpr` and `parseFunctionCallExpr` (`function_call_expr.go:59`) have the same body. Each loops over native sub-expressions, partitions the tokens, appends the tokens before each sub-expression, parses it with `parseExpression`, adds the node to a `nodeSet`, appends the leftover tokens and wraps the result in an `Expression`.",
+      "fix": "Extract a helper such as `parseSubExpressions(children *nodes, set nodeSet, natives []hclsyntax.Expression, from inputTokens)` that appends the parts and the trailing tokens. Each parser then becomes: create the node, call the helper, then `wrapExpr.wrap(...)`."
+    },
+    {
+      "file": "pkg/function_call_expr.go",
+      "line": 20,
+      "problem": "`FunctionCallExpr.args` (and `TupleConsExpr.elems` in `tuple_cons_expr.go:15`) is filled during parsing but nothing reads it. `Variables` walks `children` instead, and no accessor exposes it. The field is write-only state that has to be kept in sync for nothing.",
+      "fix": "Add public accessors that read the sets, matching `ObjectConsExpr.Items`: `func (call *FunctionCallExpr) Args() []*Expression` and `func (t *TupleConsExpr) Exprs() []*Expression`, each built from `nodeSet.List()`. If no accessors are wanted yet, remove the fields and the `Add` calls."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 214,
+      "problem": "`AsObjectConsExpr`, `AsFunctionCallExpr`, `AsTupleConsExpr` and `asQuoted` are four copies of the same nil-check and type assertion on `e.wrapped.content`. This change added two of them. `AsObjectConsExpr` also has no doc comment, while the new methods do.",
+      "fix": "Add a generic helper, `func wrappedAs[T nodeContent](e *Expression) T { var zero T; if e.wrapped == nil { return zero }; t, _ := e.wrapped.content.(T); return t }`, and make each `As*` method a one-line call to it. Add a doc comment to `AsObjectConsExpr` that matches the other two."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 494,
+      "problem": "`parseTemplateExpr` sets `expr.wrapped = expr.children.Append(quoted)` directly. It skips `Expression.wrap`, which every other wrapping parser now uses and which guards against wrapping twice.",
+      "fix": "Replace those lines with `expr.wrap(quoted)`."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 432,
+      "problem": "`parseObjectConsExpr` reads `before.writerTokens`, `open.writerTokens` and `from.writerTokens` directly. The rest of the parser, including the new `parseFunctionCallExpr` and `parseTupleConsExpr`, uses the `inputTokens.Tokens()` accessor. It also uses `children` and `expr.children` for the same list in the same function.",
+      "fix": "Use `.Tokens()` everywhere in `parseObjectConsExpr`, and use the `children` local throughout (`node := children.Append(item)`)."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 222,
+      "problem": "`splitAtLineEnd` is a method on `*ObjectConsExpr` but never uses its receiver. It is a pure token helper, and it repeats the rule that a line comment ending in '\\n' ends the line, which `partitionLineEndTokens` in `parser.go` already encodes.",
+      "fix": "Make it a package-level function, `splitAtLineEnd(toks Tokens) (Tokens, Tokens, bool)`, and update the three call sites. Put the shared check, whether a token ends a line (`TokenNewline`, or `TokenComment` whose bytes end in '\\n'), in one small helper. Use that helper from both `splitAtLineEnd` and `partitionLineEndTokens`."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 128,
+      "problem": "`appendItem` builds newline and comma `Token` literals inline, and `ObjectConsItem.init` builds the '=' token inline as well. They repeat the token construction that `NewExpressionAbsTraversal` and `generate.go` also do by hand.",
+      "fix": "Build them once with small helpers next to `newIdentToken` in `tokens.go`, for example `newNewlineToken()`, `newCommaToken()` and `newEqualToken(spacesBefore int)`, and use those helpers here."
+    },
+    {
+      "file": "pkg/ast_expression_test.go",
+      "line": 116,
+      "problem": "`TestExpressionVariablesFunctionCallTupleCons` repeats the whole loop body of `TestExpressionVariablesObjectCons`. Two of its cases (`{ k = f(old.x) }` and `{ k = [old.x] }`) appear in both tables. Only the ObjectCons test also checks the count against hclsyntax.",
+      "fix": "Merge the two into one table-driven `TestExpressionVariables` with a single loop that keeps the hclsyntax variable-count check for every case, and remove the duplicate cases."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr_test.go",
+      "line": 46,
+      "problem": "Every new test function repeats the same ParseConfig, `diags.HasErrors()`, `t.Fatalf` and `GetAttribute(\"a\").Expr()` boilerplate. The same pattern appears in `ast_expression_test.go` and `function_call_expr_test.go`, even though the package already has a `mustParseConfig` helper in `ast_block_test.go`.",
+      "fix": "Add a test helper such as `mustParseAttrExpr(t, src) (*File, *Expression)` that calls `t.Helper()`, or reuse `mustParseConfig`, and use it in all the new tests."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/function_call_expr.go",
+      "line": 1,
+      "problem": "The new files `function_call_expr.go` and `tuple_cons_expr.go` (and their tests) do not use the `ast_` prefix. Every other AST node type in the package uses it, for example `ast_object_cons_expr.go` and `ast_expression.go`. The parse functions are also split inconsistently: `parseFunctionCallExpr` and `parseTupleConsExpr` live next to their types, but `parseObjectConsExpr` and `parseObjectConsKeyExpr` stay in `parser.go`.",
+      "fix": "Rename the files to `ast_function_call_expr.go`, `ast_function_call_expr_test.go`, `ast_tuple_cons_expr.go` and `ast_tuple_cons_expr_test.go`. Pick one place for parse functions. Either move `parseFunctionCallExpr` and `parseTupleConsExpr` into `parser.go` next to `parseObjectConsExpr`, or move `parseObjectConsExpr` and `parseObjectConsKeyExpr` into `ast_object_cons_expr.go`.",
+      "category": "naming",
+      "why": "Every other AST node file uses the ast_ prefix (ast_object_cons_expr.go, ast_expression.go, ast_block.go). function_call_expr.go and tuple_cons_expr.go break that rule. Also, parseFunctionCallExpr and parseTupleConsExpr sit next to their types, but parseObjectConsExpr and parseObjectConsKeyExpr are in parser.go. Readers can't tell where a parser lives.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/tuple_cons_expr.go",
+      "line": 34,
+      "problem": "`parseTupleConsExpr` and `parseFunctionCallExpr` (`function_call_expr.go:59`) have the same body. Each loops over native sub-expressions, partitions the tokens, appends the tokens before each sub-expression, parses it with `parseExpression`, adds the node to a `nodeSet`, appends the leftover tokens and wraps the result in an `Expression`.",
+      "fix": "Extract a helper such as `parseSubExpressions(children *nodes, set nodeSet, natives []hclsyntax.Expression, from inputTokens)` that appends the parts and the trailing tokens. Each parser then becomes: create the node, call the helper, then `wrapExpr.wrap(...)`.",
+      "category": "duplication",
+      "why": "The two loops are the same except for the field names: partition, append before.Tokens(), parseExpression, AppendNode, set.Add, append the leftover tokens, then wrap. Function arguments and tuple elements are the same idea (an ordered list of sub-expressions), so one helper doesn't couple unrelated callers.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/function_call_expr.go",
+      "line": 20,
+      "problem": "`FunctionCallExpr.args` (and `TupleConsExpr.elems` in `tuple_cons_expr.go:15`) is filled during parsing but nothing reads it. `Variables` walks `children` instead, and no accessor exposes it. The field is write-only state that has to be kept in sync for nothing.",
+      "fix": "Add public accessors that read the sets, matching `ObjectConsExpr.Items`: `func (call *FunctionCallExpr) Args() []*Expression` and `func (t *TupleConsExpr) Exprs() []*Expression`, each built from `nodeSet.List()`. If no accessors are wanted yet, remove the fields and the `Add` calls.",
+      "category": "dead",
+      "why": "grep shows FunctionCallExpr.args and TupleConsExpr.elems are only set up in the constructors and filled by Add. Nothing reads them: there is no accessor, and Variables walks children. They are write-only state.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 494,
+      "problem": "`parseTemplateExpr` sets `expr.wrapped = expr.children.Append(quoted)` directly. It skips `Expression.wrap`, which every other wrapping parser now uses and which guards against wrapping twice.",
+      "fix": "Replace those lines with `expr.wrap(quoted)`.",
+      "category": "duplication",
+      "why": "parseTemplateExpr repeats the body of Expression.wrap inline (expr.wrapped = expr.children.Append(quoted)) and skips the double-wrap guard. Every other wrapping parser calls wrap. The fix is one line and doesn't change behavior.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 432,
+      "problem": "`parseObjectConsExpr` reads `before.writerTokens`, `open.writerTokens` and `from.writerTokens` directly. The rest of the parser, including the new `parseFunctionCallExpr` and `parseTupleConsExpr`, uses the `inputTokens.Tokens()` accessor. It also uses `children` and `expr.children` for the same list in the same function.",
+      "fix": "Use `.Tokens()` everywhere in `parseObjectConsExpr`, and use the `children` local throughout (`node := children.Append(item)`).",
+      "category": "naming",
+      "why": "In parseObjectConsExpr the same list is called both `children` and `expr.children` (`node := expr.children.Append(item)`). Tokens are read through `.writerTokens` while the rest of the parser uses `.Tokens()`. The same thing goes by two names in one function. The fix is cheap.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 222,
+      "problem": "`splitAtLineEnd` is a method on `*ObjectConsExpr` but never uses its receiver. It is a pure token helper, and it repeats the rule that a line comment ending in '\\n' ends the line, which `partitionLineEndTokens` in `parser.go` already encodes.",
+      "fix": "Make it a package-level function, `splitAtLineEnd(toks Tokens) (Tokens, Tokens, bool)`, and update the three call sites. Put the shared check, whether a token ends a line (`TokenNewline`, or `TokenComment` whose bytes end in '\\n'), in one small helper. Use that helper from both `splitAtLineEnd` and `partitionLineEndTokens`.",
+      "category": "other",
+      "why": "splitAtLineEnd never uses its receiver `o`. It is a pure token helper, and three call sites pass through `o.` for no reason. The rule that a token ends a line (a newline, or a comment ending in '\\n') is also written again in partitionLineEndTokens. One small predicate for that rule is a reasonable shared helper.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_expression_test.go",
+      "line": 116,
+      "problem": "`TestExpressionVariablesFunctionCallTupleCons` repeats the whole loop body of `TestExpressionVariablesObjectCons`. Two of its cases (`{ k = f(old.x) }` and `{ k = [old.x] }`) appear in both tables. Only the ObjectCons test also checks the count against hclsyntax.",
+      "fix": "Merge the two into one table-driven `TestExpressionVariables` with a single loop that keeps the hclsyntax variable-count check for every case, and remove the duplicate cases.",
+      "category": "duplication",
+      "why": "TestExpressionVariablesFunctionCallTupleCons copies the loop body of TestExpressionVariablesObjectCons but leaves out the hclsyntax variable-count check. Its cases `{ k = f(old.x) }` and `{ k = [old.x] }` appear in both tables with the same expectations. Merging them removes the copy and adds the hclsyntax check to the function-call and tuple cases.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 5,
+  "changed_lines": 1395,
+  "per_kloc": 3.58,
+  "by_category": {
+    "naming": 1,
+    "duplication": 2,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 1,
+    "other": 1
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 3,
+    "tokens": 250734,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 71664,
+      "cache_read_input_tokens": 174446,
+      "output_tokens": 4618,
+      "output_tokens_details": {
+        "thinking_tokens": 1846
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 71664,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2479,
+          "cache_read_input_tokens": 82392,
+          "cache_creation_input_tokens": 1029,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1029
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.7005852,
+    "duration_s": 50.4
+  }
+}
