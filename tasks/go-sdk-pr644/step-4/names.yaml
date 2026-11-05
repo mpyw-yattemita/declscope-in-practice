@@ -1,0 +1,97 @@
+# Identifiers used by step-4/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "ClientOptions.ElicitationCompleteHandler"
+    kind: field
+    exported: true
+    signature: "ElicitationCompleteHandler func(context.Context, *ElicitationCompleteNotificationRequest)"
+    used_in: [elicitation_test.go, mcp_test.go]
+  - name: "ClientOptions.ElicitationModes"
+    kind: field
+    exported: true
+    signature: "ElicitationModes []string"
+    used_in: [client_test.go, elicitation_test.go, error_test.go]
+  - name: "CodeResourceNotFound"
+    kind: const
+    exported: true
+    signature: "const CodeResourceNotFound"
+    used_in: [error_test.go, mcp_test.go]
+  - name: "CodeURLElicitationRequired"
+    kind: const
+    exported: true
+    signature: "const CodeURLElicitationRequired"
+    used_in: [error_test.go]
+  - name: "ElicitParams.ElicitationID"
+    kind: field
+    exported: true
+    signature: "ElicitationID string"
+    used_in: [elicitation_test.go, error_test.go]
+  - name: "ElicitParams.Mode"
+    kind: field
+    exported: true
+    signature: "Mode string"
+    used_in: [elicitation_test.go, error_test.go]
+  - name: "ElicitParams.URL"
+    kind: field
+    exported: true
+    signature: "URL string"
+    used_in: [client_test.go, elicitation_test.go, error_test.go, sse_example_test.go, sse_test.go, streamable_bench_test.go, streamable_client_test.go, streamable_example_test.go, streamable_test.go]
+  - name: "ElicitationCapabilities.Form"
+    kind: field
+    exported: true
+    signature: "Form *FormElicitationCapabilities"
+    used_in: [client_test.go]
+  - name: "ElicitationCapabilities.URL"
+    kind: field
+    exported: true
+    signature: "URL *URLElicitationCapabilities"
+    used_in: [client_test.go, elicitation_test.go, error_test.go, sse_example_test.go, sse_test.go, streamable_bench_test.go, streamable_client_test.go, streamable_example_test.go, streamable_test.go]
+  - name: "ElicitationCompleteNotificationRequest"
+    kind: type
+    exported: true
+    signature: "type ElicitationCompleteNotificationRequest ClientRequest[*ElicitationCompleteParams]"
+    used_in: [elicitation_test.go, mcp_test.go]
+  - name: "ElicitationCompleteParams"
+    kind: type
+    exported: true
+    signature: "type ElicitationCompleteParams struct"
+    used_in: [elicitation_test.go, error_test.go]
+  - name: "ElicitationCompleteParams.ElicitationID"
+    kind: field
+    exported: true
+    signature: "ElicitationID string"
+    used_in: [elicitation_test.go, error_test.go]
+  - name: "ElicitationCompleteParams.Meta"
+    kind: embedded
+    exported: true
+    signature: "Meta"
+    used_in: [content_test.go, mcp_example_test.go, mcp_test.go, protocol_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "FormElicitationCapabilities"
+    kind: type
+    exported: true
+    signature: "type FormElicitationCapabilities struct"
+    used_in: [client_test.go]
+  - name: "URLElicitationCapabilities"
+    kind: type
+    exported: true
+    signature: "type URLElicitationCapabilities struct"
+    used_in: [client_test.go]
+  - name: "URLElicitationRequiredError"
+    kind: func
+    exported: true
+    signature: "func URLElicitationRequiredError(elicitations []*ElicitParams) error"
+    used_in: [error_test.go]
+  - name: "notificationElicitationComplete"
+    kind: const
+    exported: false
+    signature: "const notificationElicitationComplete"
+    used_in: [elicitation_test.go, error_test.go]
+    risk: "unexported method-name constant, as in step 2"
+  - name: "urlElicitationMiddleware"
+    kind: func
+    exported: false
+    signature: "func urlElicitationMiddleware() Middleware"
+    used_in: [error_test.go]
+    risk: "unexported constructor installed by the step-3 test with Client.AddSendingMiddleware; map it as in step 3"

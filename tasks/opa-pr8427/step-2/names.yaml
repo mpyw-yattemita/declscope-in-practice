@@ -1,0 +1,92 @@
+# Identifiers used by step-2/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "ExprByVar.add"
+    kind: method
+    exported: false
+    signature: "func (ExprByVar) add(v Var, e *Expr)"
+    used_in: [term_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "Not"
+    kind: type
+    exported: true
+    signature: "type Not struct"
+    used_in: [compile_test.go, parser_test.go]
+  - name: "Not.AppendText"
+    kind: method
+    exported: true
+    signature: "func (*Not) AppendText(buf []byte) ([]byte, error)"
+    used_in: [policy_appenders_test.go, policy_bench_test.go, term_appenders_test.go]
+  - name: "Not.Body"
+    kind: field
+    exported: true
+    signature: "Body Body"
+    used_in: [compile_test.go, example_test.go, marshal_test.go, parser_test.go, policy_appenders_test.go, policy_bench_test.go, policy_test.go]
+  - name: "Not.Compare"
+    kind: method
+    exported: true
+    signature: "func (*Not) Compare(other Value) int"
+    used_in: [annotations_test.go, builtins_test.go, check_test.go, compare_test.go, compile_test.go, env_test.go, parser_ext_test.go, parser_test.go, policy_test.go, schema_test.go, term_bench_test.go, term_test.go, transform_test.go]
+  - name: "Not.Copy"
+    kind: method
+    exported: true
+    signature: "func (*Not) Copy() *Not"
+    used_in: [check_test.go, compile_bench_test.go, compile_test.go, marshal_test.go, policy_test.go, term_bench_test.go, term_test.go]
+  - name: "Not.Equal"
+    kind: method
+    exported: true
+    signature: "func (*Not) Equal(other Value) bool"
+    used_in: [annotations_test.go, check_test.go, compile_test.go, index_test.go, map_test.go, marshal_test.go, parser_test.go, policy_test.go, term_bench_test.go, term_test.go, transform_test.go, visit_test.go]
+  - name: "Not.Find"
+    kind: method
+    exported: true
+    signature: "func (*Not) Find(path Ref) (Value, error)"
+    used_in: [compile_test.go, index_test.go, term_bench_test.go, term_test.go]
+  - name: "Not.Hash"
+    kind: method
+    exported: true
+    signature: "func (*Not) Hash() int"
+    used_in: [map_test.go, term_bench_test.go, term_test.go]
+  - name: "Not.IsGround"
+    kind: method
+    exported: true
+    signature: "func (*Not) IsGround() bool"
+    used_in: [policy_test.go, term_test.go]
+  - name: "Not.Loc"
+    kind: method
+    exported: true
+    signature: "func (*Not) Loc() *Location"
+    used_in: [parser_test.go]
+  - name: "Not.Location"
+    kind: field
+    exported: true
+    signature: "Location *Location"
+    used_in: [annotations_test.go, capabilities_test.go, compile_test.go, marshal_test.go, parser_test.go, policy_bench_test.go, policy_test.go]
+  - name: "Not.String"
+    kind: method
+    exported: true
+    signature: "func (*Not) String() string"
+    used_in: [compile_test.go, interning_test.go, map_test.go, parser_bench_test.go, parser_ext_test.go, parser_test.go, policy_bench_test.go, policy_test.go, pretty_test.go, schema_test.go, term_bench_test.go, term_test.go]
+  - name: "Not.StringLength"
+    kind: method
+    exported: true
+    signature: "func (*Not) StringLength() int"
+    used_in: [policy_appenders_test.go, policy_test.go, term_appenders_test.go]
+  - name: "NotExpr"
+    kind: func
+    exported: true
+    signature: "func NotExpr(exprs ...*Expr) *Expr"
+    used_in: [compile_test.go]
+  - name: "mermaidBuilder.node"
+    kind: method
+    exported: false
+    signature: "func (*mermaidBuilder) node(shape, label string) string"
+    used_in: [parser_test.go, policy_appenders_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "mermaidGraph"
+    kind: func
+    exported: false
+    signature: "func mermaidGraph(module *Module) string"
+    used_in: [compile_test.go, mermaid_test.go]
+    risk: "unexported; the agent may have no named counterpart"

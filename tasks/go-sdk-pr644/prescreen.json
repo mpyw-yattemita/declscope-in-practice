@@ -1,0 +1,324 @@
+{
+  "task": "go-sdk-pr644",
+  "commits": {
+    "seed": {
+      "commit": "1943780255521f98ef57f083ae95b92fe727ee96",
+      "packages": [
+        "auth",
+        "internal/jsonrpc2",
+        "internal/util",
+        "internal/xcontext",
+        "jsonrpc",
+        "mcp"
+      ]
+    },
+    "step-1": {
+      "commit": "d9263f7e47ba2fa85fb59c7a4c17a962f968c2db",
+      "packages": [
+        "auth",
+        "internal/jsonrpc2",
+        "internal/util",
+        "internal/xcontext",
+        "jsonrpc",
+        "mcp"
+      ]
+    },
+    "step-2": {
+      "commit": "21fb03dd1ab987339fa35061e94c3e8cbdcf565f",
+      "packages": [
+        "auth",
+        "internal/jsonrpc2",
+        "internal/util",
+        "internal/xcontext",
+        "jsonrpc",
+        "mcp"
+      ]
+    },
+    "step-3": {
+      "commit": "2ce44d45e9f65c9e2bb8fee56d1a4663241aad11",
+      "packages": [
+        "auth",
+        "internal/jsonrpc2",
+        "internal/util",
+        "internal/xcontext",
+        "jsonrpc",
+        "mcp"
+      ]
+    },
+    "step-4": {
+      "commit": "1bec3c60a0229df71933fdea7d5046702fc8cc4b",
+      "packages": [
+        "auth",
+        "internal/jsonrpc2",
+        "internal/util",
+        "internal/xcontext",
+        "jsonrpc",
+        "mcp"
+      ]
+    },
+    "step-5": {
+      "commit": "623780125cbb74daba04375807b887b935e50037",
+      "packages": [
+        "auth",
+        "internal/jsonrpc2",
+        "internal/util",
+        "internal/xcontext",
+        "jsonrpc",
+        "mcp"
+      ]
+    }
+  },
+  "hits": [
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "internal/jsonrpc2/net.go",
+      "line": 20,
+      "text": "NetDialer       net.Dialer",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "internal/jsonrpc2/net.go",
+      "line": 58,
+      "text": "return NetDialer(l.net.Addr().Network(), l.net.Addr().String(), net.Dialer{})",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "internal/jsonrpc2/net.go",
+      "line": 62,
+      "text": "func NetDialer(network, address string, nd net.Dialer) Dialer {",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "internal/jsonrpc2/net.go",
+      "line": 73,
+      "text": "dialer  net.Dialer",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "exec",
+      "path": "mcp/cmd_test.go",
+      "line": 245,
+      "text": "cmd := exec.Command(exe)",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "exec",
+      "path": "mcp/cmd_test.go",
+      "line": 295,
+      "text": "cmd := exec.Command(\"sleep\", \"20\")",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/sse.go",
+      "line": 346,
+      "text": "httpClient = http.DefaultClient",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/sse_test.go",
+      "line": 96,
+      "text": "resp, err := http.Post(msgEndpoint, \"application/json\", bytes.NewReader([]byte(r.body)))",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/streamable.go",
+      "line": 1269,
+      "text": "client = http.DefaultClient",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/streamable_bench_test.go",
+      "line": 120,
+      "text": "resp, err := http.DefaultClient.Do(req)",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/streamable_example_test.go",
+      "line": 76,
+      "text": "resp := orFatal(http.DefaultClient.Do(req))",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/streamable_test.go",
+      "line": 1208,
+      "text": "resp, err := http.DefaultClient.Do(req)",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/streamable_test.go",
+      "line": 1542,
+      "text": "resp, err := http.DefaultClient.Do(get1)",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/streamable_test.go",
+      "line": 1552,
+      "text": "resp, err = http.DefaultClient.Do(post1)",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/streamable_test.go",
+      "line": 1572,
+      "text": "resp, err = http.DefaultClient.Do(get2)",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    },
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "mcp/streamable_test.go",
+      "line": 1584,
+      "text": "resp, err = http.DefaultClient.Do(del)",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    }
+  ],
+  "verdict": "needs-review",
+  "review": {
+    "by": "parent agent (main session)",
+    "date": "2026-11-05",
+    "decision": "clean",
+    "hit_count": 16,
+    "notes": [
+      "mcp/cmd_test.go: exec.Command(os.Executable()) re-runs the package's own test binary as an MCP server, and exec.Command(\"sleep\", \"20\") runs sleep. Neither installs or downloads anything.",
+      "The http.DefaultClient / http.Post / net.Dialer hits in mcp/ and internal/jsonrpc2 talk to httptest servers or local listeners."
+    ]
+  }
+}

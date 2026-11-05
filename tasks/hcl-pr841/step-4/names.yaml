@@ -1,0 +1,52 @@
+# Identifiers used by step-4/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "FunctionCallExpr.Name"
+    kind: method
+    exported: true
+    signature: "func (*FunctionCallExpr) Name() string"
+    used_in: [ast_body_test.go, ast_object_cons_expr_test.go, examples_test.go, generate_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "FunctionCallExpr.name"
+    kind: field
+    exported: false
+    signature: "name string"
+    used_in: [ast_body_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "ObjectConsExpr.ItemFor"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) ItemFor(key string) *ObjectConsItem"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.SetItem"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) SetItem(key string, expr *Expression) (*ObjectConsKeyExpr, *ObjectConsValue)"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.SetItemRaw"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) SetItemRaw(key string, tokens Tokens) (*ObjectConsKeyExpr, *ObjectConsValue)"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.SetItemTraversal"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) SetItemTraversal(key string, traversal hcl.Traversal) (*ObjectConsKeyExpr, *ObjectConsValue)"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.SetItemValue"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) SetItemValue(key string, val cty.Value) (*ObjectConsKeyExpr, *ObjectConsValue)"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.ValueExprFor"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) ValueExprFor(key string) *ObjectConsValue"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "parseExpr"
+    kind: func
+    exported: false
+    signature: "func parseExpr(src []byte, filename string, start hcl.Pos) (*Expression, hcl.Diagnostics)"
+    used_in: [parser_test.go]
+    risk: "unexported; test calls parseExpr(src, filename, pos) directly. Map it to the public ParseExpression, which has the same signature, if the agent has no separate helper."

@@ -1,0 +1,39 @@
+diff --git a/pkg/provider/kubernetes/gateway/features.go b/pkg/provider/kubernetes/gateway/features.go
+index 30d26d2f5..b912fb90a 100644
+--- a/pkg/provider/kubernetes/gateway/features.go
++++ b/pkg/provider/kubernetes/gateway/features.go
+@@ -72,6 +72,7 @@ func extendedHTTPRouteFeatures() sets.Set[features.Feature] {
+ 		features.HTTPRouteCORS,
+ 		features.HTTPRouteRequestTimeoutFeature,
+ 		features.HTTPRouteBackendTimeoutFeature,
++		features.HTTPRouteBackendURLRewriteFeature,
+ 	)
+ }
+ 
+@@ -79,6 +80,7 @@ func extendedHTTPRouteFeatures() sets.Set[features.Feature] {
+ func extendedGRPCRouteFeatures() sets.Set[features.Feature] {
+ 	return sets.New(
+ 		features.GRPCRouteNamedRouteRule,
++		features.GRPCRouteRequestHeaderModifier,
+ 	)
+ }
+ 
+diff --git a/pkg/provider/kubernetes/gateway/tlsroute.go b/pkg/provider/kubernetes/gateway/tlsroute.go
+index 007277694..44990a920 100644
+--- a/pkg/provider/kubernetes/gateway/tlsroute.go
++++ b/pkg/provider/kubernetes/gateway/tlsroute.go
+@@ -466,11 +466,13 @@ func (p *Provider) loadTLSServers(gatewayName, gatewayNamespace, namespace strin
+ 	}
+ 
+ 	lb := &dynamic.TCPServersLoadBalancer{}
++	passthrough := listener.TLS != nil && listener.TLS.Mode != nil && *listener.TLS.Mode == gatev1.TLSModePassthrough
+ 
+ 	for _, ba := range backendAddresses {
+ 		lb.Servers = append(lb.Servers, dynamic.TCPServer{
+-			// TODO determine whether the servers needs TLS, from the port?
+ 			Address: net.JoinHostPort(ba.IP, strconv.Itoa(int(ba.Port))),
++			// The ServersTransport TLS configuration is only used to dial TLS servers.
++			TLS: serversTransport != nil && serversTransport.TLS != nil && !passthrough,
+ 		})
+ 	}
+ 	return lb, serversTransport, nil

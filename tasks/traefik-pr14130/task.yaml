@@ -1,0 +1,161 @@
+id: traefik-pr14130
+repo: https://github.com/traefik/traefik
+package: pkg/provider/kubernetes/gateway
+go: "1.27.0"
+env:
+  CGO_ENABLED: "0"
+seed: 90a7b2b411ddd3bc61485cc97dfb2bb607e36c9b
+notes:
+  - "Most tests are table tests over YAML fixtures that compare the whole generated dynamic configuration, including generated router, service, middleware and ServersTransport names. A different naming or ordering scheme fails them even when the behaviour is right; the task texts keep the existing naming conventions implicit (they come from the seed code)."
+  - "Outside-package changes of every step are applied by the harness (outside.patch) before the agent starts that step. Most are docs and conformance reports; #14123 also adds the dynamic configuration type the gateway code must emit."
+steps:
+  - n: 1
+    pr: 14130
+    title: "Support HTTPRoute backendRequest timeout"
+    merge: eabc0714b367582dddbec155b5949889675b032d
+    parent: 90a7b2b411ddd3bc61485cc97dfb2bb607e36c9b
+    stage: 1
+    task: step-1/task.md
+    hidden: step-1/hidden
+    names: step-1/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: integration/gateway-api-conformance-reports/v1.6.3/experimental-v3.8-default-report.yaml, added: 3, removed: 3}
+        - {path: integration/gateway-api-conformance-reports/v1.6.3/experimental-v3.8-merged-report.yaml, added: 3, removed: 3}
+      treatment: harness
+      reason: "Docs and Gateway API conformance reports only; they apply cleanly and use no names from the package. The harness applies them so that later outside patches, which touch the same reports and docs, apply cleanly."
+      patch: step-1/outside.patch
+    test_cmd: "go test -count=1 ./pkg/provider/kubernetes/gateway"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 2
+    pr: 14119
+    title: "Support Gateway backend client certificate"
+    merge: b46d3ea648b543a8d8c675a178b0780faae958c7
+    parent: f1f227eda7d6b93988edd6cdbeae02c5d1cf79d5
+    stage: 1
+    task: step-2/task.md
+    hidden: step-2/hidden
+    names: step-2/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: docs/content/reference/routing-configuration/kubernetes/gateway-api.md, added: 36, removed: 0}
+        - {path: flake.lock, added: 22, removed: 5}
+        - {path: flake.nix, added: 68, removed: 5}
+        - {path: integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml, added: 6, removed: 6}
+        - {path: integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml, added: 6, removed: 6}
+      treatment: harness
+      reason: "Docs (gateway-api.md), flake.nix/flake.lock and conformance reports; no Go code. They apply cleanly and use no names from the package."
+      patch: step-2/outside.patch
+    test_cmd: "go test -count=1 ./pkg/provider/kubernetes/gateway"
+    known_failing: []
+    intermediate:
+      commits:
+        - {sha: f1f227eda7d6, title: "Bump sigs.k8s.io/gateway-api to v1.7.0-rc.3", files: [go.mod, go.sum, pkg/provider/kubernetes/gateway/features.go, pkg/provider/kubernetes/gateway/kubernetes_test.go, pkg/provider/kubernetes/gateway/tlsroute.go]}
+      handling: "#14125 (dependency bump to sigs.k8s.io/gateway-api v1.7.0-rc.3, k8s.io/* v0.37.1, controller-runtime v0.25.2 and others) sits between steps 1 and 2. Before step 2 the harness applies step-2/intermediate.patch: every file of that commit outside the package and outside docs/ (go.mod, go.sum, regenerated CRD client code, integration fixtures and reports, script/code-gen.sh). It then applies step-2/intermediate-pkg.patch, the commit's 2 non-test hunks inside the package (features.go: declare HTTPRouteBackendURLRewrite and GRPCRouteRequestHeaderModifier as supported; tlsroute.go: mark TLSRoute backend servers as TLS when a TLS ServersTransport is used and the listener is not Passthrough), with `git apply --3way`. tlsroute.go is untouched by step 1, so that hunk applies; the features.go hunk has step 1's added line in its context and may need the 3-way merge. If it still fails, the harness adds step-2/intermediate-pkg.md to the top of the step-2 task text instead. The commit's test change in the package comes with step-2/hidden. The package compiles against the bumped modules without the in-package hunks."
+      patch: step-2/intermediate.patch
+  - n: 3
+    pr: 14127
+    title: "Support HTTPRoute retry"
+    merge: 855f81ab0972791bb1969125846309deb98f2e50
+    parent: b46d3ea648b543a8d8c675a178b0780faae958c7
+    stage: 1
+    task: step-3/task.md
+    hidden: step-3/hidden
+    names: step-3/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: docs/content/reference/install-configuration/configuration-options.md, added: 1, removed: 0}
+        - {path: docs/content/reference/install-configuration/providers/kubernetes/kubernetes-gateway.md, added: 1, removed: 0}
+        - {path: docs/content/reference/static-configuration/file.toml, added: 1, removed: 0}
+        - {path: docs/content/reference/static-configuration/file.yaml, added: 1, removed: 0}
+        - {path: integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml, added: 5, removed: 3}
+        - {path: integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml, added: 5, removed: 3}
+      treatment: harness
+      reason: "Docs that list the new provider option (configuration-options.md, kubernetes-gateway.md, static-configuration file.toml/file.yaml) and conformance reports; no Go code. They apply cleanly and use only the option name the task text states."
+      patch: step-3/outside.patch
+    test_cmd: "go test -count=1 ./pkg/provider/kubernetes/gateway"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 4
+    pr: 14123
+    title: "Support HTTPRoute RequestMirror filter"
+    merge: c8740f8e276182e8d2852d03aceaa7e179151791
+    parent: 855f81ab0972791bb1969125846309deb98f2e50
+    stage: 1
+    task: step-4/task.md
+    hidden: step-4/hidden
+    names: step-4/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: docs/content/migrate/v3.md, added: 15, removed: 0}
+        - {path: docs/content/reference/dynamic-configuration/file.toml, added: 1, removed: 0}
+        - {path: docs/content/reference/dynamic-configuration/file.yaml, added: 1, removed: 0}
+        - {path: docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml, added: 8, removed: 0}
+        - {path: docs/content/reference/dynamic-configuration/traefik.io_traefikservices.yaml, added: 8, removed: 0}
+        - {path: docs/content/reference/routing-configuration/http/load-balancing/service.md, added: 7, removed: 0}
+        - {path: docs/content/reference/routing-configuration/kubernetes/crd/http/traefikservice.md, added: 3, removed: 1}
+        - {path: docs/content/reference/routing-configuration/kubernetes/gateway-api.md, added: 2, removed: 0}
+        - {path: docs/content/reference/routing-configuration/other-providers/file.md, added: 1, removed: 0}
+        - {path: integration/fixtures/k8s/01-traefik-crd.yml, added: 8, removed: 0}
+        - {path: integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml, added: 4, removed: 4}
+        - {path: integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml, added: 4, removed: 4}
+        - {path: pkg/config/dynamic/http_config.go, added: 1, removed: 0}
+        - {path: pkg/config/dynamic/middlewares.go, added: 11, removed: 0}
+        - {path: pkg/config/dynamic/zz_generated.deepcopy.go, added: 21, removed: 0}
+        - {path: pkg/middlewares/gatewayapi/requestmirror/request_mirror.go, added: 49, removed: 0}
+        - {path: pkg/middlewares/gatewayapi/requestmirror/request_mirror_test.go, added: 228, removed: 0}
+        - {path: pkg/provider/kubernetes/crd/generated/applyconfiguration/traefikio/v1alpha1/mirroring.go, added: 14, removed: 0}
+        - {path: pkg/provider/kubernetes/crd/kubernetes_http.go, added: 1, removed: 0}
+        - {path: pkg/provider/kubernetes/crd/traefikio/v1alpha1/service.go, added: 6, removed: 0}
+        - {path: pkg/provider/kv/kv_test.go, added: 2, removed: 0}
+        - {path: pkg/server/middleware/middlewares.go, added: 12, removed: 0}
+        - {path: pkg/server/service/loadbalancer/mirror/mirror.go, added: 91, removed: 30}
+        - {path: pkg/server/service/loadbalancer/mirror/mirror_test.go, added: 22, removed: 19}
+        - {path: pkg/server/service/loadbalancer/mirror/streaming.go, added: 119, removed: 0}
+        - {path: pkg/server/service/loadbalancer/mirror/streaming_test.go, added: 398, removed: 0}
+        - {path: pkg/server/service/service.go, added: 14, removed: 2}
+        - {path: pkg/server/service/service_test.go, added: 60, removed: 0}
+      treatment: harness
+      reason: "Upstream adds the dynamic configuration type the gateway code emits (dynamic.Middleware.RequestMirror, dynamic.RequestMirror with Service/Numerator/Denominator, deepcopy), the internal middleware that runs it (pkg/middlewares/gatewayapi/requestmirror, pkg/server/middleware), a bundled streaming-mirror feature for TraefikService (dynamic.Mirroring.StreamBody, CRD field, pkg/server/service/loadbalancer/mirror) and docs. None of it imports the gateway package or names anything the agent chooses, and it applies cleanly at the parent. The gateway tests compare against dynamic.RequestMirror, so the type must exist before the agent starts; the task text names it as existing."
+      patch: step-4/outside.patch
+    test_cmd: "go test -count=1 ./pkg/provider/kubernetes/gateway"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 5
+    pr: 13410
+    title: "Support ClusterTrustBundle CA certificate references"
+    merge: 074d02c09fae5a89463caf478013455f108316a2
+    parent: b73070140f9f884af97152da91579453974dcb0a
+    stage: 2
+    task: step-5/task.md
+    hidden: step-5/hidden
+    names: step-5/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: docs/content/migrate/v3.md, added: 24, removed: 0}
+        - {path: docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml, added: 7, removed: 0}
+        - {path: integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml, added: 5, removed: 5}
+        - {path: integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml, added: 5, removed: 5}
+        - {path: pkg/provider/kubernetes/k8s/parser.go, added: 1, removed: 1}
+      treatment: harness
+      reason: "pkg/provider/kubernetes/k8s/parser.go adds ClusterTrustBundle to the YAML kinds that the test helper MustParseYaml accepts (without it the fixtures cannot be read), plus docs (migration guide, RBAC). Applies cleanly, uses no package names."
+      patch: step-5/outside.patch
+    test_cmd: "go test -count=1 ./pkg/provider/kubernetes/gateway"
+    known_failing: []
+    intermediate:
+      commits:
+        - {sha: b73070140f9f, title: "Merge branch v3.7 into master", files: [go.mod, go.sum, pkg/provider/kubernetes/gateway/grpcroute.go, go.mod, go.sum, pkg/config/dynamic/http_config.go, pkg/config/dynamic/middlewares.go, pkg/config/dynamic/tcp_config.go, pkg/config/dynamic/zz_generated.deepcopy.go, pkg/config/label/label_test.go, pkg/observability/observability.go, pkg/observability/observability_test.go, pkg/observability/types/logs.go, pkg/observability/types/tracing.go, pkg/provider/kubernetes/crd/traefikio/v1alpha1/ingressroute.go, pkg/provider/kubernetes/crd/traefikio/v1alpha1/middleware.go, pkg/provider/kubernetes/crd/traefikio/v1alpha1/serverstransport.go, pkg/provider/kubernetes/crd/traefikio/v1alpha1/serverstransporttcp.go, pkg/provider/kubernetes/crd/traefikio/v1alpha1/service.go, pkg/provider/kubernetes/crd/traefikio/v1alpha1/zz_generated.deepcopy.go, pkg/provider/kubernetes/gateway/client.go, pkg/provider/kubernetes/gateway/client_test.go, pkg/provider/kubernetes/gateway/features.go, pkg/provider/kubernetes/gateway/fixtures/frontend_validation_ca_refs.yml, pkg/provider/kubernetes/gateway/fixtures/gateway_backend_client_certificate_refs.yml, pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_tls_policy.yml, pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_tls_policy_cross_namespace.yml, pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_tls_policy_san.yml, pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_backend_tls_policy_system.yml, pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_frontend_validation.yml, pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_frontend_validation_listener_isolation.yml, pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_frontend_validation_shared_entrypoint.yml, pkg/provider/kubernetes/gateway/fixtures/grpcroute/with_gateway_backend_client_certificate.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/filter_extension_ref.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/filter_request_mirror.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/filter_request_mirror_missing_service.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/listener_isolation.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/listener_isolation_three_gateways.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/simple_with_wildcard_listener_hostname.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_tls_policy_san.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_frontend_validation.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_frontend_validation_listener_isolation.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_frontend_validation_shared_entrypoint.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_gateway_backend_client_certificate.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_gateway_backend_client_certificate_listenerset.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_gateway_backend_client_certificate_two_gateways.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_listenerset.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_request_timeout.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_retry.yml, pkg/provider/kubernetes/gateway/fixtures/httproute/with_retry_empty.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/simple.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_core_group.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_listenerset_conflicts.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_listenerset_delegation.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_listenerset_not_allowed.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_listenerset_precedence.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_multiple_listeners_using_same_hostname_port_protocol.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_namespace_all.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_namespace_same.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_namespace_selector.yml, pkg/provider/kubernetes/gateway/fixtures/mixed/with_tlsroute_and_tcproute_on_same_entrypoint.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_secret.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_secret_from_listenerset.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_secret_missing.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_secret_not_matching_from.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_secret_not_matching_from_listenerset.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_secret_not_matching_to.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_service.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_service_not_matching_from.yml, pkg/provider/kubernetes/gateway/fixtures/referencegrant/for_service_not_matching_to.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/gatewayclass_with_unknown_controller.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/invalid_cross_provider.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/simple.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/simple_cross_provider.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/simple_nativelb.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/simple_nativelb_disabled.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_conflicting_routes.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_identical_rules.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_listenerset.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_multiple_gateways_parent_refs.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_multiple_routes.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_multiple_rules.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_namespace_all.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_namespace_same.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_namespace_selector.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_nil_endpointslice_port_name.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_nil_endpointslice_port_value.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_protocol_http.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_protocol_https.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_protocol_tls.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/with_wrong_service_port.yml, pkg/provider/kubernetes/gateway/fixtures/tcproute/without_gatewayclass.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/gatewayclass_with_unknown_controller.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/simple_TLS_to_TCPRoute.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/simple_TLS_to_TCPRoute_passthrough.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_tls_policy.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_tls_policy_cross_namespace.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_tls_policy_san.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_backend_tls_policy_system.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_gateway_backend_client_certificate.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_listenerset.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/with_multiple_routes_kind.yml, pkg/provider/kubernetes/gateway/fixtures/tlsroute/without_gatewayclass.yml, pkg/provider/kubernetes/gateway/grpcroute.go, pkg/provider/kubernetes/gateway/httproute.go, pkg/provider/kubernetes/gateway/httproute_test.go, pkg/provider/kubernetes/gateway/kubernetes.go, pkg/provider/kubernetes/gateway/kubernetes_test.go, pkg/provider/kubernetes/gateway/status.go, pkg/provider/kubernetes/gateway/status_test.go, pkg/provider/kubernetes/gateway/tcproute.go, pkg/provider/kubernetes/gateway/tlsroute.go, pkg/provider/kubernetes/k8s/parser.go, pkg/provider/kubernetes/k8s/transform.go, pkg/provider/kubernetes/k8s/transform_test.go, pkg/provider/kubernetes/k8s/urnrefs.go, pkg/tls/certificate.go, pkg/tls/certificate_test.go, pkg/tls/zz_generated.deepcopy.go]}
+      handling: "#14145 (merge of branch v3.7) sits between steps 4 and 5. Before step 5 the harness applies step-5/intermediate.patch: every file of it outside the package and outside docs/ (go.mod/go.sum bumps of andybalholm/brotli and quic-go, static config, ingress-nginx, proxy and server changes). Its only in-package change lowers a log level in grpcroute.go from Error to Debug; it has no test effect and is not applied."
+      patch: step-5/intermediate.patch

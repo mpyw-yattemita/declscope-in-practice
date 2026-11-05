@@ -1,0 +1,377 @@
+diff --git a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+index 2ce94322b..2503d4132 100644
+--- a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
++++ b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+@@ -140,6 +140,42 @@ spec:
+           from: Same
+ ```
+ 
++### Backend Client Certificate
++
++The `tls.backend.clientCertificateRef` field on a `Gateway` (`spec.tls.backend`, a sibling of `spec.listeners`) sets the client certificate that Traefik presents to backends that require mutual TLS (mTLS), as defined by [GEP-3155](https://gateway-api.sigs.k8s.io/geps/gep-3155/).
++
++Traefik presents the certificate to the backends selected by a [BackendTLSPolicy](https://gateway-api.sigs.k8s.io/reference/api-types/policy/backendtlspolicy/), for `HTTPRoute` and `GRPCRoute` routes.
++Backends without a `BackendTLSPolicy` are not affected, because the field does not enable TLS by itself.
++The listeners of a `ListenerSet` use the certificate of their parent `Gateway`.
++
++The reference must point to a core `Secret` that contains the `tls.crt` and `tls.key` entries.
++A `Secret` in another namespace requires a [ReferenceGrant](https://gateway-api.sigs.k8s.io/reference/api-types/referencegrant/) in that namespace.
++
++```yaml
++---
++apiVersion: gateway.networking.k8s.io/v1
++kind: Gateway
++metadata:
++  name: mtls-gateway
++  namespace: default
++spec:
++  gatewayClassName: traefik
++  tls:
++    backend:
++      # Presented to every backend selected by a BackendTLSPolicy.
++      clientCertificateRef:
++        name: backend-client-tls
++        # Set namespace only for a Secret in another namespace, which requires a ReferenceGrant.
++        # namespace: certs
++  listeners:
++    - name: http
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        namespaces:
++          from: Same
++```
++
+ ### ListenerSets
+ 
+ Traefik supports [ListenerSet](https://gateway-api.sigs.k8s.io/geps/gep-1713/) resources, which attach additional listeners to an existing `Gateway`.
+diff --git a/flake.lock b/flake.lock
+index f9fd33a54..dfb0cd3af 100644
+--- a/flake.lock
++++ b/flake.lock
+@@ -15,17 +15,17 @@
+     },
+     "nixpkgs-golangci": {
+       "locked": {
+-        "lastModified": 1771861243,
+-        "narHash": "sha256-mz05b1VyLWoTkNg8iJr3yXFJF7HDlwIUKI3ln39RacY=",
++        "lastModified": 1790981744,
++        "narHash": "sha256-sm6DclXJudZfP/pcDBQQsRqyMxBcQsuw+7yQr4rBBLE=",
+         "owner": "NixOS",
+         "repo": "nixpkgs",
+-        "rev": "80d901ec0377e19ac3f7bb8c035201e2e098cc97",
++        "rev": "55ba7f49ef2962b42cbd126522b7df5f95037679",
+         "type": "github"
+       },
+       "original": {
+         "owner": "NixOS",
+         "repo": "nixpkgs",
+-        "rev": "80d901ec0377e19ac3f7bb8c035201e2e098cc97",
++        "rev": "55ba7f49ef2962b42cbd126522b7df5f95037679",
+         "type": "github"
+       }
+     },
+@@ -45,11 +45,28 @@
+         "type": "github"
+       }
+     },
++    "nixpkgs-shellcheck": {
++      "locked": {
++        "lastModified": 1790981744,
++        "narHash": "sha256-sm6DclXJudZfP/pcDBQQsRqyMxBcQsuw+7yQr4rBBLE=",
++        "owner": "NixOS",
++        "repo": "nixpkgs",
++        "rev": "55ba7f49ef2962b42cbd126522b7df5f95037679",
++        "type": "github"
++      },
++      "original": {
++        "owner": "NixOS",
++        "repo": "nixpkgs",
++        "rev": "55ba7f49ef2962b42cbd126522b7df5f95037679",
++        "type": "github"
++      }
++    },
+     "root": {
+       "inputs": {
+         "nixpkgs": "nixpkgs",
+         "nixpkgs-golangci": "nixpkgs-golangci",
+-        "nixpkgs-kct": "nixpkgs-kct"
++        "nixpkgs-kct": "nixpkgs-kct",
++        "nixpkgs-shellcheck": "nixpkgs-shellcheck"
+       }
+     }
+   },
+diff --git a/flake.nix b/flake.nix
+index 57d79b7e8..e3833107d 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -5,13 +5,17 @@
+     # Main nixpkgs (used for gnused)
+     nixpkgs.url = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz";
+ 
+-    # Pinned nixpkgs for kubernetes-controller-tools
++    # Pinned nixpkgs for kubernetes-controller-tools (0.21.0)
+     # Search: https://www.nixhub.io/packages/kubernetes-controller-tools
+     nixpkgs-kct.url = "github:NixOS/nixpkgs/c27cdad491a991b11ed731760aa2ef8db0cb0410";
+ 
+-    # Pinned nixpkgs for golangci-lint
++    # Pinned nixpkgs for golangci-lint (2.14.0)
+     # Search: https://www.nixhub.io/packages/golangci-lint
+-    nixpkgs-golangci.url = "github:NixOS/nixpkgs/80d901ec0377e19ac3f7bb8c035201e2e098cc97";
++    nixpkgs-golangci.url = "github:NixOS/nixpkgs/55ba7f49ef2962b42cbd126522b7df5f95037679";
++
++    # Pinned nixpkgs for shellcheck (0.11.0)
++    # Search: https://www.nixhub.io/packages/shellcheck
++    nixpkgs-shellcheck.url = "github:NixOS/nixpkgs/55ba7f49ef2962b42cbd126522b7df5f95037679";
+   };
+ 
+   outputs =
+@@ -19,24 +23,83 @@
+       nixpkgs,
+       nixpkgs-kct,
+       nixpkgs-golangci,
++      nixpkgs-shellcheck,
+       ...
+     }:
+     let
+-      inherit (nixpkgs.lib) genAttrs;
++      inherit (nixpkgs.lib) genAttrs attrNames;
+       forEachSystem = genAttrs nixpkgs.lib.systems.flakeExposed;
+ 
+       pkgsForEach = nixpkgs.legacyPackages;
+       pkgsKctForEach = nixpkgs-kct.legacyPackages;
+       pkgsGolangCiForEach = nixpkgs-golangci.legacyPackages;
++      pkgsShellcheckForEach = nixpkgs-shellcheck.legacyPackages;
++
++      # The CI uses the latest Go patch release (setup-go with check-latest),
++      # which nixpkgs does not always provide yet, so the official binary is used.
++      # Hashes: https://go.dev/dl/?mode=json&include=all
++      goVersion = "1.27.3";
++      goBinaries = {
++        x86_64-linux = {
++          platform = "linux-amd64";
++          sha256 = "65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40";
++        };
++        aarch64-linux = {
++          platform = "linux-arm64";
++          sha256 = "a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49";
++        };
++        x86_64-darwin = {
++          platform = "darwin-amd64";
++          sha256 = "b6f8e931e4ab497fcde6da8ae4499a58f9d258e55c8a80824a516eae5950a750";
++        };
++        aarch64-darwin = {
++          platform = "darwin-arm64";
++          sha256 = "dd3908cf20959d798c1e06ebe5b72213f0505ce01373b40ce3110975a6cd99c2";
++        };
++      };
++
++      goForEach =
++        system:
++        let
++          pkgs = pkgsForEach.${system};
++          bin = goBinaries.${system};
++        in
++        pkgs.stdenvNoCC.mkDerivation {
++          pname = "go-bin";
++          version = goVersion;
++
++          src = pkgs.fetchurl {
++            url = "https://go.dev/dl/go${goVersion}.${bin.platform}.tar.gz";
++            inherit (bin) sha256;
++          };
++
++          # The official binaries are used as is, fixup would alter them.
++          dontConfigure = true;
++          dontBuild = true;
++          dontFixup = true;
++
++          installPhase = ''
++            runHook preInstall
++            mkdir -p $out/share $out/bin
++            cp -r . $out/share/go
++            ln -s $out/share/go/bin/go $out/share/go/bin/gofmt $out/bin/
++            runHook postInstall
++          '';
++        };
+     in
+     {
+-      devShells = forEachSystem (system: {
++      devShells = genAttrs (attrNames goBinaries) (system: {
+         default = pkgsForEach.${system}.mkShell {
+           packages = [
+             pkgsForEach.${system}.gnused
++            (goForEach system)
+             pkgsKctForEach.${system}.kubernetes-controller-tools
+             pkgsGolangCiForEach.${system}.golangci-lint
++            pkgsShellcheckForEach.${system}.shellcheck
+           ];
++
++          # Matches the CI workflows (build, integration and conformance tests).
++          CGO_ENABLED = "0";
+         };
+       });
+ 
+diff --git a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
+index 2564d1f4e..195f24aa1 100644
+--- a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
++++ b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
+@@ -1,5 +1,5 @@
+ apiVersion: gateway.networking.k8s.io/v1
+-date: "2026-10-26T10:33:25+01:00"
++date: "2026-10-26T16:48:00+01:00"
+ gatewayAPIChannel: experimental
+ gatewayAPIVersion: v1.7.0-rc.3
+ implementation:
+@@ -28,6 +28,7 @@ profiles:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
+     - GatewayAddressEmpty
++    - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+     - GatewayHTTPListenerIsolation
+@@ -40,7 +41,6 @@ profiles:
+     - ClusterTrustBundle
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+-    - GatewayBackendClientCertificate
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+   name: GATEWAY-GRPC
+@@ -55,12 +55,13 @@ profiles:
+     result: success
+     statistics:
+       Failed: 0
+-      Passed: 54
++      Passed: 56
+       Skipped: 0
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
+     - GatewayAddressEmpty
++    - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+     - GatewayHTTPListenerIsolation
+@@ -94,7 +95,6 @@ profiles:
+     - ClusterTrustBundle
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+-    - GatewayBackendClientCertificate
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+     - HTTPRouteRequestMirror
+@@ -118,6 +118,7 @@ profiles:
+       Skipped: 0
+     supportedFeatures:
+     - GatewayAddressEmpty
++    - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+     - GatewayHTTPListenerIsolation
+@@ -131,7 +132,6 @@ profiles:
+     - ClusterTrustBundle
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+-    - GatewayBackendClientCertificate
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+   name: GATEWAY-TCP
+@@ -152,6 +152,7 @@ profiles:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
+     - GatewayAddressEmpty
++    - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+     - GatewayHTTPListenerIsolation
+@@ -166,7 +167,6 @@ profiles:
+     - ClusterTrustBundle
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+-    - GatewayBackendClientCertificate
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+   name: GATEWAY-TLS
+diff --git a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
+index 4b0d4b350..f5f16fe0f 100644
+--- a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
++++ b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
+@@ -1,5 +1,5 @@
+ apiVersion: gateway.networking.k8s.io/v1
+-date: "2026-10-26T10:40:18+01:00"
++date: "2026-10-26T16:50:54+01:00"
+ gatewayAPIChannel: experimental
+ gatewayAPIVersion: v1.7.0-rc.3
+ implementation:
+@@ -31,6 +31,7 @@ profiles:
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+     - GatewayHTTPListenerIsolation
+@@ -43,7 +44,6 @@ profiles:
+     - GatewayAddressEmpty
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+-    - GatewayBackendClientCertificate
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+     - GatewayStaticAddresses
+@@ -68,11 +68,12 @@ profiles:
+     - GatewayInvalidFrontendClientCertificateValidation
+     statistics:
+       Failed: 0
+-      Passed: 47
++      Passed: 49
+       Skipped: 5
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+     - GatewayHTTPListenerIsolation
+@@ -106,7 +107,6 @@ profiles:
+     - GatewayAddressEmpty
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+-    - GatewayBackendClientCertificate
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+     - GatewayStaticAddresses
+@@ -133,6 +133,7 @@ profiles:
+       Passed: 8
+       Skipped: 1
+     supportedFeatures:
++    - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+     - GatewayHTTPListenerIsolation
+@@ -146,7 +147,6 @@ profiles:
+     - GatewayAddressEmpty
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+-    - GatewayBackendClientCertificate
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+     - GatewayStaticAddresses
+@@ -171,6 +171,7 @@ profiles:
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+     - GatewayHTTPListenerIsolation
+@@ -185,7 +186,6 @@ profiles:
+     - GatewayAddressEmpty
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+-    - GatewayBackendClientCertificate
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+     - GatewayStaticAddresses

@@ -1,0 +1,88 @@
+id: hcl-pr841
+repo: https://github.com/hashicorp/hcl
+package: hclwrite
+go: "1.27.0"
+env:
+  CGO_ENABLED: "0"
+seed: a786e4fc556660d857b53b3479b3fa401da0f904
+notes:
+  - "TestParse and TestParseExpr build the package's internal syntax tree and compare it, node type by node type (including unexported types such as identifier and quoted), with an expected tree. They pin internal representation, not behaviour. Steps 2-4 change or add expected trees there; step 3 and step 4 have no other test. See white_box_tests on each step."
+steps:
+  - n: 1
+    pr: 841
+    title: "hclwrite: find traversals inside object-construct expressions"
+    merge: d3e7bdf00f4559aea011a06b5ebc34aebd81f0c2
+    parent: a786e4fc556660d857b53b3479b3fa401da0f904
+    stage: 1
+    task: step-1/task.md
+    hidden: step-1/hidden
+    names: step-1/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./hclwrite"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 2
+    pr: 811
+    title: "hclwrite: add read and write API for ObjectConsExpr"
+    merge: 8ea3801be7bdcad48bf54c3e12c38c96692c5668
+    parent: d3e7bdf00f4559aea011a06b5ebc34aebd81f0c2
+    stage: 1
+    task: step-2/task.md
+    hidden: step-2/hidden
+    names: step-2/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./hclwrite"
+    known_failing: []
+    white_box_tests:
+      - {test: "TestParse", reason: "11 existing expected trees change: an identifier object key is now a bare identifier node directly under ObjectConsKeyExpr instead of Expression > Traversal > TraverseName > identifier, and one new tree is added. The task text does not ask for this internal change."}
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 3
+    pr: 820
+    title: "hclwrite: parse function call and tuple-construct expressions"
+    merge: 8b26c6768c674aba5d5547b1bd5abc8951719b6b
+    parent: 8ea3801be7bdcad48bf54c3e12c38c96692c5668
+    stage: 1
+    task: step-3/task.md
+    hidden: step-3/hidden
+    names: step-3/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./hclwrite"
+    known_failing: []
+    white_box_tests:
+      - {test: "TestParse", reason: "the step's only new test is one TestParse case whose expected tree fixes how FunctionCallExpr and TupleConsExpr nodes and their separator tokens are laid out"}
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 4
+    pr: 835
+    title: "hclwrite: NewExpression(Raw|Literal) parses the expression and fallback to the original behavior"
+    merge: 4a347c448ee961e556dde0fad522a996e04c00c0
+    parent: 8b26c6768c674aba5d5547b1bd5abc8951719b6b
+    stage: 2
+    task: step-4/task.md
+    hidden: step-4/hidden
+    names: step-4/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./hclwrite"
+    known_failing: []
+    white_box_tests:
+      - {test: "TestParseExpr", reason: "the step's only new test calls the unexported parseExpr and compares the internal tree of the parsed expression; it is the counterpart of ParseExpression, and the trees repeat the shapes from steps 2 and 3"}
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"

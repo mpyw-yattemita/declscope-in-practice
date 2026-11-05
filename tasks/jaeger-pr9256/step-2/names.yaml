@@ -1,0 +1,39 @@
+# Identifiers used by step-2/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "FilterCapabilities"
+    kind: type
+    exported: true
+    signature: "type FilterCapabilities struct"
+    used_in: [capabilities_test.go]
+  - name: "FilterCapabilities.IsEmpty"
+    kind: method
+    exported: true
+    signature: "func (*FilterCapabilities) IsEmpty() bool"
+    used_in: [capabilities_test.go]
+  - name: "FilterCapabilities.Levels"
+    kind: field
+    exported: true
+    signature: "Levels []expression.Level"
+    used_in: [capabilities_test.go]
+  - name: "FilterCapabilities.Operators"
+    kind: field
+    exported: true
+    signature: "Operators []expression.Operator"
+    used_in: [capabilities_test.go]
+  - name: "FilterCapabilities.SupportsLevel"
+    kind: method
+    exported: true
+    signature: "func (FilterCapabilities) SupportsLevel(level expression.Level) bool"
+    used_in: [capabilities_test.go]
+  - name: "FilterCapabilities.SupportsOperator"
+    kind: method
+    exported: true
+    signature: "func (FilterCapabilities) SupportsOperator(op expression.Operator) bool"
+    used_in: [capabilities_test.go]
+  - name: "SearchCapabilities"
+    kind: type
+    exported: true
+    signature: "type SearchCapabilities struct"
+    used_in: [capabilities_test.go]

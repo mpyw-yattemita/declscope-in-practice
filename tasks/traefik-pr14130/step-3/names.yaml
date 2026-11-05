@@ -1,0 +1,23 @@
+# Identifiers used by step-3/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "Provider.RetryMaxRequestBodyBytes"
+    kind: field
+    exported: true
+    signature: "RetryMaxRequestBodyBytes int64"
+    used_in: [kubernetes_test.go]
+  - name: "Provider.loadGatewayBackendTLS"
+    kind: method
+    exported: false
+    signature: "func (*Provider) loadGatewayBackendTLS(gateway *gatev1.Gateway) (tls.Certificates, *metav1.Condition)"
+    used_in: [kubernetes_test.go]
+    risk: "unexported; Test_loadGatewayBackendTLS calls p.loadGatewayBackendTLS(gateway) and expects (tls.Certificates, *metav1.Condition). The agent may resolve the certificate inline or with another shape."
+  - name: "gatewayWithListeners.errResolvedRefsCondition"
+    kind: field
+    exported: false
+    signature: "errResolvedRefsCondition *metav1.Condition"
+    used_in: [kubernetes_test.go]
+    maybe_false_positive: true  # a struct declared in the tests has a field of this name
+    risk: "unexported field of an internal struct; Test_makeGatewayStatus_resolvedRefs sets it to inject a Gateway-level unresolved reference. No counterpart unless the agent keeps the Gateway's own ResolvedRefs error on that struct."
+notes: "Not listed above because the name exists at the seed: Provider.makeGatewayStatus changed signature at step 2, from makeGatewayStatus(gateway *gatev1.Gateway, listeners []gatewayListener, addresses, accepted) to makeGatewayStatus(gwl gatewayWithListeners, addresses, accepted). Test_makeGatewayStatus (already at the seed) and Test_makeGatewayStatus_resolvedRefs call the new form. The tests also use seed internals that must keep working: newClientImpl, Provider.client, clientWrapper.WatchAll, Provider.loadConfigurationFromGateways, gatewayListener."

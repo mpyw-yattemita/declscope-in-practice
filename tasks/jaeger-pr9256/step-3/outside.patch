@@ -1,0 +1,688 @@
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/querysvc/filter.go b/cmd/jaeger/internal/extension/jaegerquery/querysvc/filter.go
+new file mode 100644
+index 00000000..7bc90457
+--- /dev/null
++++ b/cmd/jaeger/internal/extension/jaegerquery/querysvc/filter.go
+@@ -0,0 +1,48 @@
++// Copyright (c) 2026 The Jaeger Authors.
++// SPDX-License-Identifier: Apache-2.0
++
++package querysvc
++
++import (
++	"errors"
++
++	"go.opentelemetry.io/collector/featuregate"
++
++	"github.com/jaegertracing/jaeger/internal/storage/v2/api/tracestore"
++)
++
++// StructuredFiltersGate admits the RFC 0005 structured query filter. It is off by default
++// because the filter AST is a public API still moving through that RFC's milestones, so a
++// deployment that has not opted in behaves exactly as it did before the filter existed.
++//
++// It admits the filter into the query path; whether a backend evaluates one natively is a
++// separate switch, named jaeger.<backend>.structuredFilters — this gate's leaf with the backend
++// in place of "query" — because the two stabilize on different schedules.
++var StructuredFiltersGate = featuregate.GlobalRegistry().MustRegister(
++	"jaeger.query.structuredFilters",
++	featuregate.StageAlpha,
++	featuregate.WithRegisterFromVersion("v2.21.0"),
++	featuregate.WithRegisterDescription(
++		"Accepts the RFC 0005 structured query filter on trace search. The filter AST is not yet "+
++			"stable, so a query that carries one is refused while this is disabled. This admits "+
++			"filters into the query path only; whether a storage backend evaluates one natively is "+
++			"gated separately, by jaeger.<backend>.structuredFilters.",
++	),
++	featuregate.WithRegisterReferenceURL("https://github.com/jaegertracing/jaeger/blob/main/docs/rfc/0005-structured-query-filters.md"),
++)
++
++// ErrFilterDisabled is returned for a query carrying a filter to a deployment that has not
++// enabled StructuredFiltersGate. The query is refused rather than served with the filter
++// ignored, because dropping a predicate would answer with every trace in the time range.
++var ErrFilterDisabled = errors.New("the structured query filter is disabled")
++
++// IsBadRequest reports whether err means the caller must change the query, either
++// because its shape is wrong or because this deployment's storage cannot serve it.
++// Either way it is the caller's problem, so the API layers answer InvalidArgument /
++// HTTP 400 rather than reporting a server fault.
++func IsBadRequest(err error) bool {
++	return errors.Is(err, ErrServiceNameRequired) ||
++		errors.Is(err, ErrFilterDisabled) ||
++		errors.Is(err, tracestore.ErrFilterUnsupported) ||
++		errors.Is(err, tracestore.ErrFilterInvalid)
++}
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/querysvc/filter_test.go b/cmd/jaeger/internal/extension/jaegerquery/querysvc/filter_test.go
+new file mode 100644
+index 00000000..09ba083b
+--- /dev/null
++++ b/cmd/jaeger/internal/extension/jaegerquery/querysvc/filter_test.go
+@@ -0,0 +1,362 @@
++// Copyright (c) 2026 The Jaeger Authors.
++// SPDX-License-Identifier: Apache-2.0
++
++package querysvc
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/mock"
++	"github.com/stretchr/testify/require"
++	"go.opentelemetry.io/collector/featuregate"
++	"go.opentelemetry.io/collector/pdata/pcommon"
++
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
++	"github.com/jaegertracing/jaeger/internal/jiter"
++	"github.com/jaegertracing/jaeger/internal/storage/v2/api/tracestore"
++	tracestoremocks "github.com/jaegertracing/jaeger/internal/storage/v2/api/tracestore/mocks"
++)
++
++func compare(op expression.Operator, args ...expression.Expression) *expression.Call {
++	return &expression.Call{Op: op, Args: args}
++}
++
++// tag builds a predicate on an unqualified attribute, whose constant declares no type because a
++// tag never did.
++func tag(op expression.Operator, key string, value string) *expression.Call {
++	return compare(op, &expression.AttributeRef{Key: key}, &expression.AnyValue{Value: value})
++}
++
++func filterQuery(filter *expression.Call) TraceQueryParams {
++	return TraceQueryParams{
++		TraceQueryParams: tracestore.TraceQueryParams{
++			Attributes: pcommon.NewMap(),
++			Filter:     filter,
++		},
++	}
++}
++
++// TestPrepareFilteredQuery_PassesFilterToADeclaringReader covers a backend that evaluates the
++// filter itself: the filter reaches it untouched and the legacy fields stay empty.
++func TestPrepareFilteredQuery_PassesFilterToADeclaringReader(t *testing.T) {
++	caps := tracestore.SearchCapabilities{Filter: &tracestore.FilterCapabilities{
++		Levels: []expression.Level{expression.LevelSpan, expression.LevelResource, expression.LevelEvent},
++		Operators: []expression.Operator{
++			expression.OpAnd, expression.OpOr,
++			expression.OpEq, expression.OpGt, expression.OpRegex, expression.OpSome,
++		},
++	}}
++	filter := compare(expression.OpAnd,
++		compare(expression.OpGt,
++			&expression.FieldRef{Level: expression.LevelSpan, Name: expression.SpanFieldDuration},
++			&expression.DurationValue{Value: 2 * time.Second}),
++		compare(expression.OpOr,
++			tag(expression.OpEq, "http.status_code", "500"),
++			compare(expression.OpRegex,
++				&expression.AttributeRef{Key: "http.route", Level: expression.LevelSpan},
++				&expression.AnyValue{Value: "/cart/.*"})),
++		compare(expression.OpSome,
++			&expression.NestedRef{Level: expression.LevelEvent},
++			compare(expression.OpEq,
++				&expression.FieldRef{Level: expression.LevelEvent, Name: expression.EventFieldName},
++				&expression.StringValue{Value: "exception"})))
++	query := filterQuery(filter)
++
++	got, err := query.ForCapabilities(caps)
++	require.NoError(t, err)
++	assert.Equal(t, query.TraceQueryParams, got)
++}
++
++// TestPrepareFilteredQuery_RefusesWhatAReaderDidNotDeclare covers the refusal gates: a level or an
++// operator absent from the declaration is refused before dispatch. The boolean combinators
++// ride the same gate, so a reader confined to the conjunctive subset is one that lists OpAnd
++// and omits OpOr and OpNot.
++func TestPrepareFilteredQuery_RefusesWhatAReaderDidNotDeclare(t *testing.T) {
++	eqRef := func(name string) *expression.Call {
++		return tag(expression.OpEq, name, "1")
++	}
++	conjunctive := tracestore.FilterCapabilities{
++		Operators: []expression.Operator{expression.OpAnd, expression.OpEq},
++	}
++	tests := []struct {
++		name        string
++		caps        tracestore.FilterCapabilities
++		filter      *expression.Call
++		expectedErr string
++	}{
++		{
++			name:        "an operator it did not list",
++			caps:        conjunctive,
++			filter:      tag(expression.OpRegex, "a", "b.*"),
++			expectedErr: `does not support the operator "regex"`,
++		},
++		{
++			name:        "an operator it did not list, nested in a conjunction",
++			caps:        conjunctive,
++			filter:      compare(expression.OpAnd, eqRef("a"), tag(expression.OpGt, "b", "1")),
++			expectedErr: `does not support the operator "gt"`,
++		},
++		{
++			name:        "a disjunction against a flat index",
++			caps:        conjunctive,
++			filter:      compare(expression.OpOr, eqRef("a"), eqRef("b")),
++			expectedErr: `does not support the operator "or"`,
++		},
++		{
++			name: "a disjunction nested in a conjunction against a flat index",
++			caps: conjunctive,
++			filter: compare(expression.OpAnd,
++				eqRef("a"),
++				compare(expression.OpOr, eqRef("b"), eqRef("c"))),
++			expectedErr: `does not support the operator "or"`,
++		},
++		{
++			name: "an attribute at a level it does not index",
++			caps: tracestore.FilterCapabilities{
++				Levels:    []expression.Level{expression.LevelSpan},
++				Operators: []expression.Operator{expression.OpEq},
++			},
++			filter: compare(expression.OpEq,
++				&expression.AttributeRef{Key: "peer.service", Level: expression.LevelLink},
++				&expression.AnyValue{Value: "cart"}),
++			expectedErr: `does not index the "link" level`,
++		},
++		{
++			name: "a built-in field at a level it does not index",
++			caps: tracestore.FilterCapabilities{
++				Levels:    []expression.Level{expression.LevelSpan},
++				Operators: []expression.Operator{expression.OpEq},
++			},
++			filter: compare(expression.OpEq,
++				&expression.FieldRef{Level: expression.LevelScope, Name: expression.ScopeFieldName},
++				&expression.StringValue{Value: "otelhttp"}),
++			expectedErr: `does not index the "scope" level`,
++		},
++		{
++			name: "a collection it does not index",
++			caps: tracestore.FilterCapabilities{
++				Levels:    []expression.Level{expression.LevelSpan},
++				Operators: []expression.Operator{expression.OpSome, expression.OpEq},
++			},
++			filter: compare(expression.OpSome,
++				&expression.NestedRef{Level: expression.LevelEvent},
++				compare(expression.OpEq,
++					&expression.FieldRef{Level: expression.LevelEvent, Name: expression.EventFieldName},
++					&expression.StringValue{Value: "exception"})),
++			expectedErr: `does not index the "event" level`,
++		},
++		{
++			name: "a level it does not index, on the right of a comparison",
++			caps: tracestore.FilterCapabilities{
++				Levels:    []expression.Level{expression.LevelSpan},
++				Operators: []expression.Operator{expression.OpNe},
++			},
++			filter: compare(expression.OpNe,
++				&expression.AttributeRef{Key: "enduser.id", Level: expression.LevelSpan},
++				&expression.AttributeRef{Key: "enduser.id", Level: expression.LevelResource}),
++			expectedErr: `does not index the "resource" level`,
++		},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			caps := tracestore.SearchCapabilities{Filter: &test.caps}
++			_, err := filterQuery(test.filter).ForCapabilities(caps)
++			require.ErrorIs(t, err, tracestore.ErrFilterUnsupported)
++			assert.Contains(t, err.Error(), test.expectedErr)
++		})
++	}
++}
++
++// TestPrepareSearchQuery_RefusesLegacyPredicatesAlongsideAFilter pins the mutual exclusion: the
++// two ways of asking for a service, an operation, a duration or a tag cannot be mixed. The
++// request is malformed whatever the backend can do, so the reader is asked for nothing — it has
++// no expectations set, and any call to it would fail the test.
++func TestPrepareSearchQuery_RefusesLegacyPredicatesAlongsideAFilter(t *testing.T) {
++	enableStructuredFilters(t)
++	filter := tag(expression.OpEq, "http.method", "GET")
++	tests := []struct {
++		name     string
++		mutate   func(*TraceQueryParams)
++		expected string
++	}{
++		{"service name", func(q *TraceQueryParams) { q.ServiceName = "cart" }, "[service_name]"},
++		{"operation name", func(q *TraceQueryParams) { q.OperationName = "GET /cart" }, "[operation_name]"},
++		{"duration min", func(q *TraceQueryParams) { q.DurationMin = time.Second }, "[duration_min]"},
++		{"duration max", func(q *TraceQueryParams) { q.DurationMax = time.Second }, "[duration_max]"},
++		{"attributes", func(q *TraceQueryParams) { q.Attributes.PutStr("a", "1") }, "[attributes]"},
++		{
++			"several at once",
++			func(q *TraceQueryParams) {
++				q.ServiceName = "cart"
++				q.DurationMax = time.Second
++			},
++			"[service_name duration_max]",
++		},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			query := filterQuery(filter)
++			test.mutate(&query)
++			reader := new(tracestoremocks.Reader)
++			qs := NewQueryService(reader, nil, QueryServiceOptions{})
++
++			_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), query))
++			require.ErrorIs(t, err, tracestore.ErrFilterInvalid)
++			assert.Contains(t, err.Error(), test.expected)
++			reader.AssertExpectations(t)
++		})
++	}
++}
++
++// enableStructuredFilters turns the filter feature gate on for one test and restores it
++// afterwards. The gate is off by default, so a test that dispatches a filter has to ask for it —
++// which is the isolation the gate exists to give a deployment that has not opted in.
++func enableStructuredFilters(t *testing.T) {
++	setStructuredFilters(t, true)
++}
++
++func setStructuredFilters(t *testing.T, enabled bool) {
++	original := StructuredFiltersGate.IsEnabled()
++	require.NoError(t, featuregate.GlobalRegistry().Set(StructuredFiltersGate.ID(), enabled))
++	t.Cleanup(func() {
++		require.NoError(t, featuregate.GlobalRegistry().Set(StructuredFiltersGate.ID(), original))
++	})
++}
++
++// TestPrepareSearchQuery_FilterDisabled pins what a deployment that has not opted in does with
++// a query carrying a filter: it is refused where every other unserviceable query is refused,
++// and the reader is never asked for its capabilities, let alone dispatched to. Alpha is what
++// makes that the default, which TestStructuredFiltersGate_IsAlpha pins separately.
++func TestPrepareSearchQuery_FilterDisabled(t *testing.T) {
++	setStructuredFilters(t, false)
++
++	reader := new(tracestoremocks.Reader)
++	qs := NewQueryService(reader, nil, QueryServiceOptions{})
++	query := filterQuery(tag(expression.OpEq, "a", "1"))
++
++	_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), query))
++	require.ErrorIs(t, err, ErrFilterDisabled)
++	require.ErrorContains(t, err, "jaeger.query.structuredFilters")
++	assert.True(t, IsBadRequest(err), "the API layers answer 400")
++	reader.AssertExpectations(t)
++}
++
++// TestPrepareSearchQuery_RefusesAMalformedFilter covers the boundary check the conversion no
++// longer does: decoding a filter off a wire yields whatever tree the wire described, so the query
++// service is where a tree this build has no meaning for is refused — before the reader is asked
++// anything, since it has no expectations set here.
++func TestPrepareSearchQuery_RefusesAMalformedFilter(t *testing.T) {
++	enableStructuredFilters(t)
++	reader := new(tracestoremocks.Reader)
++	qs := NewQueryService(reader, nil, QueryServiceOptions{})
++	query := filterQuery(tag("matches", "a", "b"))
++
++	_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), query))
++	require.ErrorIs(t, err, tracestore.ErrFilterInvalid)
++	require.ErrorContains(t, err, `unknown filter operator "matches"`)
++	assert.True(t, IsBadRequest(err), "the API layers answer 400")
++	reader.AssertExpectations(t)
++}
++
++// TestPrepareSearchQuery_RefusesAConstantThatDoesNotFitItsField covers the resolution stage: a
++// constant compared against a built-in field is read as that field's type here, so a duration
++// nobody can read is answered at the query boundary rather than handed to a backend to
++// interpret. The reader has no expectations set, so a call to it would fail the test.
++func TestPrepareSearchQuery_RefusesAConstantThatDoesNotFitItsField(t *testing.T) {
++	enableStructuredFilters(t)
++	tests := []struct {
++		name        string
++		filter      *expression.Call
++		expectedErr string
++	}{
++		{
++			name: "a duration nobody can read",
++			filter: compare(expression.OpGte,
++				&expression.FieldRef{Level: expression.LevelSpan, Name: expression.SpanFieldDuration},
++				&expression.AnyValue{Value: "quickly"}),
++			expectedErr: `cannot compare span.duration against "quickly"`,
++		},
++		{
++			name: "a span kind that is not one of the words",
++			filter: compare(expression.OpEq,
++				&expression.FieldRef{Level: expression.LevelSpan, Name: expression.SpanFieldKind},
++				&expression.AnyValue{Value: "SPAN_KIND_SERVER"}),
++			expectedErr: "not one of unspecified, internal, server, client, producer, consumer",
++		},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			reader := new(tracestoremocks.Reader)
++			qs := NewQueryService(reader, nil, QueryServiceOptions{})
++
++			_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), filterQuery(test.filter)))
++			require.ErrorIs(t, err, tracestore.ErrFilterInvalid)
++			require.ErrorContains(t, err, test.expectedErr)
++			assert.True(t, IsBadRequest(err), "the API layers answer 400")
++			reader.AssertExpectations(t)
++		})
++	}
++}
++
++// TestPrepareSearchQuery_ResolvesADurationBeforeDispatch pins the resolution stage against the
++// rewrite that depends on it: a caller writes a duration as a spelling, and the bound reaches a
++// reader that serves only the legacy fields as the length of time it names.
++func TestPrepareSearchQuery_ResolvesADurationBeforeDispatch(t *testing.T) {
++	enableStructuredFilters(t)
++	filter := compare(expression.OpGte,
++		&expression.FieldRef{Level: expression.LevelSpan, Name: expression.SpanFieldDuration},
++		&expression.AnyValue{Value: "1m30s"})
++
++	var dispatched tracestore.TraceQueryParams
++	reader := forwardsOneTrace(new(tracestoremocks.Reader), &dispatched)
++	reader.On("SearchCapabilities", mock.Anything).
++		Return(tracestore.SearchCapabilities{WithoutServiceName: true}, nil)
++
++	qs := NewQueryService(reader, nil, QueryServiceOptions{})
++	_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), filterQuery(filter)))
++	require.NoError(t, err)
++	assert.Equal(t, 90*time.Second, dispatched.DurationMin)
++	reader.AssertExpectations(t)
++}
++
++func TestStructuredFiltersGate_IsAlpha(t *testing.T) {
++	assert.Equal(t, featuregate.StageAlpha, StructuredFiltersGate.Stage(),
++		"Alpha is what keeps the filter off unless a deployment asks for it")
++}
++
++func TestIsBadRequest(t *testing.T) {
++	assert.True(t, IsBadRequest(ErrServiceNameRequired))
++	assert.True(t, IsBadRequest(tracestore.ErrFilterUnsupported))
++	assert.True(t, IsBadRequest(tracestore.ErrFilterInvalid))
++	assert.True(t, IsBadRequest(ErrFilterDisabled))
++	assert.True(t, IsBadRequest(fmt.Errorf("%w: nested", tracestore.ErrFilterUnsupported)))
++	assert.False(t, IsBadRequest(errors.New("storage is down")))
++	assert.False(t, IsBadRequest(nil))
++}
++
++// TestPrepareFilteredQuery_EmptyDeclarationIsNoDeclaration pins that a reader naming nothing reads as
++// one that declared nothing: the filter is rewritten into the legacy predicate fields rather
++// than refused, because a reader opts in by naming what it serves and there is no
++// half-opted-in state to read differently.
++func TestPrepareFilteredQuery_EmptyDeclarationIsNoDeclaration(t *testing.T) {
++	filter := tag(expression.OpEq, "http.method", "GET")
++
++	for name, caps := range map[string]tracestore.SearchCapabilities{
++		"no declaration":    {},
++		"empty declaration": {Filter: &tracestore.FilterCapabilities{}},
++	} {
++		t.Run(name, func(t *testing.T) {
++			got, err := filterQuery(filter).ForCapabilities(caps)
++			require.NoError(t, err)
++			assert.Nil(t, got.Filter, "the filter is rewritten, not sent down")
++			value, ok := got.Attributes.Get("http.method")
++			require.True(t, ok)
++			assert.Equal(t, "GET", value.Str())
++		})
++	}
++}
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go b/cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go
+index 9b4c95ca..ead47f7c 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go
+@@ -6,6 +6,7 @@ package querysvc
+ import (
+ 	"context"
+ 	"errors"
++	"fmt"
+ 	"iter"
+ 	"time"
+ 
+@@ -13,6 +14,7 @@ import (
+ 	"go.opentelemetry.io/collector/pdata/ptrace"
+ 
+ 	"github.com/jaegertracing/jaeger-idl/model/v1"
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
+ 	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegerquery/internal/adjuster"
+ 	"github.com/jaegertracing/jaeger/internal/jptrace"
+ 	"github.com/jaegertracing/jaeger/internal/storage/v1/api/spanstore"
+@@ -152,7 +154,8 @@ func (qs QueryService) FindTraces(
+ 	query TraceQueryParams,
+ ) iter.Seq2[[]ptrace.Traces, error] {
+ 	return func(yield func([]ptrace.Traces, error) bool) {
+-		if err := qs.validateSearchQuery(ctx, query); err != nil {
++		query, err := qs.prepareSearchQuery(ctx, query)
++		if err != nil {
+ 			yield(nil, err)
+ 			return
+ 		}
+@@ -177,12 +180,50 @@ func (qs QueryService) SearchWithoutServiceName(ctx context.Context) (bool, erro
+ 	return caps.WithoutServiceName, nil
+ }
+ 
+-// validateSearchQuery rejects a query whose shape the backend cannot serve. Storage
+-// readers guard themselves too, but they answer differently — Cassandra returned an empty
+-// result for a service-less search until RFC 0013 — so the single answer callers see is
+-// decided here. Rejecting here also keeps the query from reaching storage and coming back
+-// silently wrong.
+-func (qs QueryService) validateSearchQuery(ctx context.Context, query TraceQueryParams) error {
++// prepareSearchQuery refuses a query the backend declared it cannot serve, and returns the
++// query to dispatch in the shape that backend understands. One place decides, so that every
++// caller gets the same answer instead of each backend's own (ADR-013).
++func (qs QueryService) prepareSearchQuery(ctx context.Context, query TraceQueryParams) (TraceQueryParams, error) {
++	if query.Filter == nil {
++		return query, qs.checkServiceName(ctx, query)
++	}
++	// None of the next three refusals depends on the backend, so they come before the capability
++	// call rather than after it.
++	if !StructuredFiltersGate.IsEnabled() {
++		return query, fmt.Errorf("%w: enable the %q feature gate to use it",
++			ErrFilterDisabled, StructuredFiltersGate.ID())
++	}
++	if err := query.EnsureFilterStandsAlone(); err != nil {
++		return query, err
++	}
++	// Decoding a filter validates nothing, so it is finalized — validated and normalized — here, on
++	// behalf of every API layer above (RFC 0005 §7).
++	finalized, err := expression.Finalize(query.Filter)
++	if err != nil {
++		return query, fmt.Errorf("%w: %w", tracestore.ErrFilterInvalid, err)
++	}
++	query.Filter = finalized
++
++	caps, err := qs.traceReader.SearchCapabilities(ctx)
++	if err != nil {
++		// A reader that cannot report its capabilities reads as the least capable one, which
++		// serves only the legacy predicate fields.
++		caps = tracestore.SearchCapabilities{}
++	}
++	// The filter is settled before the service name is checked, because a filter can name the
++	// service itself and rewriting it is what moves that into ServiceName.
++	prepared, err := query.ForCapabilities(caps)
++	if err != nil {
++		return query, err
++	}
++	query.TraceQueryParams = prepared
++	if query.ServiceName == "" && !caps.WithoutServiceName {
++		return query, ErrServiceNameRequired
++	}
++	return query, nil
++}
++
++func (qs QueryService) checkServiceName(ctx context.Context, query TraceQueryParams) error {
+ 	if query.ServiceName != "" {
+ 		return nil
+ 	}
+@@ -204,7 +245,8 @@ func (qs QueryService) FindTraceSummaries(
+ 	query TraceQueryParams,
+ ) iter.Seq2[[]tracestore.TraceSummary, error] {
+ 	return func(yield func([]tracestore.TraceSummary, error) bool) {
+-		if err := qs.validateSearchQuery(ctx, query); err != nil {
++		query, err := qs.prepareSearchQuery(ctx, query)
++		if err != nil {
+ 			yield(nil, err)
+ 			return
+ 		}
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/querysvc/service_test.go b/cmd/jaeger/internal/extension/jaegerquery/querysvc/service_test.go
+index d0f57bea..61aa8a04 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/querysvc/service_test.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/querysvc/service_test.go
+@@ -18,6 +18,7 @@ import (
+ 	"go.opentelemetry.io/collector/pdata/ptrace"
+ 
+ 	"github.com/jaegertracing/jaeger-idl/model/v1"
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
+ 	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegerquery/internal/adjuster"
+ 	"github.com/jaegertracing/jaeger/internal/jiter"
+ 	"github.com/jaegertracing/jaeger/internal/storage/v1/api/spanstore"
+@@ -1087,3 +1088,156 @@ func TestFindTraces_ServiceNameCapabilityAskedEveryTime(t *testing.T) {
+ 	// Four expectations consumed: the reader was asked once per search, never cached here.
+ 	reader.AssertExpectations(t)
+ }
++
++// forwardsOneTrace sets the reader up to answer a search with a single trace, recording the
++// query it was dispatched with.
++func forwardsOneTrace(reader *tracestoremocks.Reader, dispatched *tracestore.TraceQueryParams) *tracestoremocks.Reader {
++	reader.On("FindTraces", mock.Anything, mock.AnythingOfType("tracestore.TraceQueryParams")).
++		Run(func(args mock.Arguments) {
++			*dispatched = args.Get(1).(tracestore.TraceQueryParams)
++		}).
++		Return(iter.Seq2[[]ptrace.Traces, error](func(yield func([]ptrace.Traces, error) bool) {
++			yield([]ptrace.Traces{makeTestTrace()}, nil)
++		})).Once()
++	return reader
++}
++
++// TestFindTraces_FilterReachesStorageAsLegacyFields covers the end of the plumbing for the
++// backends that do not evaluate a filter yet: the reader receives the predicate fields it
++// already understands and no filter at all.
++func TestFindTraces_FilterReachesStorageAsLegacyFields(t *testing.T) {
++	enableStructuredFilters(t)
++	query := TraceQueryParams{
++		TraceQueryParams: tracestore.TraceQueryParams{
++			Attributes: pcommon.NewMap(),
++			Filter: compare(expression.OpAnd,
++				compare(expression.OpEq,
++					&expression.FieldRef{Level: expression.LevelResource, Name: expression.ResourceFieldService},
++					&expression.AnyValue{Value: "cart"}),
++				tag(expression.OpEq, "http.status_code", "500")),
++		},
++	}
++
++	var dispatched tracestore.TraceQueryParams
++	reader := forwardsOneTrace(new(tracestoremocks.Reader), &dispatched)
++	reader.On("SearchCapabilities", mock.Anything).Return(tracestore.SearchCapabilities{}, nil).Maybe()
++
++	qs := NewQueryService(reader, nil, QueryServiceOptions{})
++	got, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), query))
++	require.NoError(t, err)
++	assert.NotEmpty(t, got)
++
++	assert.Equal(t, "cart", dispatched.ServiceName)
++	assert.Nil(t, dispatched.Filter)
++	value, ok := dispatched.Attributes.Get("http.status_code")
++	require.True(t, ok)
++	assert.Equal(t, "500", value.Str())
++	reader.AssertExpectations(t)
++}
++
++// TestFindTraces_FilterReachesADeclaringReader covers the other branch: a reader that
++// declares filter support gets the filter itself.
++func TestFindTraces_FilterReachesADeclaringReader(t *testing.T) {
++	enableStructuredFilters(t)
++	filter := compare(expression.OpRegex,
++		&expression.AttributeRef{Key: "http.route", Level: expression.LevelSpan},
++		&expression.AnyValue{Value: "/cart/.*"})
++	query := TraceQueryParams{
++		TraceQueryParams: tracestore.TraceQueryParams{
++			Attributes: pcommon.NewMap(),
++			Filter:     filter,
++		},
++	}
++
++	var dispatched tracestore.TraceQueryParams
++	reader := forwardsOneTrace(new(tracestoremocks.Reader), &dispatched)
++	reader.On("SearchCapabilities", mock.Anything).Return(tracestore.SearchCapabilities{
++		WithoutServiceName: true,
++		Filter: &tracestore.FilterCapabilities{
++			Levels:    []expression.Level{expression.LevelSpan},
++			Operators: []expression.Operator{expression.OpRegex},
++		},
++	}, nil)
++
++	qs := NewQueryService(reader, nil, QueryServiceOptions{})
++	_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), query))
++	require.NoError(t, err)
++	assert.Equal(t, filter, dispatched.Filter)
++	reader.AssertExpectations(t)
++}
++
++// TestFindTraces_FilterCanNameTheServiceForABackendThatRequiresOne pins the ordering: the
++// filter is rewritten before the service name is checked, so a backend that cannot search
++// every service is satisfied by a filter that names one — and still refuses a filter that
++// does not.
++func TestFindTraces_FilterCanNameTheServiceForABackendThatRequiresOne(t *testing.T) {
++	enableStructuredFilters(t)
++	filterOn := func(level expression.Level, name, value string) *expression.Call {
++		return compare(expression.OpEq,
++			&expression.FieldRef{Level: level, Name: name},
++			&expression.AnyValue{Value: value})
++	}
++	queryWith := func(filter *expression.Call) TraceQueryParams {
++		return TraceQueryParams{
++			TraceQueryParams: tracestore.TraceQueryParams{Attributes: pcommon.NewMap(), Filter: filter},
++		}
++	}
++
++	t.Run("the filter names the service", func(t *testing.T) {
++		var dispatched tracestore.TraceQueryParams
++		reader := forwardsOneTrace(new(tracestoremocks.Reader), &dispatched)
++		declaresSearchWithoutServiceName(reader, false)
++		qs := NewQueryService(reader, nil, QueryServiceOptions{})
++
++		_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(),
++			queryWith(filterOn(expression.LevelResource, expression.ResourceFieldService, "cart"))))
++		require.NoError(t, err)
++		assert.Equal(t, "cart", dispatched.ServiceName)
++		reader.AssertExpectations(t)
++	})
++
++	// No expectation for FindTraces: a call to it would fail the test.
++	t.Run("the filter does not name the service", func(t *testing.T) {
++		reader := declaresSearchWithoutServiceName(new(tracestoremocks.Reader), false)
++		qs := NewQueryService(reader, nil, QueryServiceOptions{})
++
++		attrFilter := tag(expression.OpEq, "http.method", "GET")
++		_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), queryWith(attrFilter)))
++		require.ErrorIs(t, err, ErrServiceNameRequired)
++	})
++}
++
++// TestFindTraces_UnservableFilterIsRefusedBeforeStorage pins that a refused filter never
++// reaches the reader: FindTraces has no expectation, so a call to it would fail the test. A
++// reader that cannot report its capabilities reads as the least capable one, which is why an
++// unreachable backend refuses the same filter.
++func TestFindTraces_UnservableFilterIsRefusedBeforeStorage(t *testing.T) {
++	enableStructuredFilters(t)
++	query := TraceQueryParams{
++		TraceQueryParams: tracestore.TraceQueryParams{
++			Attributes: pcommon.NewMap(),
++			Filter: compare(expression.OpOr,
++				tag(expression.OpEq, "a", "1"),
++				tag(expression.OpEq, "b", "2")),
++		},
++	}
++	for name, answer := range map[string]struct {
++		caps tracestore.SearchCapabilities
++		err  error
++	}{
++		"the backend declares no filter support": {},
++		"the backend is unreachable":             {err: assert.AnError},
++	} {
++		t.Run(name, func(t *testing.T) {
++			reader := new(tracestoremocks.Reader)
++			reader.On("SearchCapabilities", mock.Anything).Return(answer.caps, answer.err)
++			qs := NewQueryService(reader, nil, QueryServiceOptions{})
++
++			_, err := jiter.FlattenWithErrors(qs.FindTraces(context.Background(), query))
++			require.ErrorIs(t, err, tracestore.ErrFilterUnsupported)
++
++			_, err = jiter.FlattenWithErrors(qs.FindTraceSummaries(context.Background(), query))
++			require.ErrorIs(t, err, tracestore.ErrFilterUnsupported)
++		})
++	}
++}

@@ -1,0 +1,34 @@
+# Identifiers used by step-2/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "ObjectConsExpr.ItemFor"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) ItemFor(key string) *ObjectConsItem"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.SetItem"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) SetItem(key string, expr *Expression) (*ObjectConsKeyExpr, *ObjectConsValue)"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.SetItemRaw"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) SetItemRaw(key string, tokens Tokens) (*ObjectConsKeyExpr, *ObjectConsValue)"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.SetItemTraversal"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) SetItemTraversal(key string, traversal hcl.Traversal) (*ObjectConsKeyExpr, *ObjectConsValue)"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.SetItemValue"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) SetItemValue(key string, val cty.Value) (*ObjectConsKeyExpr, *ObjectConsValue)"
+    used_in: [ast_object_cons_expr_test.go]
+  - name: "ObjectConsExpr.ValueExprFor"
+    kind: method
+    exported: true
+    signature: "func (*ObjectConsExpr) ValueExprFor(key string) *ObjectConsValue"
+    used_in: [ast_object_cons_expr_test.go]

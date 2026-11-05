@@ -1,0 +1,118 @@
+id: github-mcp-server-pr683
+repo: https://github.com/github/github-mcp-server
+package: pkg/github
+go: "1.27.0"
+env:
+  CGO_ENABLED: "0"
+seed: 74964520cf15aae32400119762a9d4482eda0333
+notes:
+  - "Tool schema snapshots: the package's tests compare each tool definition with __toolsnaps__/<tool>.snap through internal/toolsnaps.Test. If a snapshot file is missing, the helper WRITES it and passes, unless GITHUB_ACTIONS=true (then it fails); if UPDATE_TOOLSNAPS=true it overwrites the snapshot. So the harness must run test_cmd with GITHUB_ACTIONS=true and without UPDATE_TOOLSNAPS, and must re-lay the given snapshots of steps 1..n over the workspace before scoring step n, so the agent cannot pass by regenerating them."
+  - "GraphQL tests: internal/githubv4mock matches the exact GraphQL document text and variables that the tool sends (for example query($after:String$first:Int!$owner:String!$repo:String!){repository(...){discussions(...){nodes{number,title,...}}}}). This is the request sent to GitHub's API, so the task texts state the exact documents. The Go query structs that produce them are the agent's choice."
+  - "README.md is generated from the tool definitions by `go run ./cmd/github-mcp-server generate-docs` (marker blocks START/END AUTOMATED TOOLS). Every step changes it; it is not tested."
+steps:
+  - n: 1
+    pr: 683
+    title: "Add pagination support to GraphQL-based tools"
+    merge: 7ccc6b6493f184c6fce8620c41ed1ffda12837b8
+    parent: 74964520cf15aae32400119762a9d4482eda0333
+    stage: 1
+    task: step-1/task.md
+    hidden: step-1/hidden
+    names: step-1/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: README.md, added: 4, removed: 4}
+      treatment: agent
+      reason: "Only README.md changes outside the package, inside the generated tool list. It is generated from the tool definitions, so the agent regenerates it with the repository's docs generator; an upstream patch would disagree with the agent's own descriptions wherever no snapshot pins them. It is not tested."
+    test_cmd: "GITHUB_ACTIONS=true go test -count=1 ./pkg/github"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 2
+    pr: 470
+    title: "Add tools for sub-issue endpoint"
+    merge: 60a5391d67543ca4ef53370cbb48a01f3702fc66
+    parent: 7ccc6b6493f184c6fce8620c41ed1ffda12837b8
+    stage: 1
+    task: step-2/task.md
+    hidden: step-2/hidden
+    names: step-2/names.yaml
+    given:
+      - pkg/github/__toolsnaps__/add_sub_issue.snap
+      - pkg/github/__toolsnaps__/list_sub_issues.snap
+      - pkg/github/__toolsnaps__/remove_sub_issue.snap
+      - pkg/github/__toolsnaps__/reprioritize_sub_issue.snap
+    outside:
+      files:
+        - {path: README.md, added: 28, removed: 0}
+      treatment: agent
+      reason: "Only README.md changes outside the package, inside the generated tool list. It is generated from the tool definitions, so the agent regenerates it with the repository's docs generator; an upstream patch would disagree with the agent's own descriptions wherever no snapshot pins them. It is not tested."
+    test_cmd: "GITHUB_ACTIONS=true go test -count=1 ./pkg/github"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 3
+    pr: 690
+    title: "feat: list_discussions sort by updatedAt & createdAt, return updatedAt and author"
+    merge: a9395651605765afe1f667516911901f13843ace
+    parent: 7a9bc91185c8552336b95a7fbbb2d37d63e0ce0a
+    stage: 1
+    task: step-3/task.md
+    hidden: step-3/hidden
+    names: step-3/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: README.md, added: 2, removed: 0}
+      treatment: agent
+      reason: "Only README.md changes outside the package, inside the generated tool list. It is generated from the tool definitions, so the agent regenerates it with the repository's docs generator; an upstream patch would disagree with the agent's own descriptions wherever no snapshot pins them. It is not tested."
+    test_cmd: "GITHUB_ACTIONS=true go test -count=1 ./pkg/github"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: the only commit in between (7a9bc91185, #734) changes docs/testing.md only"
+  - n: 4
+    pr: 740
+    title: "Changed q to query in search"
+    merge: efef8ae27a1d62c38c8f760ca38a65845efd3576
+    parent: a9395651605765afe1f667516911901f13843ace
+    stage: 1
+    task: step-4/task.md
+    hidden: step-4/hidden
+    names: step-4/names.yaml
+    given:
+      - pkg/github/__toolsnaps__/search_code.snap
+    outside:
+      files:
+        - {path: README.md, added: 1, removed: 1}
+      treatment: agent
+      reason: "Only README.md changes outside the package, inside the generated tool list. It is generated from the tool definitions, so the agent regenerates it with the repository's docs generator; an upstream patch would disagree with the agent's own descriptions wherever no snapshot pins them. It is not tested."
+    test_cmd: "GITHUB_ACTIONS=true go test -count=1 ./pkg/github"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 5
+    pr: 774
+    title: "Add updating draft state to update_pull_request tool"
+    merge: d5e1f48728dd85ecdb7aa12246c2f6e9a9eb3a8c
+    parent: efef8ae27a1d62c38c8f760ca38a65845efd3576
+    stage: 2
+    task: step-5/task.md
+    hidden: step-5/hidden
+    names: step-5/names.yaml
+    given:
+      - pkg/github/__toolsnaps__/update_pull_request.snap
+    outside:
+      files:
+        - {path: README.md, added: 1, removed: 0}
+      treatment: agent
+      reason: "Only README.md changes outside the package, inside the generated tool list. It is generated from the tool definitions, so the agent regenerates it with the repository's docs generator; an upstream patch would disagree with the agent's own descriptions wherever no snapshot pins them. It is not tested."
+    test_cmd: "GITHUB_ACTIONS=true go test -count=1 ./pkg/github"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"

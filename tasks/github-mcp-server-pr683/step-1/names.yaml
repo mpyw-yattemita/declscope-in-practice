@@ -1,0 +1,21 @@
+# Identifiers used by step-1/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "CursorPaginationParams.PerPage"
+    kind: field
+    exported: true
+    signature: "PerPage int"
+    used_in: [server_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "PaginationParams.Page"
+    kind: field
+    exported: true
+    signature: "Page int"
+    used_in: [server_test.go]
+  - name: "PaginationParams.PerPage"
+    kind: field
+    exported: true
+    signature: "PerPage int"
+    used_in: [server_test.go]
+notes: "The tests compare PaginationParams{Page: ..., PerPage: ...} values from OptionalPaginationParams with ==-style assert.Equal, so PaginationParams must keep exactly comparable exported fields Page and PerPage (After may be added). The task text states these fields."

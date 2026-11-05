@@ -1,0 +1,634 @@
+diff --git a/build/generate-extended-cases/exceptions.yaml b/build/generate-extended-cases/exceptions.yaml
+new file mode 100644
+index 0000000000..a5e9f77149
+--- /dev/null
++++ b/build/generate-extended-cases/exceptions.yaml
+@@ -0,0 +1,9 @@
++# Exception Format is <test name>: <reason>
++"negation/not-body: negated call with vars, call succeeds": "No planner support"
++"negation/not-body: negated call with vars, call fails": "No planner support"
++"negation/not-body: negated call with vars, undefined operands": "No planner support"
++"negation/not-body: negated call with vars, inside comprehension, call succeeds": "No planner support"
++"negation/not-body: negated call with vars, inside comprehension, undefined operands": "No planner support"
++"negation/not-body: negated call with vars, inside every, call succeeds": "No planner support"
++"negation/not-body: negated call with vars, inside every, undefined operands": "No planner support"
++"negation/not-body: negated and non-negated unification on same var, calls, rearranged": "No planner support"
+diff --git a/build/generate-extended-cases/extended_cases.go b/build/generate-extended-cases/extended_cases.go
+index d63e722c7a..b2e4cdf243 100644
+--- a/build/generate-extended-cases/extended_cases.go
++++ b/build/generate-extended-cases/extended_cases.go
+@@ -4,8 +4,10 @@ import (
+ 	"context"
+ 	"encoding/json"
+ 	"errors"
++	"flag"
+ 	"fmt"
+ 	"io/fs"
++	"os"
+ 	"slices"
+ 	"time"
+ 
+@@ -18,8 +20,33 @@ import (
+ 	"github.com/open-policy-agent/opa/v1/test/cases/testdata"
+ 	"github.com/open-policy-agent/opa/v1/topdown"
+ 	"github.com/open-policy-agent/opa/v1/types"
++	"github.com/open-policy-agent/opa/v1/util"
+ )
+ 
++var exceptionsFile = flag.String("exceptions", "./exceptions.yaml", "set file to load a list of test names to exclude")
++
++var exceptions map[string]string
++
++func setup() {
++	exceptions = map[string]string{}
++
++	bs, err := os.ReadFile(*exceptionsFile)
++	if err != nil {
++		fmt.Println("Unable to load exceptions file: " + err.Error())
++		os.Exit(1)
++	}
++	err = util.Unmarshal(bs, &exceptions)
++	if err != nil {
++		fmt.Println("Unable to parse exceptions file: " + err.Error())
++		os.Exit(1)
++	}
++}
++
++func shouldSkip(tc cases.TestCase) bool {
++	_, ok := exceptions[tc.Note]
++	return ok
++}
++
+ type ExtendedTestCase struct {
+ 	cases.TestCase
+ 	EntryPoints    []string   `json:"entrypoints"`
+@@ -91,6 +118,8 @@ func CapabilitiesFilter(c *ast.Capabilities) Filters {
+ }
+ 
+ func LoadIrExtendedTestCasesFiltered(filters ...Filters) ([]ExtendedSet, error) {
++	setup()
++
+ 	// Used by the 'time/time caching' test
+ 	sleep := &ast.Builtin{
+ 		Name: "test.sleep",
+@@ -145,6 +174,11 @@ func LoadIrExtendedTestCasesFiltered(filters ...Filters) ([]ExtendedSet, error)
+ 		}
+ 
+ 		for _, tc := range x.Cases {
++
++			if shouldSkip(tc.TestCase) {
++				continue
++			}
++
+ 			opts := []func(*rego.Rego){
+ 				rego.Target(pluginName),
+ 				rego.Query(tc.Query),
+diff --git a/cmd/capabilities_test.go b/cmd/capabilities_test.go
+index 8ba79adf84..c3346d9a18 100644
+--- a/cmd/capabilities_test.go
++++ b/cmd/capabilities_test.go
+@@ -93,6 +93,9 @@ func TestCapabilitiesCurrent(t *testing.T) {
+ 				ast.FeatureKeywordsInRefs,
+ 				ast.FeatureTemplateStrings,
+ 			},
++			expFutureKeywords: []string{
++				// "not", // TODO: enable once future.keywords.not is enabled by default
++			},
+ 		},
+ 		{
+ 			note:         "current --v0-compatible",
+@@ -109,6 +112,7 @@ func TestCapabilitiesCurrent(t *testing.T) {
+ 				"every",
+ 				"contains",
+ 				"if",
++				// "not", // TODO: enable once future.keywords.not is enabled by default
+ 			},
+ 		},
+ 	}
+diff --git a/internal/wasm/sdk/test/e2e/exceptions.yaml b/internal/wasm/sdk/test/e2e/exceptions.yaml
+index d8eb5d5283..b81458f51c 100644
+--- a/internal/wasm/sdk/test/e2e/exceptions.yaml
++++ b/internal/wasm/sdk/test/e2e/exceptions.yaml
+@@ -1,3 +1,11 @@
+ # Exception Format is <test name>: <reason>
+ "data/toplevel integer": "https://github.com/open-policy-agent/opa/issues/3711"
+ "data/nested integer": "https://github.com/open-policy-agent/opa/issues/3711"
++"negation/not-body: negated call with vars, call succeeds": "No planner support"
++"negation/not-body: negated call with vars, call fails": "No planner support"
++"negation/not-body: negated call with vars, undefined operands": "No planner support"
++"negation/not-body: negated call with vars, inside comprehension, call succeeds": "No planner support"
++"negation/not-body: negated call with vars, inside comprehension, undefined operands": "No planner support"
++"negation/not-body: negated call with vars, inside every, call succeeds": "No planner support"
++"negation/not-body: negated call with vars, inside every, undefined operands": "No planner support"
++"negation/not-body: negated and non-negated unification on same var, calls, rearranged": "No planner support"
+diff --git a/v1/compile/compile_test.go b/v1/compile/compile_test.go
+index 5dc9984179..ba1ae4a601 100644
+--- a/v1/compile/compile_test.go
++++ b/v1/compile/compile_test.go
+@@ -3494,7 +3494,7 @@ func TestOptimizerOutput(t *testing.T) {
+ 	for _, tc := range tests {
+ 		t.Run(tc.note, func(t *testing.T) {
+ 
+-			popts := ast.ParserOptions{AllFutureKeywords: true}
++			popts := ast.ParserOptions{}
+ 			o := getOptimizer(tc.modules, tc.data, tc.entrypoints, tc.roots, tc.namespace, popts)
+ 			original := o.bundle.Copy()
+ 			err := o.Do(t.Context())
+diff --git a/v1/test/cases/testdata/v1/negation/test-not-body.yaml b/v1/test/cases/testdata/v1/negation/test-not-body.yaml
+new file mode 100644
+index 0000000000..638389b53d
+--- /dev/null
++++ b/v1/test/cases/testdata/v1/negation/test-not-body.yaml
+@@ -0,0 +1,143 @@
++---
++cases:
++  - note: "negation/not-body: negated call with vars, call succeeds"
++    query: data.negation.p = x
++    modules:
++      - |
++        package negation
++
++        import future.keywords.not
++
++        default p := false
++
++        p if {
++            not input.x + input.y == input.z
++        }
++    input:
++      x: 1
++      "y": 2
++      z: 3
++    want_result:
++      - x: false
++  - note: "negation/not-body: negated call with vars, call fails"
++    query: data.negation.p = x
++    modules:
++      - |
++        package negation
++
++        import future.keywords.not
++
++        default p := false
++
++        p if {
++            not input.x + input.y == input.z
++        }
++    input:
++      x: 1
++      "y": 2
++      z: 0
++    want_result:
++      - x: true
++  - note: "negation/not-body: negated call with vars, undefined operands"
++    query: data.negation.p = x
++    modules:
++      - |
++        package negation
++
++        import future.keywords.not
++
++        default p := false
++
++        p if {
++            not input.x + input.y == input.z
++        }
++    want_result:
++      - x: true
++  - note: "negation/not-body: negated call with vars, inside comprehension, call succeeds"
++    query: data.negation.p = x
++    modules:
++      - |
++        package negation
++
++        import future.keywords.not
++
++        p := [x | x := "foo"; not f(input.x)]
++
++        f(_) := true
++    input:
++      x: true
++    want_result:
++      - x: []
++  - note: "negation/not-body: negated call with vars, inside comprehension, undefined operands"
++    query: data.negation.p = x
++    modules:
++      - |
++        package negation
++
++        import future.keywords.not
++
++        p := [x | x := "foo"; not f(input.x)]
++
++        f(_) := true
++    want_result:
++      - x: ["foo"]
++  - note: "negation/not-body: negated call with vars, inside every, call succeeds"
++    query: data.negation.p = x
++    modules:
++      - |
++        package negation
++
++        import future.keywords.not
++
++        default p := false
++
++        p if {
++          every x in input.x {
++            not f(x, input.y)
++          }
++        }
++
++        f(_, _) := true
++    input:
++      x: [1, 2]
++      "y": 3
++    want_result:
++      - x: false
++  - note: "negation/not-body: negated call with vars, inside every, undefined operands"
++    query: data.negation.p = x
++    modules:
++      - |
++        package negation
++
++        import future.keywords.not
++
++        default p := false
++
++        p if {
++          every x in input.x {
++            not f(x, input.y)
++          }
++        }
++
++        f(_, _) := true
++    input:
++      x: [1, 2]
++    want_result:
++      - x: true
++  - note: "negation/not-body: negated and non-negated unification on same var, calls, rearranged"
++    query: data.negation.p = x
++    modules:
++      - |
++        package negation
++
++        import future.keywords.not
++
++        p := a if {
++          not a = f(1)
++          a = f(2)
++        }
++
++        f(x) := x
++
++    want_result:
++      - x: 2
+diff --git a/v1/topdown/eval.go b/v1/topdown/eval.go
+index 6f93ba530e..ae3d5f3ec6 100644
+--- a/v1/topdown/eval.go
++++ b/v1/topdown/eval.go
+@@ -517,8 +517,8 @@ func (e *eval) evalStep(iter evalIterator) error {
+ 			}
+ 		case *ast.Every:
+ 			eval := evalEvery{
+-				Every: terms,
+ 				e:     e,
++				every: terms,
+ 				expr:  expr,
+ 			}
+ 			err = eval.eval(func() error {
+@@ -528,6 +528,19 @@ func (e *eval) evalStep(iter evalIterator) error {
+ 				return err
+ 			})
+ 
++		case *ast.Not:
++			eval := evalNot{
++				e:    e,
++				not:  terms,
++				expr: expr,
++			}
++			err = eval.eval(func() error {
++				defined = true
++				err := iter(e)
++				e.traceRedo(expr)
++				return err
++			})
++
+ 		default: // guard-rail for adding extra (Expr).Terms types
+ 			return fmt.Errorf("got %T terms: %[1]v", terms)
+ 		}
+@@ -571,14 +584,24 @@ func (e *eval) evalStep(iter evalIterator) error {
+ 		})
+ 	case *ast.Every:
+ 		eval := evalEvery{
+-			Every: terms,
+ 			e:     e,
++			every: terms,
+ 			expr:  expr,
+ 		}
+ 		err = eval.eval(func() error {
+ 			return iter(e)
+ 		})
+ 
++	case *ast.Not:
++		eval := evalNot{
++			e:    e,
++			not:  terms,
++			expr: expr,
++		}
++		err = eval.eval(func() error {
++			return iter(e)
++		})
++
+ 	default: // guard-rail for adding extra (Expr).Terms types
+ 		return fmt.Errorf("got %T terms: %[1]v", terms)
+ 	}
+@@ -3990,19 +4013,19 @@ func (e evalTerm) save(iter unifyIterator) error {
+ }
+ 
+ type evalEvery struct {
+-	*ast.Every
+-	e    *eval
+-	expr *ast.Expr
++	e     *eval
++	every *ast.Every
++	expr  *ast.Expr
+ }
+ 
+ func (e evalEvery) eval(iter unifyIterator) error {
+ 	// unknowns in domain or body: save the expression, PE its body
+ 	// partial() check to avoid e.Body -> Node boxing allocation
+-	if e.e.partial() && (e.e.unknown(e.Domain, e.e.bindings) || e.e.unknown(e.Body, e.e.bindings)) {
++	if e.e.partial() && (e.e.unknown(e.every.Domain, e.e.bindings) || e.e.unknown(e.every.Body, e.e.bindings)) {
+ 		return e.save(iter)
+ 	}
+ 
+-	if pd := e.e.bindings.Plug(e.Domain); pd != nil {
++	if pd := e.e.bindings.Plug(e.every.Domain); pd != nil {
+ 		if !isIterableValue(pd.Value) {
+ 			e.e.traceFail(e.expr)
+ 			return nil
+@@ -4011,9 +4034,9 @@ func (e evalEvery) eval(iter unifyIterator) error {
+ 
+ 	generator := ast.NewBody(
+ 		ast.Equality.Expr(
+-			ast.RefTerm(e.Domain, e.Key).SetLocation(e.Domain.Location),
+-			e.Value,
+-		).SetLocation(e.Domain.Location),
++			ast.RefTerm(e.every.Domain, e.every.Key).SetLocation(e.every.Domain.Location),
++			e.every.Value,
++		).SetLocation(e.every.Domain.Location),
+ 	)
+ 
+ 	domain := evalPool.Get()
+@@ -4035,18 +4058,18 @@ func (e evalEvery) eval(iter unifyIterator) error {
+ 		body := evalPool.Get()
+ 		defer evalPool.Put(body)
+ 
+-		child.closure(e.Body, body)
++		child.closure(e.every.Body, body)
+ 		body.findOne = true
+ 
+ 		if e.e.traceEnabled {
+-			body.traceEnter(e.Body)
++			body.traceEnter(e.every.Body)
+ 		}
+ 
+ 		done := false
+ 		err := body.eval(func(*eval) error {
+ 			if e.e.traceEnabled {
+-				body.traceExit(e.Body)
+-				body.traceRedo(e.Body)
++				body.traceExit(e.every.Body)
++				body.traceRedo(e.every.Body)
+ 			}
+ 			done = true
+ 
+@@ -4111,6 +4134,42 @@ func (e *evalEvery) plug(expr *ast.Expr) *ast.Expr {
+ 	return cpy
+ }
+ 
++// TODO: Add PE support
++type evalNot struct {
++	e    *eval
++	not  *ast.Not
++	expr *ast.Expr
++}
++
++func (e evalNot) eval(iter unifyIterator) error {
++	child := evalPool.Get()
++	defer evalPool.Put(child)
++
++	e.e.closure(e.not.Body, child)
++
++	if e.e.traceEnabled {
++		child.traceEnter(e.not.Body)
++	}
++
++	if err := child.eval(func(*eval) error {
++		if e.e.traceEnabled {
++			child.traceExit(e.not.Body)
++			child.traceRedo(e.not.Body)
++		}
++		child.defined = true
++
++		return nil
++	}); err != nil {
++		return err
++	}
++
++	if !child.defined {
++		return iter()
++	}
++
++	return nil
++}
++
+ func (e *eval) comprehensionIndex(term *ast.Term) *ast.ComprehensionIndex {
+ 	if e.queryCompiler != nil {
+ 		return e.queryCompiler.ComprehensionIndex(term)
+@@ -4202,6 +4261,7 @@ func canInlineNegation(safe ast.VarSet, queries []ast.Body) bool {
+ 				// in the future, we can handle more cases.
+ 				return false
+ 			}
++			// TODO: also check expr.Terms.(*ast.Not)?
+ 			if !expr.Negated {
+ 				// Positive expressions containing variables cannot be trivially negated
+ 				// because they become unsafe (e.g., "x = 1" negated is "not x = 1" making x
+diff --git a/v1/topdown/exported_test.go b/v1/topdown/exported_test.go
+index 23e622b1d3..3e599e835c 100644
+--- a/v1/topdown/exported_test.go
++++ b/v1/topdown/exported_test.go
+@@ -25,14 +25,14 @@ func TestRego(t *testing.T) {
+ 		t.Run("v0/"+tc.Note, func(t *testing.T) {
+ 			t.Parallel()
+ 
+-			testRun(t, tc, ast.RegoV0)
++			testRun(t, tc, regoVersion(ast.RegoV0))
+ 		})
+ 	}
+ 	for _, tc := range cases.MustLoad("../test/cases/testdata/v1").Sorted().Cases {
+ 		t.Run("v1/"+tc.Note, func(t *testing.T) {
+ 			t.Parallel()
+ 
+-			testRun(t, tc, ast.RegoV1)
++			testRun(t, tc, regoVersion(ast.RegoV1))
+ 		})
+ 	}
+ }
+@@ -44,7 +44,7 @@ func TestOPARego(t *testing.T) {
+ 		t.Run(tc.Note, func(t *testing.T) {
+ 			t.Parallel()
+ 
+-			testRun(t, tc, ast.RegoV0)
++			testRun(t, tc, regoVersion(ast.RegoV0))
+ 		})
+ 	}
+ }
+@@ -56,26 +56,80 @@ func TestRegoWithNDBCache(t *testing.T) {
+ 		t.Run("v0/"+tc.Note, func(t *testing.T) {
+ 			t.Parallel()
+ 
+-			testRun(t, tc, ast.RegoV0, func(q *Query) *Query {
++			testRun(t, tc, regoVersion(ast.RegoV0), query(func(q *Query) *Query {
+ 				return q.WithNDBuiltinCache(builtins.NDBCache{})
+-			})
++			}))
+ 		})
+ 	}
+ 	for _, tc := range cases.MustLoad("../test/cases/testdata/v1").Sorted().Cases {
+ 		t.Run("v1/"+tc.Note, func(t *testing.T) {
+ 			t.Parallel()
+ 
+-			testRun(t, tc, ast.RegoV1, func(q *Query) *Query {
++			testRun(t, tc, regoVersion(ast.RegoV1), query(func(q *Query) *Query {
+ 				return q.WithNDBuiltinCache(builtins.NDBCache{})
+-			})
++			}))
+ 		})
+ 	}
+ }
+ 
+-type opt func(*Query) *Query
++func TestRegoWithNotBody(t *testing.T) {
++	t.Parallel()
++
++	for _, tc := range cases.MustLoad("../test/cases/testdata/v0").Sorted().Cases {
++		t.Run("v0/"+tc.Note, func(t *testing.T) {
++			t.Parallel()
++
++			testRun(t, tc, parserOptions(ast.ParserOptions{
++				RegoVersion:    ast.RegoV0,
++				FutureKeywords: []string{"not"},
++			}))
++		})
++	}
++	for _, tc := range cases.MustLoad("../test/cases/testdata/v1").Sorted().Cases {
++		t.Run("v1/"+tc.Note, func(t *testing.T) {
++			t.Parallel()
++
++			testRun(t, tc, parserOptions(ast.ParserOptions{
++				RegoVersion:    ast.RegoV1,
++				FutureKeywords: []string{"not"},
++			}))
++		})
++	}
++}
++
++type testOpts struct {
++	queryOpts     []func(*Query) *Query
++	parserOptions ast.ParserOptions
++}
+ 
+-func testRun(t *testing.T, tc cases.TestCase, regoVersion ast.RegoVersion, opts ...opt) {
++type testOpt func(*testOpts)
++
++func query(q func(*Query) *Query) testOpt {
++	return func(o *testOpts) {
++		o.queryOpts = append(o.queryOpts, q)
++	}
++}
++
++func parserOptions(po ast.ParserOptions) testOpt {
++	return func(o *testOpts) {
++		o.parserOptions = po
++	}
++}
++
++func regoVersion(v ast.RegoVersion) testOpt {
++	return func(o *testOpts) {
++		o.parserOptions.RegoVersion = v
++	}
++}
++
++func testRun(t *testing.T, tc cases.TestCase, opts ...testOpt) {
+ 	t.Helper()
++
++	tos := &testOpts{}
++	for _, o := range opts {
++		o(tos)
++	}
++
+ 	for k, v := range tc.Env {
+ 		t.Setenv(k, v)
+ 	}
+@@ -87,10 +141,12 @@ func testRun(t *testing.T, tc cases.TestCase, regoVersion ast.RegoVersion, opts
+ 		modules[fmt.Sprintf("test-%d.rego", i)] = module
+ 	}
+ 
++	// TODO: drop once future.keywords.not is enabled by default
++	tos.parserOptions.Capabilities = ast.CapabilitiesForThisVersion(ast.CapabilitiesRegoVersion(tos.parserOptions.RegoVersion))
++	tos.parserOptions.Capabilities.FutureKeywords = append(tos.parserOptions.Capabilities.FutureKeywords, "not")
++
+ 	compiler := ast.MustCompileModulesWithOpts(modules, ast.CompileOpts{
+-		ParserOptions: ast.ParserOptions{
+-			RegoVersion: regoVersion,
+-		},
++		ParserOptions: tos.parserOptions,
+ 	})
+ 	query, err := compiler.QueryCompiler().Compile(ast.MustParseBody(tc.Query))
+ 
+@@ -127,7 +183,7 @@ func testRun(t *testing.T, tc cases.TestCase, regoVersion ast.RegoVersion, opts
+ 		WithTracer(buf).
+ 		WithCancel(cncl)
+ 
+-	for _, o := range opts {
++	for _, o := range tos.queryOpts {
+ 		q = o(q)
+ 	}
+ 
+diff --git a/v1/topdown/topdown_partial_test.go b/v1/topdown/topdown_partial_test.go
+index d6554a20aa..e3311b616b 100644
+--- a/v1/topdown/topdown_partial_test.go
++++ b/v1/topdown/topdown_partial_test.go
+@@ -5006,7 +5006,7 @@ q if { input.x = 7 }`},
+ 
+ 			var expectedQueries []ast.Body
+ 
+-			opts := ast.ParserOptions{AllFutureKeywords: true}
++			opts := ast.ParserOptions{}
+ 			if len(tc.wantQueryASTs) > 0 {
+ 				expectedQueries = tc.wantQueryASTs
+ 			} else {
+@@ -5075,7 +5075,7 @@ func prepareTest(ctx context.Context, t *testing.T, params fixtureParams, f func
+ 
+ 			compiler := ast.NewCompiler()
+ 			modules := map[string]*ast.Module{}
+-			opts := ast.ParserOptions{AllFutureKeywords: true}
++			opts := ast.ParserOptions{}
+ 
+ 			if len(params.moduleASTs) > 0 {
+ 				for i, module := range params.moduleASTs {
+diff --git a/v1/topdown/topdown_test.go b/v1/topdown/topdown_test.go
+index 344f98f1ac..0426f41102 100644
+--- a/v1/topdown/topdown_test.go
++++ b/v1/topdown/topdown_test.go
+@@ -1953,7 +1953,7 @@ func compileRules(imports []string, input []string, modules []string) (*ast.Comp
+ 		})
+ 	}
+ 
+-	popts := ast.ParserOptions{AllFutureKeywords: true}
++	popts := ast.ParserOptions{}
+ 
+ 	m := &ast.Module{
+ 		Package: ast.MustParsePackage("package generated"),

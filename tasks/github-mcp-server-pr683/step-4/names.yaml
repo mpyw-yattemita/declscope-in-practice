@@ -1,0 +1,106 @@
+# Identifiers used by step-4/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "AddSubIssue"
+    kind: func
+    exported: true
+    signature: "func AddSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc)"
+    used_in: [issues_test.go]
+  - name: "BasicNoOrder.Repository"
+    kind: field
+    exported: true
+    signature: "Repository struct { Discussions DiscussionFragment `graphql:\"discussions(first: $first, after: $after)\"` }"
+    used_in: [repositories_test.go, search_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "BasicWithOrder.Repository"
+    kind: field
+    exported: true
+    signature: "Repository struct { Discussions DiscussionFragment `graphql:\"discussions(first: $first, after: $after, orderBy: { field: $orderByField, direction: $orderByDirection })\"` }"
+    used_in: [repositories_test.go, search_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "CursorPaginationParams.PerPage"
+    kind: field
+    exported: true
+    signature: "PerPage int"
+    used_in: [server_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "DiscussionFragment.TotalCount"
+    kind: field
+    exported: true
+    signature: "TotalCount githubv4.Int"
+    used_in: [actions_test.go, pullrequests_test.go, search_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "ListSubIssues"
+    kind: func
+    exported: true
+    signature: "func ListSubIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc)"
+    used_in: [issues_test.go]
+  - name: "NodeFragment.Author"
+    kind: field
+    exported: true
+    signature: "Author struct { Login githubv4.String }"
+    used_in: [repositories_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "NodeFragment.CreatedAt"
+    kind: field
+    exported: true
+    signature: "CreatedAt githubv4.DateTime"
+    used_in: [actions_test.go, context_tools_test.go, discussions_test.go, issues_test.go, pullrequests_test.go, repositories_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "NodeFragment.Number"
+    kind: field
+    exported: true
+    signature: "Number githubv4.Int"
+    used_in: [code_scanning_test.go, dependabot_test.go, discussions_test.go, issues_test.go, pullrequests_test.go, secret_scanning_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "NodeFragment.Title"
+    kind: field
+    exported: true
+    signature: "Title githubv4.String"
+    used_in: [issues_test.go, pullrequests_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "NodeFragment.URL"
+    kind: field
+    exported: true
+    signature: "URL githubv4.String"
+    used_in: [actions_test.go, helper_test.go, pullrequests_test.go, repositories_test.go, repository_resource_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "NodeFragment.UpdatedAt"
+    kind: field
+    exported: true
+    signature: "UpdatedAt githubv4.DateTime"
+    used_in: [actions_test.go, pullrequests_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "PaginationParams.Page"
+    kind: field
+    exported: true
+    signature: "Page int"
+    used_in: [server_test.go]
+  - name: "PaginationParams.PerPage"
+    kind: field
+    exported: true
+    signature: "PerPage int"
+    used_in: [server_test.go]
+  - name: "RemoveSubIssue"
+    kind: func
+    exported: true
+    signature: "func RemoveSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc)"
+    used_in: [issues_test.go]
+  - name: "ReprioritizeSubIssue"
+    kind: func
+    exported: true
+    signature: "func ReprioritizeSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc)"
+    used_in: [issues_test.go]
+  - name: "WithCategoryAndOrder.Repository"
+    kind: field
+    exported: true
+    signature: "Repository struct { Discussions DiscussionFragment `graphql:\"discussions(first: $first, after: $after, categoryId: $categoryId, orderBy: { field: $orderByField, direction: $orderByDirection })\"` }"
+    used_in: [repositories_test.go, search_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "WithCategoryNoOrder.Repository"
+    kind: field
+    exported: true
+    signature: "Repository struct { Discussions DiscussionFragment `graphql:\"discussions(first: $first, after: $after, categoryId: $categoryId)\"` }"
+    used_in: [repositories_test.go, search_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same

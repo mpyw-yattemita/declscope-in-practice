@@ -1,0 +1,114 @@
+id: jaeger-pr9256
+repo: https://github.com/jaegertracing/jaeger
+package: internal/storage/v2/api/tracestore
+go: "1.27.0"
+env:
+  CGO_ENABLED: "0"
+seed: 35c2a4082608273f885cf1bf361eb29bdf39d1bb
+notes:
+  - "The rest of the repository follows upstream: step 1 and step 3 get upstream's outside-package changes from outside.patch, and step 2 starts with every file outside the package (except docs/ and the idl submodule) brought to upstream's state at step 2's parent by intermediate.patch. This only works if the agent does not edit files outside the package; each task text says that the rest of the repository is already done."
+  - "The two commits between step 1 and step 2 that touch the package (#9261, #9271) change only doc comments in the package; they are not applied."
+steps:
+  - n: 1
+    pr: 9256
+    title: "feat(storage): Let backends declare that search can omit the service name"
+    merge: 3847bd90754b970d5f2870bea3310521a6ba1cc4
+    parent: 35c2a4082608273f885cf1bf361eb29bdf39d1bb
+    stage: 1
+    task: step-1/task.md
+    hidden: step-1/hidden
+    names: step-1/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: cmd/jaeger/internal/extension/jaegerquery/internal/static_handler.go, added: 15, removed: 6}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/internal/static_handler_test.go, added: 19, removed: 13}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator.go, added: 6, removed: 0}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator_test.go, added: 42, removed: 0}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go, added: 4, removed: 0}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/server.go, added: 11, removed: 2}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/server_test.go, added: 9, removed: 1}
+        - {path: cmd/jaeger/internal/integration/trace_reader.go, added: 10, removed: 0}
+        - {path: docs/rfc/0013-optional-service-name-in-search.md, added: 226, removed: 0}
+        - {path: docs/rfc/README.md, added: 1, removed: 0}
+        - {path: internal/storage/v2/api/tracestore/mocks/mocks.go, added: 60, removed: 0}
+        - {path: internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics.go, added: 6, removed: 0}
+        - {path: internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics_test.go, added: 29, removed: 0}
+        - {path: internal/storage/v2/cassandra/tracestore/reader.go, added: 7, removed: 0}
+        - {path: internal/storage/v2/cassandra/tracestore/reader_test.go, added: 8, removed: 0}
+        - {path: internal/storage/v2/clickhouse/tracestore/reader.go, added: 9, removed: 0}
+        - {path: internal/storage/v2/clickhouse/tracestore/reader_test.go, added: 8, removed: 0}
+        - {path: internal/storage/v2/elasticsearch/tracestore/core/reader.go, added: 0, removed: 6}
+        - {path: internal/storage/v2/elasticsearch/tracestore/core/reader_test.go, added: 41, removed: 10}
+        - {path: internal/storage/v2/elasticsearch/tracestore/reader.go, added: 9, removed: 0}
+        - {path: internal/storage/v2/elasticsearch/tracestore/reader_test.go, added: 9, removed: 0}
+        - {path: internal/storage/v2/grpc/tracereader.go, added: 13, removed: 0}
+        - {path: internal/storage/v2/grpc/tracereader_test.go, added: 8, removed: 0}
+        - {path: internal/storage/v2/memory/memory.go, added: 8, removed: 0}
+        - {path: internal/storage/v2/memory/memory_test.go, added: 37, removed: 0}
+        - {path: internal/storage/v2/v1adapter/tracereader.go, added: 8, removed: 0}
+        - {path: internal/storage/v2/v1adapter/tracereader_test.go, added: 8, removed: 0}
+      treatment: harness
+      reason: "The PR adds a method to the Reader interface, so every implementation and decorator outside the package (memory, cassandra, clickhouse, elasticsearch, grpc, v1adapter, mocks, tracestoremetrics, queryinterceptor, the integration reader, the query server and UI capabilities) has to grow it. That code uses only tracestore.SearchCapabilities, its field WithoutServiceName and the method SearchCapabilities(ctx) (SearchCapabilities, error), all fixed by the task text, and none of it is imported by the package, so the patch applies at the parent whatever the agent writes inside. Applied before the agent starts, so until the agent adds the type and method, the outside packages do not compile; the task text says the outside implementations are already in place. docs/rfc is left out: it is design prose, not needed to build or test."
+      patch: step-1/outside.patch
+    test_cmd: "go test -count=1 ./internal/storage/v2/api/tracestore"
+    known_failing: []
+    white_box_tests:
+      - {test: "TestSearchCapabilities_FieldCount", reason: "asserts by reflection that SearchCapabilities has exactly 1 field(s); the task text fixes the field list, so it passes only if the agent adds no extra field"}
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 2
+    pr: 9356
+    title: "feat(storage): Let a reader declare which filters it evaluates"
+    merge: f45102541a4fada7a9db1eefd7b572e4b11b48c0
+    parent: 5bf8384ccc0e72ad528935e704a5d76cc631f6a1
+    stage: 1
+    task: step-2/task.md
+    hidden: step-2/hidden
+    names: step-2/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: docs/adr/013-storage-capability-declaration.md, added: 11, removed: 2}
+      treatment: none
+      reason: "The only outside change is docs/adr/013-storage-capability-declaration.md, prose that the build and tests do not use."
+    test_cmd: "go test -count=1 ./internal/storage/v2/api/tracestore"
+    known_failing: []
+    white_box_tests:
+      - {test: "TestSearchCapabilities_FieldCount", reason: "asserts by reflection that SearchCapabilities has exactly 3 field(s); the task text fixes the field list, so it passes only if the agent adds no extra field"}
+    intermediate:
+      commits:
+        - {sha: 1369d00e07c0, title: "build(idl): Generate Go for the shared filter expression proto (#9349)", files: [go.mod, go.sum]}
+        - {sha: ed1c3b412dd7, title: "fix(deps): update github.com/ag-ui-protocol/ag-ui/sdks/community/go digest to 7479d97 (#8719)", files: [go.mod, go.sum]}
+        - {sha: 2487d690445e, title: "docs(adr): Record the storage capability mechanism and close RFC 0013 (#9271)", files: [internal/storage/v2/api/tracestore/reader.go]}
+        - {sha: 6102e1d23f6a, title: "feat(storage): Let remote storage report its search capabilities (#9269)", files: [go.mod, go.sum]}
+        - {sha: 83f312167ee9, title: "fix(memory): Return copies of stored traces, not references (#9261)", files: [internal/storage/v2/api/tracestore/reader.go]}
+      handling: "harness applies intermediate.patch before the agent starts: the diff from step 1's merge to this step's parent for every file outside the package, except docs/ and the idl submodule (121 files). It is needed because this step's package code and tests import github.com/jaegertracing/jaeger-idl/query/expression/v1, which exists only from jaeger-idl v0.11.1; #9349 bumped go.mod from v0.9.0 and regenerated the protos. The rest (query service refusals #9259/#9268, remote capabilities #9269, MCP #9262 and others) is synced as well so that step 3's outside.patch applies. The two in-package commits #9261 and #9271 change doc comments only (8 and 20 lines in reader.go) and are not applied. No hunk touches the package, so the patch applies whatever the agent wrote, provided the agent left outside files alone."
+      patch: step-2/intermediate.patch
+  - n: 3
+    pr: 9357
+    title: "feat(query): Serve a filter query in the shape the backend understands"
+    merge: ea1291f54398ed1cdfd123892ee947ca892e7a4b
+    parent: f45102541a4fada7a9db1eefd7b572e4b11b48c0
+    stage: 2
+    task: step-3/task.md
+    hidden: step-3/hidden
+    names: step-3/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: cmd/jaeger/internal/extension/jaegerquery/querysvc/filter.go, added: 48, removed: 0}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/querysvc/filter_test.go, added: 362, removed: 0}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go, added: 50, removed: 8}
+        - {path: cmd/jaeger/internal/extension/jaegerquery/querysvc/service_test.go, added: 154, removed: 0}
+      treatment: harness
+      reason: "The query service (cmd/jaeger/internal/extension/jaegerquery/querysvc: filter.go, service.go and their tests) dispatches through the new API. It uses only exported names the task text fixes (TraceQueryParams.EnsureFilterStandsAlone, TraceQueryParams.ForCapabilities, SearchCapabilities, ErrFilterInvalid, ErrFilterUnsupported) and the package does not import it, so the patch applies at the parent whatever the agent writes inside, given the outside sync of step 2. Applied before the agent starts, so querysvc does not compile until the agent adds those methods; the task text says the query service side is already in place."
+      patch: step-3/outside.patch
+    test_cmd: "go test -count=1 ./internal/storage/v2/api/tracestore"
+    known_failing: []
+    white_box_tests:
+      - {test: "TestSearchCapabilities_FieldCount", reason: "asserts by reflection that SearchCapabilities has exactly 3 field(s); the task text fixes the field list, so it passes only if the agent adds no extra field"}
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"

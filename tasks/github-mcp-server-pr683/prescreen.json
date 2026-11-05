@@ -1,0 +1,104 @@
+{
+  "task": "github-mcp-server-pr683",
+  "commits": {
+    "seed": {
+      "commit": "74964520cf15aae32400119762a9d4482eda0333",
+      "packages": [
+        "internal/githubv4mock",
+        "internal/toolsnaps",
+        "pkg/errors",
+        "pkg/github",
+        "pkg/raw",
+        "pkg/toolsets",
+        "pkg/translations"
+      ]
+    },
+    "step-1": {
+      "commit": "7ccc6b6493f184c6fce8620c41ed1ffda12837b8",
+      "packages": [
+        "internal/githubv4mock",
+        "internal/toolsnaps",
+        "pkg/errors",
+        "pkg/github",
+        "pkg/raw",
+        "pkg/toolsets",
+        "pkg/translations"
+      ]
+    },
+    "step-2": {
+      "commit": "60a5391d67543ca4ef53370cbb48a01f3702fc66",
+      "packages": [
+        "internal/githubv4mock",
+        "internal/toolsnaps",
+        "pkg/errors",
+        "pkg/github",
+        "pkg/raw",
+        "pkg/toolsets",
+        "pkg/translations"
+      ]
+    },
+    "step-3": {
+      "commit": "a9395651605765afe1f667516911901f13843ace",
+      "packages": [
+        "internal/githubv4mock",
+        "internal/toolsnaps",
+        "pkg/errors",
+        "pkg/github",
+        "pkg/raw",
+        "pkg/toolsets",
+        "pkg/translations"
+      ]
+    },
+    "step-4": {
+      "commit": "efef8ae27a1d62c38c8f760ca38a65845efd3576",
+      "packages": [
+        "internal/githubv4mock",
+        "internal/toolsnaps",
+        "pkg/errors",
+        "pkg/github",
+        "pkg/raw",
+        "pkg/toolsets",
+        "pkg/translations"
+      ]
+    },
+    "step-5": {
+      "commit": "d5e1f48728dd85ecdb7aa12246c2f6e9a9eb3a8c",
+      "packages": [
+        "internal/githubv4mock",
+        "internal/toolsnaps",
+        "pkg/errors",
+        "pkg/github",
+        "pkg/raw",
+        "pkg/toolsets",
+        "pkg/translations"
+      ]
+    }
+  },
+  "hits": [
+    {
+      "severity": "needs-review",
+      "kind": "outbound-http",
+      "path": "pkg/github/actions.go",
+      "line": 747,
+      "text": "httpResp, err := http.Get(logURL) //nolint:gosec // URLs are provided by GitHub API and are safe",
+      "at": [
+        "seed",
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5"
+      ]
+    }
+  ],
+  "verdict": "needs-review",
+  "review": {
+    "by": "parent agent (main session)",
+    "date": "2026-11-05",
+    "decision": "clean",
+    "hit_count": 1,
+    "notes": [
+      "pkg/github/actions.go:747 http.Get(logURL) downloads GitHub job logs (data, not a tool). Every test that fetches content (return_content) points it at an httptest server on localhost; the other tests only set Location headers and do not fetch."
+    ]
+  }
+}

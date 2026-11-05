@@ -1,0 +1,10 @@
+# Identifiers used by step-1/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "SearchCapabilities"
+    kind: type
+    exported: true
+    signature: "type SearchCapabilities struct"
+    used_in: [reader_test.go]
+notes: "The only test of this step is the field-count tripwire; the behaviour of the new method is tested only outside the package (by the backends and decorators that outside.patch brings)."

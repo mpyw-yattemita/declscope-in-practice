@@ -1,0 +1,115 @@
+id: go-sdk-pr644
+repo: https://github.com/modelcontextprotocol/go-sdk
+package: mcp
+go: "1.27.0"
+env:
+  CGO_ENABLED: "0"
+seed: 1943780255521f98ef57f083ae95b92fe727ee96
+notes:
+  - "mcp/testdata is read by the tests but no step changes it, so it is not copied into hidden/; the workspace keeps the seed's copy."
+  - "Upstream's ElicitationCapabilities.Form and .URL have no JSON tags (they marshal as \"Form\" and \"URL\"). No test depends on the JSON names, so the task text does not fix them."
+steps:
+  - n: 1
+    pr: 644
+    title: "Elicit defaults"
+    merge: d9263f7e47ba2fa85fb59c7a4c17a962f968c2db
+    parent: 1943780255521f98ef57f083ae95b92fe727ee96
+    stage: 1
+    task: step-1/task.md
+    hidden: step-1/hidden
+    names: step-1/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./mcp"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 2
+    pr: 646
+    title: "mcp: support url mode elicitation"
+    merge: 21fb03dd1ab987339fa35061e94c3e8cbdcf565f
+    parent: d9263f7e47ba2fa85fb59c7a4c17a962f968c2db
+    stage: 1
+    task: step-2/task.md
+    hidden: step-2/hidden
+    names: step-2/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: docs/rough_edges.md, added: 7, removed: 0}
+        - {path: examples/server/everything/main.go, added: 33, removed: 15}
+        - {path: internal/docs/rough_edges.src.md, added: 7, removed: 0}
+      treatment: harness
+      reason: "The example server gains a URL elicitation tool that uses only the exported fields ElicitParams.URL and ElicitParams.ElicitationID, which the task text fixes; the rest of the example change (embedding the icon) and the rough-edges doc note are unrelated to the package. The diff applies to the parent regardless of the agent's package code. docs/rough_edges.md is generated from internal/docs/rough_edges.src.md by `go generate ./internal/docs` (weave); the patch updates both. The example does not build until the agent adds the two fields."
+      patch: step-2/outside.patch
+    test_cmd: "go test -count=1 ./mcp"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 3
+    pr: 655
+    title: "Expose JSON-RPC error codes, and URLElicitationRequired errors"
+    merge: 2ce44d45e9f65c9e2bb8fee56d1a4663241aad11
+    parent: 96385fde3c84a5d8fe2882b7eeb7becc7231a82f
+    stage: 1
+    task: step-3/task.md
+    hidden: step-3/hidden
+    names: step-3/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: jsonrpc/jsonrpc.go, added: 17, removed: 0}
+      treatment: harness
+      reason: "The jsonrpc package gains the alias Error = jsonrpc2.WireError and five standard error-code constants. The 17 lines depend on no mcp code and no agent-chosen name, and apply cleanly to the parent. The mcp tests use jsonrpc.Error and jsonrpc.CodeInvalidParams, so the names must be exactly upstream's; the task text says these already exist."
+      patch: step-3/outside.patch
+    test_cmd: "go test -count=1 ./mcp"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: 96385fde3c (#660) only adds a note to docs/rough_edges.md and internal/docs/rough_edges.src.md; it touches neither the package nor its dependencies, and nothing is applied"
+    notes:
+      - "The package's own unexported constants codeInvalidParams and codeResourceNotFound are removed upstream in this step; the tests switch to jsonrpc.CodeInvalidParams and CodeResourceNotFound."
+  - n: 4
+    pr: 665
+    title: "fix: handle Windows CRLF in MCP client(#664)"
+    merge: 1bec3c60a0229df71933fdea7d5046702fc8cc4b
+    parent: 2ce44d45e9f65c9e2bb8fee56d1a4663241aad11
+    stage: 1
+    task: step-4/task.md
+    hidden: step-4/hidden
+    names: step-4/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./mcp"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 5
+    pr: 663
+    title: "mcp: support SSE polling and server disconnects (SEP-1699)"
+    merge: 623780125cbb74daba04375807b887b935e50037
+    parent: 1bec3c60a0229df71933fdea7d5046702fc8cc4b
+    stage: 2
+    task: step-5/task.md
+    hidden: step-5/hidden
+    names: step-5/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: docs/rough_edges.md, added: 4, removed: 0}
+        - {path: internal/docs/rough_edges.src.md, added: 4, removed: 0}
+      treatment: harness
+      reason: "Only a rough-edges doc note (docs/rough_edges.md and its source internal/docs/rough_edges.src.md, generated with `go generate ./internal/docs`) saying Event need not have been exported. It is unrelated to the requested behaviour and applies cleanly."
+      patch: step-5/outside.patch
+    test_cmd: "go test -count=1 ./mcp"
+    known_failing: []
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"

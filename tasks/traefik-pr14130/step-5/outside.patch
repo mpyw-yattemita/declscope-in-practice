@@ -1,0 +1,216 @@
+diff --git a/docs/content/migrate/v3.md b/docs/content/migrate/v3.md
+index 5d77dc288..9c1dc9016 100644
+--- a/docs/content/migrate/v3.md
++++ b/docs/content/migrate/v3.md
+@@ -88,6 +88,30 @@ Therefore, in the corresponding RBACs (see [KubernetesGateway](../reference/dyna
+   ...
+ ```
+ 
++#### ClusterTrustBundle Support
++
++Starting with `v3.8.0`, the Kubernetes Gateway API provider supports [ClusterTrustBundle](https://gateway-api.sigs.k8s.io/geps/gep-5075/) references
++in the `caCertificateRefs` of `BackendTLSPolicy` resources and of the Gateway frontend TLS validation.
++
++This requires the cluster to serve the `certificates.k8s.io/v1` API, available since Kubernetes `v1.37`.
++When the API is not served, or when Traefik is not allowed to watch `ClusterTrustBundle` resources, such references are reported as unsupported kinds.
++
++Therefore, in the corresponding RBACs (see [KubernetesGateway](../reference/dynamic-configuration/kubernetes-gateway-rbac.yml) provider RBACs) the `clustertrustbundles` right has been added.
++
++**Required RBAC Updates:**
++
++```yaml
++  ...
++  - apiGroups:
++      - certificates.k8s.io
++    resources:
++      - clustertrustbundles
++    verbs:
++      - list
++      - watch
++  ...
++```
++
+ #### `labelSelector` option deprecation
+ 
+ Starting with `v3.8.0`, the `labelSelector` option of the Kubernetes Gateway API provider is deprecated and will be removed in the next major version.
+diff --git a/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml b/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
+index 94bd1e59f..75b5dfeaa 100644
+--- a/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
++++ b/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
+@@ -35,6 +35,13 @@ rules:
+     verbs:
+       - list
+       - watch
++  - apiGroups:
++      - certificates.k8s.io
++    resources:
++      - clustertrustbundles
++    verbs:
++      - list
++      - watch
+   - apiGroups:
+       - gateway.networking.k8s.io
+     resources:
+diff --git a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
+index 7e408b2b4..44d574ddd 100644
+--- a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
++++ b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
+@@ -1,5 +1,5 @@
+ apiVersion: gateway.networking.k8s.io/v1
+-date: "2026-10-26T16:48:00+01:00"
++date: "2026-10-28T13:59:22+01:00"
+ gatewayAPIChannel: experimental
+ gatewayAPIVersion: v1.7.0-rc.3
+ implementation:
+@@ -27,6 +27,7 @@ profiles:
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - ClusterTrustBundle
+     - GatewayAddressEmpty
+     - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+@@ -38,7 +39,6 @@ profiles:
+     - GatewayStaticAddresses
+     - ListenerSet
+     unsupportedFeatures:
+-    - ClusterTrustBundle
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+     - GatewayListenerFilters
+@@ -60,6 +60,7 @@ profiles:
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - ClusterTrustBundle
+     - GatewayAddressEmpty
+     - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+@@ -97,7 +98,6 @@ profiles:
+     - HTTPRouteSchemeRedirect
+     - ListenerSet
+     unsupportedFeatures:
+-    - ClusterTrustBundle
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+     - GatewayListenerFilters
+@@ -117,6 +117,7 @@ profiles:
+       Passed: 11
+       Skipped: 0
+     supportedFeatures:
++    - ClusterTrustBundle
+     - GatewayAddressEmpty
+     - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+@@ -129,7 +130,6 @@ profiles:
+     - ListenerSet
+     - TCPRoute
+     unsupportedFeatures:
+-    - ClusterTrustBundle
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+     - GatewayListenerFilters
+@@ -151,6 +151,7 @@ profiles:
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - ClusterTrustBundle
+     - GatewayAddressEmpty
+     - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+@@ -164,7 +165,6 @@ profiles:
+     - TLSRouteModeMixed
+     - TLSRouteModeTerminate
+     unsupportedFeatures:
+-    - ClusterTrustBundle
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+     - GatewayListenerFilters
+diff --git a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
+index 87ab0a421..77a0884ba 100644
+--- a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
++++ b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
+@@ -1,5 +1,5 @@
+ apiVersion: gateway.networking.k8s.io/v1
+-date: "2026-10-26T16:50:54+01:00"
++date: "2026-10-28T14:03:41+01:00"
+ gatewayAPIChannel: experimental
+ gatewayAPIVersion: v1.7.0-rc.3
+ implementation:
+@@ -31,6 +31,7 @@ profiles:
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - ClusterTrustBundle
+     - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+@@ -40,7 +41,6 @@ profiles:
+     - GatewayPort8080
+     - ListenerSet
+     unsupportedFeatures:
+-    - ClusterTrustBundle
+     - GatewayAddressEmpty
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+@@ -73,6 +73,7 @@ profiles:
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - ClusterTrustBundle
+     - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+@@ -108,7 +109,6 @@ profiles:
+     - HTTPRouteSchemeRedirect
+     - ListenerSet
+     unsupportedFeatures:
+-    - ClusterTrustBundle
+     - GatewayAddressEmpty
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+@@ -133,6 +133,7 @@ profiles:
+       Passed: 8
+       Skipped: 1
+     supportedFeatures:
++    - ClusterTrustBundle
+     - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+@@ -143,7 +144,6 @@ profiles:
+     - ListenerSet
+     - TCPRoute
+     unsupportedFeatures:
+-    - ClusterTrustBundle
+     - GatewayAddressEmpty
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+@@ -171,6 +171,7 @@ profiles:
+     supportedFeatures:
+     - BackendTLSPolicy
+     - BackendTLSPolicySANValidation
++    - ClusterTrustBundle
+     - GatewayBackendClientCertificate
+     - GatewayFrontendClientCertificateValidation
+     - GatewayFrontendClientCertificateValidationInsecureFallback
+@@ -182,7 +183,6 @@ profiles:
+     - TLSRouteModeMixed
+     - TLSRouteModeTerminate
+     unsupportedFeatures:
+-    - ClusterTrustBundle
+     - GatewayAddressEmpty
+     - GatewayAddressRoutability
+     - GatewayAddressRoutabilityCluster
+diff --git a/pkg/provider/kubernetes/k8s/parser.go b/pkg/provider/kubernetes/k8s/parser.go
+index 0e49a01e7..1e5ba5a29 100644
+--- a/pkg/provider/kubernetes/k8s/parser.go
++++ b/pkg/provider/kubernetes/k8s/parser.go
+@@ -12,7 +12,7 @@ import (
+ 
+ // MustParseYaml parses a YAML to objects.
+ func MustParseYaml(content []byte) []runtime.Object {
+-	acceptedK8sTypes := regexp.MustCompile(`^(Namespace|Deployment|EndpointSlice|Node|Service|ConfigMap|Ingress|IngressRoute|IngressRouteTCP|IngressRouteUDP|Middleware|MiddlewareTCP|Secret|TLSOption|TLSStore|TraefikService|IngressClass|ServersTransport|ServersTransportTCP|GatewayClass|Gateway|ListenerSet|GRPCRoute|HTTPRoute|TCPRoute|TLSRoute|ReferenceGrant|BackendTLSPolicy)$`)
++	acceptedK8sTypes := regexp.MustCompile(`^(Namespace|Deployment|EndpointSlice|Node|Service|ConfigMap|Ingress|IngressRoute|IngressRouteTCP|IngressRouteUDP|Middleware|MiddlewareTCP|Secret|TLSOption|TLSStore|TraefikService|IngressClass|ServersTransport|ServersTransportTCP|GatewayClass|Gateway|ListenerSet|GRPCRoute|HTTPRoute|TCPRoute|TLSRoute|ReferenceGrant|BackendTLSPolicy|ClusterTrustBundle)$`)
+ 
+ 	files := strings.Split(string(content), "---\n")
+ 	retVal := make([]runtime.Object, 0, len(files))

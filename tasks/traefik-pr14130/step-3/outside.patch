@@ -1,0 +1,122 @@
+diff --git a/docs/content/reference/install-configuration/configuration-options.md b/docs/content/reference/install-configuration/configuration-options.md
+index 04a17d411..ebae1fd32 100644
+--- a/docs/content/reference/install-configuration/configuration-options.md
++++ b/docs/content/reference/install-configuration/configuration-options.md
+@@ -385,6 +385,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
+ | <a id="opt-providers-kubernetesgateway-namespaces" href="#opt-providers-kubernetesgateway-namespaces" title="#opt-providers-kubernetesgateway-namespaces">providers.kubernetesgateway.namespaces</a> | Kubernetes namespaces. | |
+ | <a id="opt-providers-kubernetesgateway-nativelbbydefault" href="#opt-providers-kubernetesgateway-nativelbbydefault" title="#opt-providers-kubernetesgateway-nativelbbydefault">providers.kubernetesgateway.nativelbbydefault</a> | Defines whether to use Native Kubernetes load-balancing by default. | false |
+ | <a id="opt-providers-kubernetesgateway-qps" href="#opt-providers-kubernetesgateway-qps" title="#opt-providers-kubernetesgateway-qps">providers.kubernetesgateway.qps</a> | Defines the maximum QPS to the Kubernetes API server. Setting this to a negative value will disable client-side ratelimiting. | 50 |
++| <a id="opt-providers-kubernetesgateway-retrymaxrequestbodybytes" href="#opt-providers-kubernetesgateway-retrymaxrequestbodybytes" title="#opt-providers-kubernetesgateway-retrymaxrequestbodybytes">providers.kubernetesgateway.retrymaxrequestbodybytes</a> | Defines the maximum request body size (in bytes) buffered for HTTPRoute retries. If negative, the limit is disabled. | 2097152 |
+ | <a id="opt-providers-kubernetesgateway-statusaddress-hostname" href="#opt-providers-kubernetesgateway-statusaddress-hostname" title="#opt-providers-kubernetesgateway-statusaddress-hostname">providers.kubernetesgateway.statusaddress.hostname</a> | Hostname used for Kubernetes Gateway status address. | |
+ | <a id="opt-providers-kubernetesgateway-statusaddress-ip" href="#opt-providers-kubernetesgateway-statusaddress-ip" title="#opt-providers-kubernetesgateway-statusaddress-ip">providers.kubernetesgateway.statusaddress.ip</a> | IP used to set Kubernetes Gateway status address. | |
+ | <a id="opt-providers-kubernetesgateway-statusaddress-service" href="#opt-providers-kubernetesgateway-statusaddress-service" title="#opt-providers-kubernetesgateway-statusaddress-service">providers.kubernetesgateway.statusaddress.service</a> | Published Kubernetes Service to copy status addresses from. | |
+diff --git a/docs/content/reference/install-configuration/providers/kubernetes/kubernetes-gateway.md b/docs/content/reference/install-configuration/providers/kubernetes/kubernetes-gateway.md
+index f9f3c59b9..38206b7ad 100644
+--- a/docs/content/reference/install-configuration/providers/kubernetes/kubernetes-gateway.md
++++ b/docs/content/reference/install-configuration/providers/kubernetes/kubernetes-gateway.md
+@@ -89,6 +89,7 @@ providers:
+ | <a id="opt-providers-kubernetesGateway-gateways0-namespace" href="#opt-providers-kubernetesGateway-gateways0-namespace" title="#opt-providers-kubernetesGateway-gateways0-namespace">`providers.kubernetesGateway.gateways[0].namespace`</a> | Gateway namespace.                                                                                                                                                                                                                                                                                                                                                                   | "" | No       |
+ | <a id="opt-providers-kubernetesGateway-throttleDuration" href="#opt-providers-kubernetesGateway-throttleDuration" title="#opt-providers-kubernetesGateway-throttleDuration">`providers.kubernetesGateway.throttleDuration`</a> | Minimum amount of time to wait between two Kubernetes events before producing a new configuration.<br />This prevents a Kubernetes cluster that updates many times per second from continuously changing your Traefik configuration.<br />If empty, every event is caught.                                                                                                           | 0s      | No       |
+ | <a id="opt-providers-kubernetesGateway-nativeLBByDefault" href="#opt-providers-kubernetesGateway-nativeLBByDefault" title="#opt-providers-kubernetesGateway-nativeLBByDefault">`providers.kubernetesGateway.nativeLBByDefault`</a> | Defines whether to use Native Kubernetes load-balancing mode by default. For more information, please check out the `traefik.io/service.nativelb` service annotation documentation.                                                                                                                                                                                                  | false   | No       |
++| <a id="opt-providers-kubernetesGateway-retryMaxRequestBodyBytes" href="#opt-providers-kubernetesGateway-retryMaxRequestBodyBytes" title="#opt-providers-kubernetesGateway-retryMaxRequestBodyBytes">`providers.kubernetesGateway.retryMaxRequestBodyBytes`</a> | Defines the maximum request body size (in bytes) buffered for HTTPRoute retries.<br />If negative, the limit is disabled.<br />A request with a larger body is forwarded without retry.                                                                                                                                                                              | 2097152 | No       |
+ | <a id="opt-providers-kubernetesGateway-statusAddress-hostname" href="#opt-providers-kubernetesGateway-statusAddress-hostname" title="#opt-providers-kubernetesGateway-statusAddress-hostname">`providers.kubernetesGateway.`<br />`statusAddress.hostname`</a> | Hostname copied to the Gateway `status.addresses`.                                                                                                                                                                                                                                                                                                                                   | ""      | No       |
+ | <a id="opt-providers-kubernetesGateway-statusAddress-ip" href="#opt-providers-kubernetesGateway-statusAddress-ip" title="#opt-providers-kubernetesGateway-statusAddress-ip">`providers.kubernetesGateway.`<br />`statusAddress.ip`</a> | IP address copied to the Gateway `status.addresses`, and currently only supports one IP value (IPv4 or IPv6).                                                                                                                                                                                                                                                                        | ""      | No       |
+ | <a id="opt-providers-kubernetesGateway-statusAddress-service-namespace" href="#opt-providers-kubernetesGateway-statusAddress-service-namespace" title="#opt-providers-kubernetesGateway-statusAddress-service-namespace">`providers.kubernetesGateway.`<br />`statusAddress.service.namespace`</a> | The namespace of the Kubernetes service to copy status addresses from.<br />When using third parties tools like External-DNS, this option can be used to copy the service `loadbalancer.status` (containing the service's endpoints IPs) to the Gateway `status.addresses`.                                                                                                          | ""      | No       |
+diff --git a/docs/content/reference/static-configuration/file.toml b/docs/content/reference/static-configuration/file.toml
+index 8b4538a0f..f16507463 100644
+--- a/docs/content/reference/static-configuration/file.toml
++++ b/docs/content/reference/static-configuration/file.toml
+@@ -200,6 +200,7 @@
+     throttleDuration = "42s"
+     experimentalChannel = true
+     nativeLBByDefault = true
++    retryMaxRequestBodyBytes = 42
+     [providers.kubernetesGateway.statusAddress]
+       ip = "foobar"
+       hostname = "foobar"
+diff --git a/docs/content/reference/static-configuration/file.yaml b/docs/content/reference/static-configuration/file.yaml
+index c3b55a3e2..c12cc2bec 100644
+--- a/docs/content/reference/static-configuration/file.yaml
++++ b/docs/content/reference/static-configuration/file.yaml
+@@ -226,6 +226,7 @@ providers:
+         name: foobar
+         namespace: foobar
+     nativeLBByDefault: true
++    retryMaxRequestBodyBytes: 42
+   rest:
+     insecure: true
+   consulCatalog:
+diff --git a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
+index 195f24aa1..9643339b2 100644
+--- a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
++++ b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
+@@ -55,7 +55,7 @@ profiles:
+     result: success
+     statistics:
+       Failed: 0
+-      Passed: 56
++      Passed: 60
+       Skipped: 0
+     supportedFeatures:
+     - BackendTLSPolicy
+@@ -89,6 +89,8 @@ profiles:
+     - HTTPRouteQueryParamMatching
+     - HTTPRouteRequestTimeout
+     - HTTPRouteResponseHeaderModification
++    - HTTPRouteRetryCodes
++    - HTTPRouteRetryConnectionError
+     - HTTPRouteSchemeRedirect
+     - ListenerSet
+     unsupportedFeatures:
+@@ -100,8 +102,6 @@ profiles:
+     - HTTPRouteRequestMirror
+     - HTTPRouteRequestMultipleMirrors
+     - HTTPRouteRequestPercentageMirror
+-    - HTTPRouteRetryCodes
+-    - HTTPRouteRetryConnectionError
+   name: GATEWAY-HTTP
+   summary: Core tests succeeded. Extended tests succeeded.
+ - core:
+@@ -176,3 +176,5 @@ succeededProvisionalTests:
+ - GatewayPreserveForeignConditions
+ - HTTPRouteBackendURLRewrite
+ - HTTPRoutePreserveForeignStatus
++- HTTPRouteRetryWithBackendTimeout
++- HTTPRouteRetryWithRequestTimeout
+diff --git a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
+index f5f16fe0f..5abf5ebf3 100644
+--- a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
++++ b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
+@@ -68,7 +68,7 @@ profiles:
+     - GatewayInvalidFrontendClientCertificateValidation
+     statistics:
+       Failed: 0
+-      Passed: 49
++      Passed: 53
+       Skipped: 5
+     supportedFeatures:
+     - BackendTLSPolicy
+@@ -100,6 +100,8 @@ profiles:
+     - HTTPRouteQueryParamMatching
+     - HTTPRouteRequestTimeout
+     - HTTPRouteResponseHeaderModification
++    - HTTPRouteRetryCodes
++    - HTTPRouteRetryConnectionError
+     - HTTPRouteSchemeRedirect
+     - ListenerSet
+     unsupportedFeatures:
+@@ -113,8 +115,6 @@ profiles:
+     - HTTPRouteRequestMirror
+     - HTTPRouteRequestMultipleMirrors
+     - HTTPRouteRequestPercentageMirror
+-    - HTTPRouteRetryCodes
+-    - HTTPRouteRetryConnectionError
+   name: GATEWAY-HTTP
+   summary: Core tests partially succeeded with 1 test skips. Extended tests partially
+     succeeded with 5 test skips.
+@@ -197,3 +197,5 @@ succeededProvisionalTests:
+ - GatewayPreserveForeignConditions
+ - HTTPRouteBackendURLRewrite
+ - HTTPRoutePreserveForeignStatus
++- HTTPRouteRetryWithBackendTimeout
++- HTTPRouteRetryWithRequestTimeout

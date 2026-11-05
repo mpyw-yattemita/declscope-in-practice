@@ -1,0 +1,40 @@
+# Identifiers used by step-2/hidden that are not declared in the package at the seed.
+# Found by matching names; a common field or method name may be a false positive.
+# signature is upstream's at this step's merge commit.
+names:
+  - name: "AddSubIssue"
+    kind: func
+    exported: true
+    signature: "func AddSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc)"
+    used_in: [issues_test.go]
+  - name: "CursorPaginationParams.PerPage"
+    kind: field
+    exported: true
+    signature: "PerPage int"
+    used_in: [server_test.go]
+    false_positive: true  # checked by hand: the tests use a different name that is spelled the same
+  - name: "ListSubIssues"
+    kind: func
+    exported: true
+    signature: "func ListSubIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc)"
+    used_in: [issues_test.go]
+  - name: "PaginationParams.Page"
+    kind: field
+    exported: true
+    signature: "Page int"
+    used_in: [server_test.go]
+  - name: "PaginationParams.PerPage"
+    kind: field
+    exported: true
+    signature: "PerPage int"
+    used_in: [server_test.go]
+  - name: "RemoveSubIssue"
+    kind: func
+    exported: true
+    signature: "func RemoveSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc)"
+    used_in: [issues_test.go]
+  - name: "ReprioritizeSubIssue"
+    kind: func
+    exported: true
+    signature: "func ReprioritizeSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc)"
+    used_in: [issues_test.go]

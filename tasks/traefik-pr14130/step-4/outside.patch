@@ -1,0 +1,1703 @@
+diff --git a/docs/content/migrate/v3.md b/docs/content/migrate/v3.md
+index 95aca9d27..84f7dc9e0 100644
+--- a/docs/content/migrate/v3.md
++++ b/docs/content/migrate/v3.md
+@@ -174,6 +174,21 @@ To use the new `respondingTimeouts` option on `IngressRoute` routes with the Kub
+ kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v3.8/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+ ```
+ 
++### Mirroring Service
++
++Starting with `v3.8.0`, the [`mirroring` service](../reference/routing-configuration/http/load-balancing/service.md#mirroring) supports the new `streamBody` option,
++which streams the request body to the mirrors instead of buffering it in memory.
++
++#### Kubernetes CRD Provider
++
++To use the new `streamBody` option on `TraefikService` resources with the Kubernetes CRD provider, you need to update your CRDs.
++
++**Apply Updated CRDs:**
++
++```shell
++kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v3.8/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
++```
++
+ ---
+ 
+ ## v3.7.17
+diff --git a/docs/content/reference/dynamic-configuration/file.toml b/docs/content/reference/dynamic-configuration/file.toml
+index 6f93624ab..9310152f9 100644
+--- a/docs/content/reference/dynamic-configuration/file.toml
++++ b/docs/content/reference/dynamic-configuration/file.toml
+@@ -120,6 +120,7 @@
+         service = "foobar"
+         mirrorBody = true
+         maxBodySize = 42
++        streamBody = true
+ 
+         [[http.services.Service04.mirroring.mirrors]]
+           name = "foobar"
+diff --git a/docs/content/reference/dynamic-configuration/file.yaml b/docs/content/reference/dynamic-configuration/file.yaml
+index 7cb0cca19..7a03d5ab4 100644
+--- a/docs/content/reference/dynamic-configuration/file.yaml
++++ b/docs/content/reference/dynamic-configuration/file.yaml
+@@ -124,6 +124,7 @@ http:
+         service: foobar
+         mirrorBody: true
+         maxBodySize: 42
++        streamBody: true
+         mirrors:
+           - name: foobar
+             percent: 42
+diff --git a/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml b/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+index 9ca6c8ef5..f362fd1cf 100644
+--- a/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
++++ b/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+@@ -4983,6 +4983,14 @@ spec:
+                     - leasttime
+                     - RoundRobin
+                     type: string
++                  streamBody:
++                    description: |-
++                      StreamBody defines whether the request body is streamed to the mirrors while the main service reads it,
++                      instead of being buffered in memory before reaching the main service.
++                      A mirror reading the body too slowly is aborted, so that it never slows the main request down.
++                      It has no effect when MirrorBody is false, and cannot be used with MaxBodySize.
++                      Default value is false.
++                    type: boolean
+                   weight:
+                     description: |-
+                       Weight defines the weight and should only be specified when Name references a TraefikService object
+diff --git a/docs/content/reference/dynamic-configuration/traefik.io_traefikservices.yaml b/docs/content/reference/dynamic-configuration/traefik.io_traefikservices.yaml
+index efa64dffe..f58b41f2e 100644
+--- a/docs/content/reference/dynamic-configuration/traefik.io_traefikservices.yaml
++++ b/docs/content/reference/dynamic-configuration/traefik.io_traefikservices.yaml
+@@ -1339,6 +1339,14 @@ spec:
+                     - leasttime
+                     - RoundRobin
+                     type: string
++                  streamBody:
++                    description: |-
++                      StreamBody defines whether the request body is streamed to the mirrors while the main service reads it,
++                      instead of being buffered in memory before reaching the main service.
++                      A mirror reading the body too slowly is aborted, so that it never slows the main request down.
++                      It has no effect when MirrorBody is false, and cannot be used with MaxBodySize.
++                      Default value is false.
++                    type: boolean
+                   weight:
+                     description: |-
+                       Weight defines the weight and should only be specified when Name references a TraefikService object
+diff --git a/docs/content/reference/routing-configuration/http/load-balancing/service.md b/docs/content/reference/routing-configuration/http/load-balancing/service.md
+index ddce34f83..3a25aa721 100644
+--- a/docs/content/reference/routing-configuration/http/load-balancing/service.md
++++ b/docs/content/reference/routing-configuration/http/load-balancing/service.md
+@@ -814,6 +814,13 @@ http:
+ 
+ The `mirroring` service type mirrors requests sent to a service to other services. Please note that by default the whole request is buffered in memory while it is being mirrored. See the `maxBodySize` option in the example below for how to modify this behaviour. You can also omit the request body by setting the `mirrorBody` option to false.
+ 
++To avoid buffering the request body, set the `streamBody` option to true:
++the mirrored requests are sent along with the main request,
++and the body is streamed to the mirrors while the main service reads it.
++A mirror falling more than 1 MiB behind the main service is aborted, so that it never slows the main request down,
++and a mirrored request is aborted when the main service does not read the whole body.
++The `streamBody` option has no effect when `mirrorBody` is false, and cannot be used with `maxBodySize`.
++
+ !!! warning "Default behavior of `percent`"
+ 
+     When configuring a `mirror` service, if the `percent` field is not set, it defaults to `0`, meaning **no traffic will be sent to the mirror**.
+diff --git a/docs/content/reference/routing-configuration/kubernetes/crd/http/traefikservice.md b/docs/content/reference/routing-configuration/kubernetes/crd/http/traefikservice.md
+index 706b9864c..73611ec11 100644
+--- a/docs/content/reference/routing-configuration/kubernetes/crd/http/traefikservice.md
++++ b/docs/content/reference/routing-configuration/kubernetes/crd/http/traefikservice.md
+@@ -381,7 +381,8 @@ Thus you can start testing the behavior of the new version keeping the current v
+ The mirroring `TraefikService` allows you to reference Kubernetes Services and other instances of `TraefikService` (another WRR service -, or a mirroring service).
+ 
+ Please note that by default the whole request is buffered in memory while it is being mirrored.
+-See the `maxBodySize` option in the example below for how to modify this behavior.
++See the `maxBodySize` option in the example below for how to modify this behavior,
++or the `streamBody` option to stream the body to the mirrors instead of buffering it.
+ 
+ ### Configuration Example
+ 
+@@ -493,6 +494,7 @@ The mirror main service dedicated option are described below.
+ |:--------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------------------------------|:---------|
+ | <a id="opt-mirrorBody" href="#opt-mirrorBody" title="#opt-mirrorBody">`mirrorBody`</a> | Defines whether the request body should be mirrored.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | true                                                                 | No       |
+ | <a id="opt-maxBodySize" href="#opt-maxBodySize" title="#opt-maxBodySize">`maxBodySize`</a> | Maximum size allowed for the body of the request.<br />If the body is larger, the request is not mirrored.<br />-1 means unlimited size.                                                                                                                                                                                                                                                                                                                                                                                                                                          | -1                                                                   | No       |
++| <a id="opt-streamBody" href="#opt-streamBody" title="#opt-streamBody">`streamBody`</a> | Defines whether the request body is streamed to the mirrors while the main service reads it, instead of being buffered in memory.<br />A mirror falling more than 1 MiB behind the main service is aborted.<br />It has no effect when `mirrorBody` is false, and cannot be used with `maxBodySize`. | false | No |
+ | <a id="opt-mirrors" href="#opt-mirrors" title="#opt-mirrors">`mirrors`</a> | List of mirrored services to target.<br /> It can be any combination of TraefikService and [Kubernetes service](https://kubernetes.io/docs/concepts/services-networking/service/). <br />Exhaustive list of option in the [`Service`](./service.md#configuration-options) documentation.                                                                                                                                                                                                                                                                                                                                                      |                                                                   | Yes       |
+ 
+ #### Mirrored Services Options
+diff --git a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+index 2503d4132..95ab7c3ef 100644
+--- a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
++++ b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+@@ -452,6 +452,7 @@ There are three types of filters:
+     - `RequestRedirect`: Redirect the request to a different URL.
+     - `URLRewrite`: Rewrite the request URL path and/or hostname.
+     - `CORS`: Configure Cross-Origin Resource Sharing (CORS) response headers.
++    - `RequestMirror`: Send a copy of the requests to another backend, ignoring its responses.
+     - `ExtensionRef`: Reference a Traefik [Middleware](../kubernetes/crd/http/middleware.md) resource.
+ 
+ !!! info "ExtensionRef Filters"
+@@ -577,6 +578,7 @@ This allows request modifications to be applied to specific backends, enabling t
+     - `RequestRedirect`: Redirect the request to a different URL.
+     - `URLRewrite`: Rewrite the request URL path and/or hostname.
+     - `CORS`: Configure Cross-Origin Resource Sharing (CORS) response headers.
++    - `RequestMirror`: Send a copy of the requests to another backend, ignoring its responses.
+     - `ExtensionRef`: Reference a Traefik [Middleware](../kubernetes/crd/http/middleware.md) resource.
+ 
+ !!! info "Middlewares Execution Order"
+diff --git a/docs/content/reference/routing-configuration/other-providers/file.md b/docs/content/reference/routing-configuration/other-providers/file.md
+index d46a3b795..935d5bec0 100644
+--- a/docs/content/reference/routing-configuration/other-providers/file.md
++++ b/docs/content/reference/routing-configuration/other-providers/file.md
+@@ -281,6 +281,7 @@ Define HTTP services under `http.services.<service_name>`.
+ | <a id="opt-http-services-service-name-mirroring-service" href="#opt-http-services-service-name-mirroring-service" title="#opt-http-services-service-name-mirroring-service">`http.services.<service_name>.mirroring.service`</a> | See [mirroring](../http/load-balancing/service.md#mirroring) for more information. | `app-main` |
+ | <a id="opt-http-services-service-name-mirroring-mirrorBody" href="#opt-http-services-service-name-mirroring-mirrorBody" title="#opt-http-services-service-name-mirroring-mirrorBody">`http.services.<service_name>.mirroring.mirrorBody`</a> | See [mirroring](../http/load-balancing/service.md#mirroring) for more information. | `true` |
+ | <a id="opt-http-services-service-name-mirroring-maxBodySize" href="#opt-http-services-service-name-mirroring-maxBodySize" title="#opt-http-services-service-name-mirroring-maxBodySize">`http.services.<service_name>.mirroring.maxBodySize`</a> | See [mirroring](../http/load-balancing/service.md#mirroring) for more information. | `1048576` |
++| <a id="opt-http-services-service-name-mirroring-streamBody" href="#opt-http-services-service-name-mirroring-streamBody" title="#opt-http-services-service-name-mirroring-streamBody">`http.services.<service_name>.mirroring.streamBody`</a> | See [mirroring](../http/load-balancing/service.md#mirroring) for more information. | `false` |
+ | <a id="opt-http-services-service-name-mirroring-mirrorsn-name" href="#opt-http-services-service-name-mirroring-mirrorsn-name" title="#opt-http-services-service-name-mirroring-mirrorsn-name">`http.services.<service_name>.mirroring.mirrors[n].name`</a> | See [mirroring](../http/load-balancing/service.md#mirroring) for more information. | `app-shadow` |
+ | <a id="opt-http-services-service-name-mirroring-mirrorsn-percent" href="#opt-http-services-service-name-mirroring-mirrorsn-percent" title="#opt-http-services-service-name-mirroring-mirrorsn-percent">`http.services.<service_name>.mirroring.mirrors[n].percent`</a> | See [mirroring](../http/load-balancing/service.md#mirroring) for more information. | `10` |
+ | <a id="opt-http-services-service-name-mirroring-healthCheck" href="#opt-http-services-service-name-mirroring-healthCheck" title="#opt-http-services-service-name-mirroring-healthCheck">`http.services.<service_name>.mirroring.healthCheck`</a> | See [mirroring](../http/load-balancing/service.md#mirroring) for more information. | `{}` |
+diff --git a/integration/fixtures/k8s/01-traefik-crd.yml b/integration/fixtures/k8s/01-traefik-crd.yml
+index d356fdcaf..cd76cb742 100644
+--- a/integration/fixtures/k8s/01-traefik-crd.yml
++++ b/integration/fixtures/k8s/01-traefik-crd.yml
+@@ -4984,6 +4984,14 @@ spec:
+                     - leasttime
+                     - RoundRobin
+                     type: string
++                  streamBody:
++                    description: |-
++                      StreamBody defines whether the request body is streamed to the mirrors while the main service reads it,
++                      instead of being buffered in memory before reaching the main service.
++                      A mirror reading the body too slowly is aborted, so that it never slows the main request down.
++                      It has no effect when MirrorBody is false, and cannot be used with MaxBodySize.
++                      Default value is false.
++                    type: boolean
+                   weight:
+                     description: |-
+                       Weight defines the weight and should only be specified when Name references a TraefikService object
+diff --git a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
+index 9643339b2..7e408b2b4 100644
+--- a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
++++ b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-default-report.yaml
+@@ -55,7 +55,7 @@ profiles:
+     result: success
+     statistics:
+       Failed: 0
+-      Passed: 60
++      Passed: 63
+       Skipped: 0
+     supportedFeatures:
+     - BackendTLSPolicy
+@@ -87,6 +87,9 @@ profiles:
+     - HTTPRoutePathRewrite
+     - HTTPRoutePortRedirect
+     - HTTPRouteQueryParamMatching
++    - HTTPRouteRequestMirror
++    - HTTPRouteRequestMultipleMirrors
++    - HTTPRouteRequestPercentageMirror
+     - HTTPRouteRequestTimeout
+     - HTTPRouteResponseHeaderModification
+     - HTTPRouteRetryCodes
+@@ -99,9 +102,6 @@ profiles:
+     - GatewayAddressRoutabilityCluster
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+-    - HTTPRouteRequestMirror
+-    - HTTPRouteRequestMultipleMirrors
+-    - HTTPRouteRequestPercentageMirror
+   name: GATEWAY-HTTP
+   summary: Core tests succeeded. Extended tests succeeded.
+ - core:
+diff --git a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
+index 5abf5ebf3..87ab0a421 100644
+--- a/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
++++ b/integration/gateway-api-conformance-reports/v1.7.0-rc.3/experimental-v3.8-merged-report.yaml
+@@ -68,7 +68,7 @@ profiles:
+     - GatewayInvalidFrontendClientCertificateValidation
+     statistics:
+       Failed: 0
+-      Passed: 53
++      Passed: 56
+       Skipped: 5
+     supportedFeatures:
+     - BackendTLSPolicy
+@@ -98,6 +98,9 @@ profiles:
+     - HTTPRoutePathRewrite
+     - HTTPRoutePortRedirect
+     - HTTPRouteQueryParamMatching
++    - HTTPRouteRequestMirror
++    - HTTPRouteRequestMultipleMirrors
++    - HTTPRouteRequestPercentageMirror
+     - HTTPRouteRequestTimeout
+     - HTTPRouteResponseHeaderModification
+     - HTTPRouteRetryCodes
+@@ -112,9 +115,6 @@ profiles:
+     - GatewayListenerFilters
+     - GatewayRouteHostnameIntersectionPrecedence
+     - GatewayStaticAddresses
+-    - HTTPRouteRequestMirror
+-    - HTTPRouteRequestMultipleMirrors
+-    - HTTPRouteRequestPercentageMirror
+   name: GATEWAY-HTTP
+   summary: Core tests partially succeeded with 1 test skips. Extended tests partially
+     succeeded with 5 test skips.
+diff --git a/pkg/config/dynamic/http_config.go b/pkg/config/dynamic/http_config.go
+index fe77c83a5..0945eece6 100644
+--- a/pkg/config/dynamic/http_config.go
++++ b/pkg/config/dynamic/http_config.go
+@@ -258,6 +258,7 @@ type Mirroring struct {
+ 	Service     string          `json:"service,omitempty" toml:"service,omitempty" yaml:"service,omitempty" export:"true"`
+ 	MirrorBody  *bool           `json:"mirrorBody,omitempty" toml:"mirrorBody,omitempty" yaml:"mirrorBody,omitempty" export:"true"`
+ 	MaxBodySize *int64          `json:"maxBodySize,omitempty" toml:"maxBodySize,omitempty" yaml:"maxBodySize,omitempty" export:"true"`
++	StreamBody  bool            `json:"streamBody,omitempty" toml:"streamBody,omitempty" yaml:"streamBody,omitempty" export:"true"`
+ 	Mirrors     []MirrorService `json:"mirrors,omitempty" toml:"mirrors,omitempty" yaml:"mirrors,omitempty" export:"true"`
+ 	HealthCheck *HealthCheck    `json:"healthCheck,omitempty" toml:"healthCheck,omitempty" yaml:"healthCheck,omitempty" label:"allowEmpty" file:"allowEmpty" kv:"allowEmpty" export:"true"`
+ }
+diff --git a/pkg/config/dynamic/middlewares.go b/pkg/config/dynamic/middlewares.go
+index 1d498ae6b..1ad330de3 100644
+--- a/pkg/config/dynamic/middlewares.go
++++ b/pkg/config/dynamic/middlewares.go
+@@ -60,6 +60,7 @@ type Middleware struct {
+ 	ResponseHeaderModifier *HeaderModifier  `json:"responseHeaderModifier,omitempty" toml:"-" yaml:"-" label:"-" file:"-" kv:"-" export:"true"`
+ 	RequestRedirect        *RequestRedirect `json:"requestRedirect,omitempty" toml:"-" yaml:"-" label:"-" file:"-" kv:"-" export:"true"`
+ 	URLRewrite             *URLRewrite      `json:"URLRewrite,omitempty" toml:"-" yaml:"-" label:"-" file:"-" kv:"-" export:"true"`
++	RequestMirror          *RequestMirror   `json:"requestMirror,omitempty" toml:"-" yaml:"-" label:"-" file:"-" kv:"-" export:"true"`
+ 
+ 	// ingress-nginx middlewares.
+ 	AuthTLSPassCertificateToUpstream *AuthTLSPassCertificateToUpstream `json:"authTLSPassCertificateToUpstream,omitempty" toml:"-" yaml:"-" label:"-" file:"-" kv:"-" export:"true"`
+@@ -980,6 +981,16 @@ type URLRewrite struct {
+ 
+ // +k8s:deepcopy-gen=true
+ 
++// RequestMirror holds the request mirror middleware configuration.
++// Numerator out of Denominator requests are mirrored to Service.
++type RequestMirror struct {
++	Service     string `json:"service,omitempty"`
++	Numerator   int64  `json:"numerator,omitempty"`
++	Denominator int64  `json:"denominator,omitempty"`
++}
++
++// +k8s:deepcopy-gen=true
++
+ type Auth struct {
+ 	// Address defines the authentication server address.
+ 	Address string `json:"address,omitempty" toml:"address,omitempty" yaml:"address,omitempty"`
+diff --git a/pkg/config/dynamic/zz_generated.deepcopy.go b/pkg/config/dynamic/zz_generated.deepcopy.go
+index b3b380709..faf30dc44 100644
+--- a/pkg/config/dynamic/zz_generated.deepcopy.go
++++ b/pkg/config/dynamic/zz_generated.deepcopy.go
+@@ -1201,6 +1201,11 @@ func (in *Middleware) DeepCopyInto(out *Middleware) {
+ 		*out = new(URLRewrite)
+ 		(*in).DeepCopyInto(*out)
+ 	}
++	if in.RequestMirror != nil {
++		in, out := &in.RequestMirror, &out.RequestMirror
++		*out = new(RequestMirror)
++		**out = **in
++	}
+ 	if in.AuthTLSPassCertificateToUpstream != nil {
+ 		in, out := &in.AuthTLSPassCertificateToUpstream, &out.AuthTLSPassCertificateToUpstream
+ 		*out = new(AuthTLSPassCertificateToUpstream)
+@@ -1540,6 +1545,22 @@ func (in *ReplacePathRegex) DeepCopy() *ReplacePathRegex {
+ 	return out
+ }
+ 
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *RequestMirror) DeepCopyInto(out *RequestMirror) {
++	*out = *in
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new RequestMirror.
++func (in *RequestMirror) DeepCopy() *RequestMirror {
++	if in == nil {
++		return nil
++	}
++	out := new(RequestMirror)
++	in.DeepCopyInto(out)
++	return out
++}
++
+ // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+ func (in *RequestRedirect) DeepCopyInto(out *RequestRedirect) {
+ 	*out = *in
+diff --git a/pkg/middlewares/gatewayapi/requestmirror/request_mirror.go b/pkg/middlewares/gatewayapi/requestmirror/request_mirror.go
+new file mode 100644
+index 000000000..f019a0edb
+--- /dev/null
++++ b/pkg/middlewares/gatewayapi/requestmirror/request_mirror.go
+@@ -0,0 +1,49 @@
++package requestmirror
++
++import (
++	"context"
++	"fmt"
++	"net/http"
++
++	"github.com/traefik/traefik/v3/pkg/config/dynamic"
++	"github.com/traefik/traefik/v3/pkg/middlewares"
++	"github.com/traefik/traefik/v3/pkg/safe"
++	"github.com/traefik/traefik/v3/pkg/server/service/loadbalancer/mirror"
++)
++
++const typeName = "RequestMirror"
++
++type serviceBuilder interface {
++	BuildHTTP(ctx context.Context, serviceName string) (http.Handler, error)
++}
++
++// requestMirror sends a copy of the requests to a mirror service, and ignores its responses.
++type requestMirror struct {
++	http.Handler
++
++	name string
++}
++
++// NewRequestMirror creates a request mirror middleware.
++func NewRequestMirror(ctx context.Context, next http.Handler, conf dynamic.RequestMirror, serviceBuilder serviceBuilder, pool *safe.Pool, name string) (http.Handler, error) {
++	logger := middlewares.GetLogger(ctx, name, typeName)
++	logger.Debug().Msg("Creating middleware")
++
++	mirrorHandler, err := serviceBuilder.BuildHTTP(ctx, conf.Service)
++	if err != nil {
++		return nil, fmt.Errorf("building mirror service %q: %w", conf.Service, err)
++	}
++
++	// The body is streamed rather than buffered, as the Gateway API does not allow to bound the buffered body size,
++	// and the mirrored request is cloned before calling next, as the filters declared after this one must not alter it.
++	handler := mirror.New(next, pool, true, -1, true, nil)
++	if err := handler.AddMirror(mirrorHandler, conf.Numerator, conf.Denominator); err != nil {
++		return nil, fmt.Errorf("adding mirror service %q: %w", conf.Service, err)
++	}
++
++	return &requestMirror{Handler: handler, name: name}, nil
++}
++
++func (r *requestMirror) GetTracingInformation() (string, string) {
++	return r.name, typeName
++}
+diff --git a/pkg/middlewares/gatewayapi/requestmirror/request_mirror_test.go b/pkg/middlewares/gatewayapi/requestmirror/request_mirror_test.go
+new file mode 100644
+index 000000000..791ba9057
+--- /dev/null
++++ b/pkg/middlewares/gatewayapi/requestmirror/request_mirror_test.go
+@@ -0,0 +1,228 @@
++package requestmirror
++
++import (
++	"bytes"
++	"context"
++	"crypto/rand"
++	"errors"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"sync"
++	"sync/atomic"
++	"testing"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++	"github.com/traefik/traefik/v3/pkg/config/dynamic"
++	"github.com/traefik/traefik/v3/pkg/safe"
++)
++
++type serviceBuilderMock map[string]http.Handler
++
++func (s serviceBuilderMock) BuildHTTP(_ context.Context, serviceName string) (http.Handler, error) {
++	handler, ok := s[serviceName]
++	if !ok {
++		return nil, errors.New("service not found")
++	}
++	return handler, nil
++}
++
++// mirrorResult is what the mirror service received.
++type mirrorResult struct {
++	req  *http.Request
++	body []byte
++	err  error
++}
++
++func TestRequestMirror(t *testing.T) {
++	testCases := []struct {
++		desc            string
++		numerator       int64
++		denominator     int64
++		requests        int
++		expectedMirrors int32
++	}{
++		{
++			desc:            "mirror all requests",
++			numerator:       1,
++			denominator:     1,
++			requests:        10,
++			expectedMirrors: 10,
++		},
++		{
++			desc:            "mirror half of the requests",
++			numerator:       50,
++			denominator:     100,
++			requests:        10,
++			expectedMirrors: 5,
++		},
++		{
++			desc:            "mirror a third of the requests",
++			numerator:       1,
++			denominator:     3,
++			requests:        9,
++			expectedMirrors: 3,
++		},
++		{
++			desc:            "mirror less than one percent of the requests",
++			numerator:       5,
++			denominator:     1000,
++			requests:        2000,
++			expectedMirrors: 10,
++		},
++		{
++			desc:            "mirror no request",
++			numerator:       0,
++			denominator:     100,
++			requests:        10,
++			expectedMirrors: 0,
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			var mirrored, served atomic.Int32
++			builder := serviceBuilderMock{
++				"mirror": http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++					mirrored.Add(1)
++				}),
++			}
++			next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++				served.Add(1)
++				rw.WriteHeader(http.StatusOK)
++			})
++
++			pool := safe.NewPool(t.Context())
++			conf := dynamic.RequestMirror{Service: "mirror", Numerator: test.numerator, Denominator: test.denominator}
++			handler, err := NewRequestMirror(t.Context(), next, conf, builder, pool, "foo-request-mirror")
++			require.NoError(t, err)
++
++			for range test.requests {
++				rw := httptest.NewRecorder()
++				handler.ServeHTTP(rw, httptest.NewRequest(http.MethodGet, "http://foo.com/bar", http.NoBody))
++				assert.Equal(t, http.StatusOK, rw.Code)
++			}
++
++			pool.Stop()
++
++			assert.Equal(t, int32(test.requests), served.Load())
++			assert.Equal(t, test.expectedMirrors, mirrored.Load())
++		})
++	}
++}
++
++func TestRequestMirror_invalidFraction(t *testing.T) {
++	testCases := []struct {
++		desc        string
++		numerator   int64
++		denominator int64
++	}{
++		{
++			desc:        "zero denominator",
++			numerator:   0,
++			denominator: 0,
++		},
++		{
++			desc:        "negative numerator",
++			numerator:   -1,
++			denominator: 1,
++		},
++		{
++			desc:        "numerator greater than denominator",
++			numerator:   2,
++			denominator: 1,
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			builder := serviceBuilderMock{"mirror": http.NotFoundHandler()}
++			conf := dynamic.RequestMirror{Service: "mirror", Numerator: test.numerator, Denominator: test.denominator}
++
++			_, err := NewRequestMirror(t.Context(), http.NotFoundHandler(), conf, builder, safe.NewPool(t.Context()), "foo-request-mirror")
++			require.Error(t, err)
++		})
++	}
++}
++
++func TestRequestMirror_followingFiltersDoNotAlterMirroredRequest(t *testing.T) {
++	var mirroredHeader, servedHeader string
++	var wg sync.WaitGroup
++	wg.Add(1)
++
++	builder := serviceBuilderMock{
++		"mirror": http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++			defer wg.Done()
++			mirroredHeader = req.Header.Get("X-Foo")
++		}),
++	}
++	backend := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		servedHeader = req.Header.Get("X-Foo")
++	})
++	headerModifier := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		req.Header.Set("X-Foo", "modified")
++		backend.ServeHTTP(rw, req)
++	})
++
++	pool := safe.NewPool(t.Context())
++	handler, err := NewRequestMirror(t.Context(), headerModifier, dynamic.RequestMirror{Service: "mirror", Numerator: 1, Denominator: 1}, builder, pool, "foo-request-mirror")
++	require.NoError(t, err)
++
++	req := httptest.NewRequest(http.MethodGet, "http://foo.com/bar", http.NoBody)
++	req.Header.Set("X-Foo", "original")
++	handler.ServeHTTP(httptest.NewRecorder(), req)
++
++	wg.Wait()
++	pool.Stop()
++
++	assert.Equal(t, "modified", servedHeader)
++	assert.Equal(t, "original", mirroredHeader)
++}
++
++func TestRequestMirror_body(t *testing.T) {
++	body := make([]byte, 64*1024)
++	_, err := rand.Read(body)
++	require.NoError(t, err)
++
++	results := make(chan mirrorResult, 1)
++	builder := serviceBuilderMock{
++		"mirror": http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++			b, err := io.ReadAll(req.Body)
++			results <- mirrorResult{req: req, body: b, err: err}
++		}),
++	}
++
++	var servedBody []byte
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		servedBody, _ = io.ReadAll(req.Body)
++	})
++
++	pool := safe.NewPool(t.Context())
++	handler, err := NewRequestMirror(t.Context(), next, dynamic.RequestMirror{Service: "mirror", Numerator: 1, Denominator: 1}, builder, pool, "foo-request-mirror")
++	require.NoError(t, err)
++
++	req := httptest.NewRequest(http.MethodPost, "http://foo.com/bar", bytes.NewReader(body))
++	req.Header.Set("Expect", "100-continue")
++	handler.ServeHTTP(httptest.NewRecorder(), req)
++
++	result := <-results
++	pool.Stop()
++
++	assert.Equal(t, body, servedBody)
++	require.NoError(t, result.err)
++	assert.Equal(t, body, result.body)
++	assert.Equal(t, int64(len(body)), result.req.ContentLength)
++	assert.Empty(t, result.req.Header.Get("Expect"))
++}
++
++func TestRequestMirror_unknownService(t *testing.T) {
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
++
++	_, err := NewRequestMirror(t.Context(), next, dynamic.RequestMirror{Service: "unknown", Numerator: 1, Denominator: 1}, serviceBuilderMock{}, safe.NewPool(t.Context()), "foo-request-mirror")
++	require.Error(t, err)
++}
+diff --git a/pkg/provider/kubernetes/crd/generated/applyconfiguration/traefikio/v1alpha1/mirroring.go b/pkg/provider/kubernetes/crd/generated/applyconfiguration/traefikio/v1alpha1/mirroring.go
+index 4c1666182..da8168e81 100644
+--- a/pkg/provider/kubernetes/crd/generated/applyconfiguration/traefikio/v1alpha1/mirroring.go
++++ b/pkg/provider/kubernetes/crd/generated/applyconfiguration/traefikio/v1alpha1/mirroring.go
+@@ -45,6 +45,12 @@ type MirroringApplyConfiguration struct {
+ 	// If the body is larger, the request is not mirrored.
+ 	// Default value is -1, which means unlimited size.
+ 	MaxBodySize *int64 `json:"maxBodySize,omitempty"`
++	// StreamBody defines whether the request body is streamed to the mirrors while the main service reads it,
++	// instead of being buffered in memory before reaching the main service.
++	// A mirror reading the body too slowly is aborted, so that it never slows the main request down.
++	// It has no effect when MirrorBody is false, and cannot be used with MaxBodySize.
++	// Default value is false.
++	StreamBody *bool `json:"streamBody,omitempty"`
+ 	// Mirrors defines the list of mirrors where Traefik will duplicate the traffic.
+ 	Mirrors []MirrorServiceApplyConfiguration `json:"mirrors,omitempty"`
+ }
+@@ -204,6 +210,14 @@ func (b *MirroringApplyConfiguration) WithMaxBodySize(value int64) *MirroringApp
+ 	return b
+ }
+ 
++// WithStreamBody sets the StreamBody field in the declarative configuration to the given value
++// and returns the receiver, so that objects can be built by chaining "With" function invocations.
++// If called multiple times, the StreamBody field is set to the value of the last call.
++func (b *MirroringApplyConfiguration) WithStreamBody(value bool) *MirroringApplyConfiguration {
++	b.StreamBody = &value
++	return b
++}
++
+ // WithMirrors adds the given value to the Mirrors field in the declarative configuration
+ // and returns the receiver, so that objects can be build by chaining "With" function invocations.
+ // If called multiple times, values provided by each call will be appended to the Mirrors field.
+diff --git a/pkg/provider/kubernetes/crd/kubernetes_http.go b/pkg/provider/kubernetes/crd/kubernetes_http.go
+index affe0a870..5d78ec715 100644
+--- a/pkg/provider/kubernetes/crd/kubernetes_http.go
++++ b/pkg/provider/kubernetes/crd/kubernetes_http.go
+@@ -444,6 +444,7 @@ func (c configBuilder) buildMirroring(ctx context.Context, tService *traefikv1al
+ 			Mirrors:     mirrorServices,
+ 			MirrorBody:  mirroring.MirrorBody,
+ 			MaxBodySize: mirroring.MaxBodySize,
++			StreamBody:  mirroring.StreamBody,
+ 		},
+ 	})
+ 
+diff --git a/pkg/provider/kubernetes/crd/traefikio/v1alpha1/service.go b/pkg/provider/kubernetes/crd/traefikio/v1alpha1/service.go
+index 0ac65261d..3c29e6083 100644
+--- a/pkg/provider/kubernetes/crd/traefikio/v1alpha1/service.go
++++ b/pkg/provider/kubernetes/crd/traefikio/v1alpha1/service.go
+@@ -64,6 +64,12 @@ type Mirroring struct {
+ 	// If the body is larger, the request is not mirrored.
+ 	// Default value is -1, which means unlimited size.
+ 	MaxBodySize *int64 `json:"maxBodySize,omitempty"`
++	// StreamBody defines whether the request body is streamed to the mirrors while the main service reads it,
++	// instead of being buffered in memory before reaching the main service.
++	// A mirror reading the body too slowly is aborted, so that it never slows the main request down.
++	// It has no effect when MirrorBody is false, and cannot be used with MaxBodySize.
++	// Default value is false.
++	StreamBody bool `json:"streamBody,omitempty"`
+ 	// Mirrors defines the list of mirrors where Traefik will duplicate the traffic.
+ 	Mirrors []MirrorService `json:"mirrors,omitempty"`
+ }
+diff --git a/pkg/provider/kv/kv_test.go b/pkg/provider/kv/kv_test.go
+index cb2eb5e22..181266b0f 100644
+--- a/pkg/provider/kv/kv_test.go
++++ b/pkg/provider/kv/kv_test.go
+@@ -62,6 +62,7 @@ func Test_buildConfiguration(t *testing.T) {
+ 		"traefik/http/services/Service02/mirroring/service":                                          "foobar",
+ 		"traefik/http/services/Service02/mirroring/mirrorBody":                                       "true",
+ 		"traefik/http/services/Service02/mirroring/maxBodySize":                                      "42",
++		"traefik/http/services/Service02/mirroring/streamBody":                                       "true",
+ 		"traefik/http/services/Service02/mirroring/mirrors/0/name":                                   "foobar",
+ 		"traefik/http/services/Service02/mirroring/mirrors/0/percent":                                "42",
+ 		"traefik/http/services/Service02/mirroring/mirrors/1/name":                                   "foobar",
+@@ -706,6 +707,7 @@ func Test_buildConfiguration(t *testing.T) {
+ 						Service:     "foobar",
+ 						MirrorBody:  new(true),
+ 						MaxBodySize: new(int64(42)),
++						StreamBody:  true,
+ 						Mirrors: []dynamic.MirrorService{
+ 							{
+ 								Name:    "foobar",
+diff --git a/pkg/server/middleware/middlewares.go b/pkg/server/middleware/middlewares.go
+index 8784c3752..752490261 100644
+--- a/pkg/server/middleware/middlewares.go
++++ b/pkg/server/middleware/middlewares.go
+@@ -21,6 +21,7 @@ import (
+ 	"github.com/traefik/traefik/v3/pkg/middlewares/encodedcharacters"
+ 	"github.com/traefik/traefik/v3/pkg/middlewares/gatewayapi/headermodifier"
+ 	gapiredirect "github.com/traefik/traefik/v3/pkg/middlewares/gatewayapi/redirect"
++	"github.com/traefik/traefik/v3/pkg/middlewares/gatewayapi/requestmirror"
+ 	"github.com/traefik/traefik/v3/pkg/middlewares/gatewayapi/urlrewrite"
+ 	"github.com/traefik/traefik/v3/pkg/middlewares/grpcweb"
+ 	"github.com/traefik/traefik/v3/pkg/middlewares/headers"
+@@ -42,6 +43,7 @@ import (
+ 	"github.com/traefik/traefik/v3/pkg/middlewares/stripprefix"
+ 	"github.com/traefik/traefik/v3/pkg/middlewares/stripprefixregex"
+ 	"github.com/traefik/traefik/v3/pkg/middlewares/tap"
++	"github.com/traefik/traefik/v3/pkg/safe"
+ 	"github.com/traefik/traefik/v3/pkg/server/provider"
+ 	"github.com/traefik/traefik/v3/pkg/server/recursion"
+ )
+@@ -55,6 +57,7 @@ type Builder struct {
+ 
+ type serviceBuilder interface {
+ 	BuildHTTP(ctx context.Context, serviceName string) (http.Handler, error)
++	RoutinePool() *safe.Pool
+ }
+ 
+ // NewBuilder creates a new Builder.
+@@ -484,6 +487,15 @@ func (b *Builder) buildConstructor(ctx context.Context, middlewareName string) (
+ 		}
+ 	}
+ 
++	if config.RequestMirror != nil {
++		if middleware != nil {
++			return nil, badConf
++		}
++		middleware = func(next http.Handler) (http.Handler, error) {
++			return requestmirror.NewRequestMirror(ctx, next, *config.RequestMirror, b.serviceBuilder, b.serviceBuilder.RoutinePool(), middlewareName)
++		}
++	}
++
+ 	// ingress-nginx middlewares.
+ 	if config.Snippet != nil {
+ 		if middleware != nil {
+diff --git a/pkg/server/service/loadbalancer/mirror/mirror.go b/pkg/server/service/loadbalancer/mirror/mirror.go
+index d41d8f03d..15eb4f7d8 100644
+--- a/pkg/server/service/loadbalancer/mirror/mirror.go
++++ b/pkg/server/service/loadbalancer/mirror/mirror.go
+@@ -30,12 +30,18 @@ type Mirroring struct {
+ 	maxBodySize      int64
+ 	wantsHealthCheck bool
+ 
++	// streamBody sends the mirrored requests along with the main one, and streams the body to them while the main handler reads it.
++	streamBody bool
++
+ 	lock  sync.RWMutex
+-	total uint64
++	total int64
+ }
+ 
+ // New returns a new instance of *Mirroring.
+-func New(handler http.Handler, pool *safe.Pool, mirrorBody bool, maxBodySize int64, hc *dynamic.HealthCheck) *Mirroring {
++// When streamBody is true, the request body is streamed to the mirrors instead of being buffered before calling the main handler,
++// and maxBodySize is ignored.
++// A mirror reading the body slower than the main handler is then aborted, so that it never slows the main request down.
++func New(handler http.Handler, pool *safe.Pool, mirrorBody bool, maxBodySize int64, streamBody bool, hc *dynamic.HealthCheck) *Mirroring {
+ 	return &Mirroring{
+ 		routinePool:      pool,
+ 		handler:          handler,
+@@ -43,16 +49,19 @@ func New(handler http.Handler, pool *safe.Pool, mirrorBody bool, maxBodySize int
+ 		mirrorBody:       mirrorBody,
+ 		maxBodySize:      maxBodySize,
+ 		wantsHealthCheck: hc != nil,
++		// Without a mirrored body, there is nothing to stream.
++		streamBody: streamBody && mirrorBody,
+ 	}
+ }
+ 
+ type mirrorHandler struct {
+ 	http.Handler
+ 
+-	percent int
++	numerator   int64
++	denominator int64
+ 
+ 	lock  sync.RWMutex
+-	count uint64
++	count int64
+ }
+ 
+ type clonableRequest interface {
+@@ -66,6 +75,11 @@ func (m *Mirroring) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+ 		return
+ 	}
+ 
++	if m.streamBody {
++		m.serveStreamBody(rw, req, mirrors)
++		return
++	}
++
+ 	logger := log.Ctx(req.Context())
+ 
+ 	var rr clonableRequest = req
+@@ -103,35 +117,40 @@ func (m *Mirroring) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+ 			// prepare request, update body from buffer
+ 			r := rr.Clone(req.Context())
+ 
+-			// In ServeHTTP, we rely on the presence of the accessLog datatable found in the request's context
+-			// to know whether we should mutate said datatable (and contribute some fields to the log).
+-			// In this instance, we do not want the mirrors mutating (i.e. changing the service name in)
+-			// the logs related to the mirrored server.
+-			// Especially since it would result in unguarded concurrent reads/writes on the datatable.
+-			// Therefore, we reset any potential datatable key in the new context that we pass around.
+-			ctx := context.WithValue(r.Context(), accesslog.DataTableKey, nil)
+-
+-			// For the same reason, the mirrored services must not publish their metadata
+-			// into the state container seeded for the mirrored request, as the access log
+-			// middleware still reads it to emit the log of the main handler.
+-			// Therefore, we seed a new, throwaway container for the mirrors.
+-			ctx = observability.WithServiceObservabilityState(ctx)
+-
+-			// When a request served by m.handler is successful, req.Context will be canceled,
+-			// which would trigger a cancellation of the ongoing mirrored requests.
+-			// Therefore, we give a new, non-cancellable context  to each of the mirrored calls,
+-			// so they can terminate by themselves.
+-			handler.ServeHTTP(m.rw, r.WithContext(contextStopPropagation{ctx}))
++			handler.ServeHTTP(m.rw, r.WithContext(mirrorContext(r.Context())))
+ 		}
+ 	})
+ }
+ 
+-// AddMirror adds an httpHandler to mirror to.
+-func (m *Mirroring) AddMirror(handler http.Handler, percent int) error {
+-	if percent < 0 || percent > 100 {
+-		return errors.New("percent must be between 0 and 100")
++// mirrorContext returns the context of a mirrored request.
++func mirrorContext(ctx context.Context) context.Context {
++	// In ServeHTTP, we rely on the presence of the accessLog datatable found in the request's context
++	// to know whether we should mutate said datatable (and contribute some fields to the log).
++	// In this instance, we do not want the mirrors mutating (i.e. changing the service name in)
++	// the logs related to the mirrored server.
++	// Especially since it would result in unguarded concurrent reads/writes on the datatable.
++	// Therefore, we reset any potential datatable key in the new context that we pass around.
++	ctx = context.WithValue(ctx, accesslog.DataTableKey, nil)
++
++	// For the same reason, the mirrored services must not publish their metadata
++	// into the state container seeded for the mirrored request, as the access log
++	// middleware still reads it to emit the log of the main handler.
++	// Therefore, we seed a new, throwaway container for the mirrors.
++	ctx = observability.WithServiceObservabilityState(ctx)
++
++	// When a request served by m.handler is successful, req.Context will be canceled,
++	// which would trigger a cancellation of the ongoing mirrored requests.
++	// Therefore, we give a new, non-cancellable context  to each of the mirrored calls,
++	// so they can terminate by themselves.
++	return contextStopPropagation{ctx}
++}
++
++// AddMirror adds an httpHandler to mirror numerator out of denominator requests to.
++func (m *Mirroring) AddMirror(handler http.Handler, numerator, denominator int64) error {
++	if denominator <= 0 || numerator < 0 || numerator > denominator {
++		return fmt.Errorf("invalid fraction %d/%d: the denominator must be positive, and the numerator between 0 and the denominator", numerator, denominator)
+ 	}
+-	m.mirrorHandlers = append(m.mirrorHandlers, &mirrorHandler{Handler: handler, percent: percent})
++	m.mirrorHandlers = append(m.mirrorHandlers, &mirrorHandler{Handler: handler, numerator: numerator, denominator: denominator})
+ 	return nil
+ }
+ 
+@@ -160,7 +179,49 @@ func (m *Mirroring) RegisterStatusUpdater(fn func(up bool)) error {
+ 	return nil
+ }
+ 
+-func (m *Mirroring) inc() uint64 {
++// serveStreamBody sends the mirrored requests before calling the main handler,
++// and streams them the request body while the main handler reads it.
++func (m *Mirroring) serveStreamBody(rw http.ResponseWriter, req *http.Request, mirrors []http.Handler) {
++	hasBody := req.Body != nil && req.Body != http.NoBody
++
++	var bodies []*streamedBody
++	for _, handler := range mirrors {
++		// The mirrored requests are cloned before calling the main handler,
++		// so that the handlers it chains to do not alter them.
++		mirrorReq := req.Clone(mirrorContext(req.Context()))
++
++		// The body is streamed while the main handler reads it,
++		// so the mirrored request must not wait for an interim response before sending it.
++		mirrorReq.Header.Del("Expect")
++
++		if hasBody {
++			body := newStreamedBody()
++			mirrorReq.Body = body
++			mirrorReq.GetBody = nil
++			bodies = append(bodies, body)
++		}
++
++		m.routinePool.GoCtx(func(_ context.Context) {
++			handler.ServeHTTP(m.rw, mirrorReq)
++		})
++	}
++
++	if len(bodies) > 0 {
++		req.Body = &teeBody{ReadCloser: req.Body, mirrors: bodies}
++
++		// When the main handler stops reading the body before its end,
++		// the mirrored requests are aborted instead of being sent with a truncated body.
++		defer func() {
++			for _, body := range bodies {
++				body.closeWithError(errBodyNotFullyRead)
++			}
++		}()
++	}
++
++	m.handler.ServeHTTP(rw, req)
++}
++
++func (m *Mirroring) inc() int64 {
+ 	m.lock.Lock()
+ 	defer m.lock.Unlock()
+ 	m.total++
+@@ -173,7 +234,7 @@ func (m *Mirroring) getActiveMirrors() []http.Handler {
+ 	var mirrors []http.Handler
+ 	for _, handler := range m.mirrorHandlers {
+ 		handler.lock.Lock()
+-		if handler.count*100 < total*uint64(handler.percent) {
++		if handler.count*handler.denominator < total*handler.numerator {
+ 			handler.count++
+ 			handler.lock.Unlock()
+ 			mirrors = append(mirrors, handler)
+diff --git a/pkg/server/service/loadbalancer/mirror/mirror_test.go b/pkg/server/service/loadbalancer/mirror/mirror_test.go
+index be0249072..7b2371c76 100644
+--- a/pkg/server/service/loadbalancer/mirror/mirror_test.go
++++ b/pkg/server/service/loadbalancer/mirror/mirror_test.go
+@@ -20,15 +20,15 @@ func TestMirroringOn100(t *testing.T) {
+ 		rw.WriteHeader(http.StatusOK)
+ 	})
+ 	pool := safe.NewPool(t.Context())
+-	mirror := New(handler, pool, true, defaultMaxBodySize, nil)
++	mirror := New(handler, pool, true, defaultMaxBodySize, false, nil)
+ 	err := mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+ 		atomic.AddInt32(&countMirror1, 1)
+-	}), 10)
++	}), 10, 100)
+ 	assert.NoError(t, err)
+ 
+ 	err = mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+ 		atomic.AddInt32(&countMirror2, 1)
+-	}), 50)
++	}), 50, 100)
+ 	assert.NoError(t, err)
+ 
+ 	for range 100 {
+@@ -49,15 +49,15 @@ func TestMirroringOn10(t *testing.T) {
+ 		rw.WriteHeader(http.StatusOK)
+ 	})
+ 	pool := safe.NewPool(t.Context())
+-	mirror := New(handler, pool, true, defaultMaxBodySize, nil)
++	mirror := New(handler, pool, true, defaultMaxBodySize, false, nil)
+ 	err := mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+ 		atomic.AddInt32(&countMirror1, 1)
+-	}), 10)
++	}), 10, 100)
+ 	assert.NoError(t, err)
+ 
+ 	err = mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+ 		atomic.AddInt32(&countMirror2, 1)
+-	}), 50)
++	}), 50, 100)
+ 	assert.NoError(t, err)
+ 
+ 	for range 10 {
+@@ -73,17 +73,20 @@ func TestMirroringOn10(t *testing.T) {
+ }
+ 
+ func TestInvalidPercent(t *testing.T) {
+-	mirror := New(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {}), safe.NewPool(t.Context()), true, defaultMaxBodySize, nil)
+-	err := mirror.AddMirror(nil, -1)
++	mirror := New(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {}), safe.NewPool(t.Context()), true, defaultMaxBodySize, false, nil)
++	err := mirror.AddMirror(nil, -1, 100)
+ 	assert.Error(t, err)
+ 
+-	err = mirror.AddMirror(nil, 101)
++	err = mirror.AddMirror(nil, 101, 100)
+ 	assert.Error(t, err)
+ 
+-	err = mirror.AddMirror(nil, 100)
++	err = mirror.AddMirror(nil, 0, 0)
++	assert.Error(t, err)
++
++	err = mirror.AddMirror(nil, 100, 100)
+ 	assert.NoError(t, err)
+ 
+-	err = mirror.AddMirror(nil, 0)
++	err = mirror.AddMirror(nil, 0, 100)
+ 	assert.NoError(t, err)
+ }
+ 
+@@ -92,7 +95,7 @@ func TestHijack(t *testing.T) {
+ 		rw.WriteHeader(http.StatusOK)
+ 	})
+ 	pool := safe.NewPool(t.Context())
+-	mirror := New(handler, pool, true, defaultMaxBodySize, nil)
++	mirror := New(handler, pool, true, defaultMaxBodySize, false, nil)
+ 
+ 	var mirrorRequest bool
+ 	err := mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+@@ -102,7 +105,7 @@ func TestHijack(t *testing.T) {
+ 		_, _, err := hijacker.Hijack()
+ 		assert.Error(t, err)
+ 		mirrorRequest = true
+-	}), 100)
++	}), 100, 100)
+ 	assert.NoError(t, err)
+ 
+ 	mirror.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+@@ -116,7 +119,7 @@ func TestFlush(t *testing.T) {
+ 		rw.WriteHeader(http.StatusOK)
+ 	})
+ 	pool := safe.NewPool(t.Context())
+-	mirror := New(handler, pool, true, defaultMaxBodySize, nil)
++	mirror := New(handler, pool, true, defaultMaxBodySize, false, nil)
+ 
+ 	var mirrorRequest bool
+ 	err := mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+@@ -126,7 +129,7 @@ func TestFlush(t *testing.T) {
+ 		hijacker.Flush()
+ 
+ 		mirrorRequest = true
+-	}), 100)
++	}), 100, 100)
+ 	assert.NoError(t, err)
+ 
+ 	mirror.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+@@ -153,7 +156,7 @@ func TestMirroringWithBody(t *testing.T) {
+ 		rw.WriteHeader(http.StatusOK)
+ 	})
+ 
+-	mirror := New(handler, pool, true, defaultMaxBodySize, nil)
++	mirror := New(handler, pool, true, defaultMaxBodySize, false, nil)
+ 
+ 	for range numMirrors {
+ 		err := mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+@@ -162,7 +165,7 @@ func TestMirroringWithBody(t *testing.T) {
+ 			assert.NoError(t, err)
+ 			assert.Equal(t, body, bb)
+ 			countMirror.Add(1)
+-		}), 100)
++		}), 100, 100)
+ 		assert.NoError(t, err)
+ 	}
+ 
+@@ -195,7 +198,7 @@ func TestMirroringWithIgnoredBody(t *testing.T) {
+ 		rw.WriteHeader(http.StatusOK)
+ 	})
+ 
+-	mirror := New(handler, pool, false, defaultMaxBodySize, nil)
++	mirror := New(handler, pool, false, defaultMaxBodySize, false, nil)
+ 
+ 	for range numMirrors {
+ 		err := mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+@@ -204,7 +207,7 @@ func TestMirroringWithIgnoredBody(t *testing.T) {
+ 			assert.NoError(t, err)
+ 			assert.Equal(t, emptyBody, bb)
+ 			countMirror.Add(1)
+-		}), 100)
++		}), 100, 100)
+ 		assert.NoError(t, err)
+ 	}
+ 
+diff --git a/pkg/server/service/loadbalancer/mirror/streaming.go b/pkg/server/service/loadbalancer/mirror/streaming.go
+new file mode 100644
+index 000000000..07fcf4b3f
+--- /dev/null
++++ b/pkg/server/service/loadbalancer/mirror/streaming.go
+@@ -0,0 +1,119 @@
++package mirror
++
++import (
++	"bytes"
++	"errors"
++	"io"
++	"sync"
++)
++
++// streamingBufferSize is the maximum size of the request body buffered for a mirror reading it slower than the main handler,
++// unless a single read of the main handler is larger.
++// Beyond it, the mirrored request is aborted, so that a slow mirror never slows the main request down.
++const streamingBufferSize = 1024 * 1024
++
++var (
++	errMirrorTooSlow     = errors.New("mirror too slow to read the request body")
++	errBodyNotFullyRead  = errors.New("request body not fully read by the main handler")
++	errStreamedBodyClose = errors.New("mirrored request body closed")
++)
++
++// teeBody copies the request body to the mirrors while the main handler reads it.
++type teeBody struct {
++	io.ReadCloser
++
++	mirrors []*streamedBody
++}
++
++func (t *teeBody) Read(p []byte) (int, error) {
++	n, err := t.ReadCloser.Read(p)
++	for _, mirror := range t.mirrors {
++		if n > 0 {
++			mirror.write(p[:n])
++		}
++		if err != nil {
++			// io.EOF ends the mirrored request body normally, any other error aborts the mirrored request.
++			mirror.closeWithError(err)
++		}
++	}
++
++	return n, err
++}
++
++// streamedBody is the body of a mirrored request.
++// It buffers the bytes read by the main handler until the mirror reads them,
++// and aborts the mirrored request when the mirror falls behind by more than its buffer size.
++type streamedBody struct {
++	mu   sync.Mutex
++	cond *sync.Cond
++	buf  bytes.Buffer
++	err  error
++}
++
++func newStreamedBody() *streamedBody {
++	b := &streamedBody{}
++	b.cond = sync.NewCond(&b.mu)
++	return b
++}
++
++func (b *streamedBody) Read(p []byte) (int, error) {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++
++	for b.buf.Len() == 0 && b.err == nil {
++		b.cond.Wait()
++	}
++
++	if b.buf.Len() > 0 {
++		return b.buf.Read(p)
++	}
++
++	return 0, b.err
++}
++
++// Close is called once the mirrored request is done, so the next writes are dropped.
++func (b *streamedBody) Close() error {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++
++	if b.err == nil {
++		b.err = errStreamedBodyClose
++	}
++	b.buf.Reset()
++	b.cond.Broadcast()
++
++	return nil
++}
++
++func (b *streamedBody) write(p []byte) {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++
++	if b.err != nil {
++		return
++	}
++
++	// A chunk is always accepted when the mirror has read everything,
++	// so that a mirror keeping up is not aborted by a read larger than the buffer size.
++	if b.buf.Len() > 0 && b.buf.Len()+len(p) > streamingBufferSize {
++		b.err = errMirrorTooSlow
++		b.buf.Reset()
++		b.cond.Broadcast()
++		return
++	}
++
++	b.buf.Write(p)
++	b.cond.Broadcast()
++}
++
++// closeWithError ends the mirrored request body once its buffered bytes are read.
++// The first error wins, so it is a no-op when the body already ended.
++func (b *streamedBody) closeWithError(err error) {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++
++	if b.err == nil {
++		b.err = err
++		b.cond.Broadcast()
++	}
++}
+diff --git a/pkg/server/service/loadbalancer/mirror/streaming_test.go b/pkg/server/service/loadbalancer/mirror/streaming_test.go
+new file mode 100644
+index 000000000..3ec51be31
+--- /dev/null
++++ b/pkg/server/service/loadbalancer/mirror/streaming_test.go
+@@ -0,0 +1,398 @@
++package mirror
++
++import (
++	"bytes"
++	"crypto/rand"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"net/http/httputil"
++	"net/url"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++	"github.com/traefik/traefik/v3/pkg/safe"
++)
++
++// mirrorResult is what the mirror received.
++type mirrorResult struct {
++	req  *http.Request
++	body []byte
++	err  error
++}
++
++func readingMirror(results chan<- mirrorResult) http.Handler {
++	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		b, err := io.ReadAll(req.Body)
++		results <- mirrorResult{req: req, body: b, err: err}
++	})
++}
++
++func TestMirroringFraction(t *testing.T) {
++	testCases := []struct {
++		desc            string
++		numerator       int64
++		denominator     int64
++		requests        int
++		expectedMirrors int32
++	}{
++		{
++			desc:            "mirror a third of the requests",
++			numerator:       1,
++			denominator:     3,
++			requests:        9,
++			expectedMirrors: 3,
++		},
++		{
++			desc:            "mirror less than one percent of the requests",
++			numerator:       5,
++			denominator:     1000,
++			requests:        2000,
++			expectedMirrors: 10,
++		},
++		{
++			desc:            "mirror no request",
++			numerator:       0,
++			denominator:     100,
++			requests:        10,
++			expectedMirrors: 0,
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			var mirrored atomic.Int32
++			pool := safe.NewPool(t.Context())
++			mirror := New(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {}), pool, true, -1, true, nil)
++			err := mirror.AddMirror(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++				mirrored.Add(1)
++			}), test.numerator, test.denominator)
++			require.NoError(t, err)
++
++			for range test.requests {
++				mirror.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://foo.com/bar", http.NoBody))
++			}
++
++			pool.Stop()
++
++			assert.Equal(t, test.expectedMirrors, mirrored.Load())
++		})
++	}
++}
++
++func TestStreaming_handlersDoNotAlterMirroredRequest(t *testing.T) {
++	results := make(chan mirrorResult, 1)
++	var servedHeader string
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		req.Header.Set("X-Foo", "modified")
++		servedHeader = req.Header.Get("X-Foo")
++	})
++
++	pool := safe.NewPool(t.Context())
++	mirror := New(next, pool, true, -1, true, nil)
++	require.NoError(t, mirror.AddMirror(readingMirror(results), 1, 1))
++
++	req := httptest.NewRequest(http.MethodGet, "http://foo.com/bar", http.NoBody)
++	req.Header.Set("X-Foo", "original")
++	mirror.ServeHTTP(httptest.NewRecorder(), req)
++
++	result := <-results
++	pool.Stop()
++
++	assert.Equal(t, "modified", servedHeader)
++	assert.Equal(t, "original", result.req.Header.Get("X-Foo"))
++}
++
++func TestStreaming_body(t *testing.T) {
++	body := make([]byte, 64*1024)
++	_, err := rand.Read(body)
++	require.NoError(t, err)
++
++	var servedBody []byte
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		servedBody, _ = io.ReadAll(req.Body)
++	})
++
++	results := make(chan mirrorResult, 2)
++	pool := safe.NewPool(t.Context())
++	mirror := New(next, pool, true, -1, true, nil)
++	require.NoError(t, mirror.AddMirror(readingMirror(results), 1, 1))
++	require.NoError(t, mirror.AddMirror(readingMirror(results), 1, 1))
++
++	req := httptest.NewRequest(http.MethodPost, "http://foo.com/bar", bytes.NewReader(body))
++	req.Header.Set("Expect", "100-continue")
++	mirror.ServeHTTP(httptest.NewRecorder(), req)
++
++	results1, results2 := <-results, <-results
++	pool.Stop()
++
++	assert.Equal(t, body, servedBody)
++	for _, result := range []mirrorResult{results1, results2} {
++		require.NoError(t, result.err)
++		assert.Equal(t, body, result.body)
++		assert.Equal(t, int64(len(body)), result.req.ContentLength)
++		assert.Empty(t, result.req.Header.Get("Expect"))
++	}
++}
++
++// TestStreaming_bodyNotBuffered checks that the main handler reads the body while the client is still sending it.
++func TestStreaming_bodyNotBuffered(t *testing.T) {
++	firstChunk := make(chan string)
++	var servedBody string
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		chunk := make([]byte, 5)
++		_, err := io.ReadFull(req.Body, chunk)
++		require.NoError(t, err)
++		firstChunk <- string(chunk)
++
++		rest, err := io.ReadAll(req.Body)
++		require.NoError(t, err)
++		servedBody = string(chunk) + string(rest)
++	})
++
++	results := make(chan mirrorResult, 1)
++	pool := safe.NewPool(t.Context())
++	mirror := New(next, pool, true, -1, true, nil)
++	require.NoError(t, mirror.AddMirror(readingMirror(results), 1, 1))
++
++	bodyReader, bodyWriter := io.Pipe()
++	req := httptest.NewRequest(http.MethodPost, "http://foo.com/bar", bodyReader)
++	req.ContentLength = -1
++
++	done := make(chan struct{})
++	go func() {
++		defer close(done)
++		mirror.ServeHTTP(httptest.NewRecorder(), req)
++	}()
++
++	_, err := bodyWriter.Write([]byte("hello"))
++	require.NoError(t, err)
++	assert.Equal(t, "hello", <-firstChunk)
++
++	_, err = bodyWriter.Write([]byte(" world"))
++	require.NoError(t, err)
++	require.NoError(t, bodyWriter.Close())
++
++	<-done
++	result := <-results
++	pool.Stop()
++
++	assert.Equal(t, "hello world", servedBody)
++	require.NoError(t, result.err)
++	assert.Equal(t, "hello world", string(result.body))
++}
++
++func TestStreaming_slowMirror(t *testing.T) {
++	unblock := make(chan struct{})
++	results := make(chan mirrorResult, 1)
++	slowMirror := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		<-unblock
++		readingMirror(results).ServeHTTP(rw, req)
++	})
++
++	var servedBody string
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		b, _ := io.ReadAll(req.Body)
++		servedBody = string(b)
++	})
++
++	pool := safe.NewPool(t.Context())
++	mirror := New(next, pool, true, -1, true, nil)
++	require.NoError(t, mirror.AddMirror(slowMirror, 1, 1))
++
++	body := strings.Repeat("a", 2*streamingBufferSize)
++	mirror.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "http://foo.com/bar", strings.NewReader(body)))
++
++	// The main request is served while the mirror has not read anything yet.
++	assert.Equal(t, body, servedBody)
++
++	close(unblock)
++	result := <-results
++	pool.Stop()
++
++	require.ErrorIs(t, result.err, errMirrorTooSlow)
++	assert.Empty(t, result.body)
++}
++
++// TestStreaming_readLargerThanBuffer checks that a mirror keeping up is not aborted
++// when the main handler reads more than the buffer size at once.
++func TestStreaming_readLargerThanBuffer(t *testing.T) {
++	body := strings.Repeat("a", 2*streamingBufferSize)
++
++	var servedBody string
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		chunk := make([]byte, len(body))
++		n, err := io.ReadFull(req.Body, chunk)
++		require.NoError(t, err)
++		servedBody = string(chunk[:n])
++
++		_, err = req.Body.Read(make([]byte, 1))
++		require.ErrorIs(t, err, io.EOF)
++	})
++
++	results := make(chan mirrorResult, 1)
++	pool := safe.NewPool(t.Context())
++	mirror := New(next, pool, true, -1, true, nil)
++	require.NoError(t, mirror.AddMirror(readingMirror(results), 1, 1))
++
++	mirror.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "http://foo.com/bar", strings.NewReader(body)))
++
++	result := <-results
++	pool.Stop()
++
++	assert.Equal(t, body, servedBody)
++	require.NoError(t, result.err)
++	assert.Equal(t, body, string(result.body))
++}
++
++func TestStreaming_bodyNotFullyRead(t *testing.T) {
++	served := make(chan struct{})
++	results := make(chan mirrorResult, 1)
++	waitingMirror := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		<-served
++		readingMirror(results).ServeHTTP(rw, req)
++	})
++
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		_, err := io.ReadFull(req.Body, make([]byte, 2))
++		require.NoError(t, err)
++	})
++
++	pool := safe.NewPool(t.Context())
++	mirror := New(next, pool, true, -1, true, nil)
++	require.NoError(t, mirror.AddMirror(waitingMirror, 1, 1))
++
++	mirror.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "http://foo.com/bar", strings.NewReader("12345")))
++	close(served)
++
++	result := <-results
++	pool.Stop()
++
++	// The mirrored request is aborted rather than sent with a truncated body.
++	require.ErrorIs(t, result.err, errBodyNotFullyRead)
++	assert.Equal(t, "12", string(result.body))
++}
++
++// TestStreaming_unknownLengthEmptyBody checks that a bodyless request with an unknown length,
++// as sent over HTTP/3 when the client does not set a Content-Length header, is mirrored.
++func TestStreaming_unknownLengthEmptyBody(t *testing.T) {
++	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++		_, _ = io.ReadAll(req.Body)
++	})
++
++	results := make(chan mirrorResult, 1)
++	pool := safe.NewPool(t.Context())
++	mirror := New(next, pool, true, -1, true, nil)
++	require.NoError(t, mirror.AddMirror(readingMirror(results), 1, 1))
++
++	req := httptest.NewRequest(http.MethodGet, "http://foo.com/bar", io.NopCloser(strings.NewReader("")))
++	req.ContentLength = -1
++	mirror.ServeHTTP(httptest.NewRecorder(), req)
++
++	result := <-results
++	pool.Stop()
++
++	require.NoError(t, result.err)
++	assert.Empty(t, result.body)
++}
++
++// TestStreaming_proxiedMirror checks, with a mirror proxying to a real backend,
++// that the backend receives the whole body, or a failed request when the mirrored request is aborted.
++func TestStreaming_proxiedMirror(t *testing.T) {
++	testCases := []struct {
++		desc         string
++		contentLen   bool
++		readBytes    int
++		expectedBody string
++		expectedErr  bool
++	}{
++		{
++			desc:         "body fully read",
++			contentLen:   true,
++			readBytes:    -1,
++			expectedBody: "hello world",
++		},
++		{
++			desc:        "body not fully read with a known length",
++			contentLen:  true,
++			readBytes:   5,
++			expectedErr: true,
++		},
++		{
++			desc:        "body not fully read with an unknown length",
++			readBytes:   5,
++			expectedErr: true,
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			type backendResult struct {
++				body string
++				err  error
++			}
++			results := make(chan backendResult, 1)
++			backend := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++				b, err := io.ReadAll(req.Body)
++				results <- backendResult{body: string(b), err: err}
++			}))
++			t.Cleanup(backend.Close)
++
++			backendURL, err := url.Parse(backend.URL)
++			require.NoError(t, err)
++			proxy := httputil.NewSingleHostReverseProxy(backendURL)
++
++			var served sync.WaitGroup
++			served.Add(1)
++			proxyMirror := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++				// Lets the main handler stop reading before the mirror starts, to make the abort deterministic.
++				served.Wait()
++				proxy.ServeHTTP(rw, req)
++			})
++
++			next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
++				if test.readBytes < 0 {
++					_, _ = io.ReadAll(req.Body)
++					return
++				}
++				_, _ = io.ReadFull(req.Body, make([]byte, test.readBytes))
++			})
++
++			pool := safe.NewPool(t.Context())
++			mirror := New(next, pool, true, -1, true, nil)
++			require.NoError(t, mirror.AddMirror(proxyMirror, 1, 1))
++
++			req := httptest.NewRequest(http.MethodPost, "http://foo.com/bar", io.NopCloser(strings.NewReader("hello world")))
++			req.ContentLength = -1
++			if test.contentLen {
++				req.ContentLength = int64(len("hello world"))
++			}
++			mirror.ServeHTTP(httptest.NewRecorder(), req)
++			served.Done()
++			pool.Stop()
++
++			if !test.expectedErr {
++				result := <-results
++				require.NoError(t, result.err)
++				assert.Equal(t, test.expectedBody, result.body)
++				return
++			}
++
++			// The backend either never receives the request, or fails to read a truncated body.
++			select {
++			case result := <-results:
++				assert.Error(t, result.err)
++			case <-time.After(time.Second):
++			}
++		})
++	}
++}
+diff --git a/pkg/server/service/service.go b/pkg/server/service/service.go
+index a1553f57f..6cdcd9b3b 100644
+--- a/pkg/server/service/service.go
++++ b/pkg/server/service/service.go
+@@ -87,6 +87,11 @@ func (m *Manager) SetMiddlewareChainBuilder(middlewareChainBuilder middlewareCha
+ 	m.middlewareChainBuilder = middlewareChainBuilder
+ }
+ 
++// RoutinePool returns the routine pool used to run the services background tasks.
++func (m *Manager) RoutinePool() *safe.Pool {
++	return m.routinePool
++}
++
+ // BuildHTTP Creates a http.Handler for a service configuration.
+ func (m *Manager) BuildHTTP(rootCtx context.Context, serviceName string) (http.Handler, error) {
+ 	serviceName = provider.GetQualifiedName(rootCtx, serviceName)
+@@ -293,14 +298,21 @@ func (m *Manager) getMirrorServiceHandler(ctx context.Context, config *dynamic.M
+ 	if config.MaxBodySize != nil {
+ 		maxBodySize = *config.MaxBodySize
+ 	}
+-	handler := mirror.New(serviceHandler, m.routinePool, mirrorBody, maxBodySize, config.HealthCheck)
++
++	// The body is never buffered when streamed, so there is no body size to bound.
++	if config.StreamBody && mirrorBody && maxBodySize >= 0 {
++		return nil, errors.New("maxBodySize cannot be used with streamBody")
++	}
++
++	handler := mirror.New(serviceHandler, m.routinePool, mirrorBody, maxBodySize, config.StreamBody, config.HealthCheck)
++
+ 	for _, mirrorConfig := range config.Mirrors {
+ 		mirrorHandler, err := m.BuildHTTP(ctx, mirrorConfig.Name)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+ 
+-		err = handler.AddMirror(mirrorHandler, mirrorConfig.Percent)
++		err = handler.AddMirror(mirrorHandler, int64(mirrorConfig.Percent), 100)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+diff --git a/pkg/server/service/service_test.go b/pkg/server/service/service_test.go
+index 06c295ab8..623e90c9a 100644
+--- a/pkg/server/service/service_test.go
++++ b/pkg/server/service/service_test.go
+@@ -608,6 +608,66 @@ func TestMultipleTypeOnBuildHTTP(t *testing.T) {
+ 	assert.Error(t, err, "cannot create service: multi-types service not supported, consider declaring two different pieces of service instead")
+ }
+ 
++func TestGetMirrorServiceHandler_streamBody(t *testing.T) {
++	testCases := []struct {
++		desc        string
++		mirrorBody  *bool
++		maxBodySize *int64
++		expectedErr bool
++	}{
++		{
++			desc:        "unlimited body size",
++			maxBodySize: new(int64(-1)),
++		},
++		{
++			desc: "default body size",
++		},
++		{
++			desc:        "limited body size",
++			maxBodySize: new(int64(1024)),
++			expectedErr: true,
++		},
++		{
++			desc:        "limited body size without mirroring the body",
++			mirrorBody:  new(false),
++			maxBodySize: new(int64(1024)),
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			services := map[string]*runtime.ServiceInfo{
++				"main@file": {
++					Service: &dynamic.Service{
++						LoadBalancer: &dynamic.ServersLoadBalancer{Strategy: dynamic.BalancerStrategyWRR},
++					},
++				},
++				"mirrored@file": {
++					Service: &dynamic.Service{
++						Mirroring: &dynamic.Mirroring{
++							Service:     "main@file",
++							MirrorBody:  test.mirrorBody,
++							MaxBodySize: test.maxBodySize,
++							StreamBody:  true,
++						},
++					},
++				},
++			}
++
++			manager := NewManager(services, nil, nil, &transportManagerMock{}, nil)
++
++			_, err := manager.BuildHTTP(t.Context(), "mirrored@file")
++			if test.expectedErr {
++				require.Error(t, err)
++				return
++			}
++			require.NoError(t, err)
++		})
++	}
++}
++
+ func TestGetServiceHandler_Headers(t *testing.T) {
+ 	pb := httputil.NewProxyBuilder(&transportManagerMock{}, nil)
+ 

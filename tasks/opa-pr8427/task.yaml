@@ -1,0 +1,127 @@
+id: opa-pr8427
+repo: https://github.com/open-policy-agent/opa
+package: v1/ast
+go: "1.25.5"
+env:
+  CGO_ENABLED: "0"
+seed: 878cbc79d389d87f366f386695eb107820d1eef9
+notes:
+  - "v1/ast/testdata (about 1900 files, 8.4 MB) is identical at the seed and at every merge of the chain, so it is not copied into hidden/; the workspace's copy from the seed is used."
+  - "The tests only pass with Go 1.25.5 (GOTOOLCHAIN=go1.25.5)."
+  - "Every step's hidden suite contains compile_test.go and mermaid_test.go, which call the unexported debugging helper mermaidGraph added in step 1 (TestMermaidGraph, and a t.Logf in TestCompilerNotImport). If the agent's code has no counterpart, the whole hidden suite fails to compile at every step. Step 1's task text therefore asks for the helper's behaviour."
+  - "Weight is front-loaded: step 1 is 765 of 875 package lines; steps 2-5 are 2-51 line fixes. Steps 2, 3 and 5 do not touch code from step 1; step 4 only touches the same rule-tree code as compile-stage work."
+steps:
+  - n: 1
+    pr: 8427
+    title: "ast, topdown: Add `not` AST node type"
+    merge: 670d2e25567188f630615fa0594c4744cb31d941
+    parent: 878cbc79d389d87f366f386695eb107820d1eef9
+    stage: 1
+    task: step-1/task.md
+    hidden: step-1/hidden
+    names: step-1/names.yaml
+    given: []
+    outside:
+      files:
+        - {path: build/generate-extended-cases/exceptions.yaml, added: 9, removed: 0}
+        - {path: build/generate-extended-cases/extended_cases.go, added: 34, removed: 0}
+        - {path: cmd/capabilities_test.go, added: 4, removed: 0}
+        - {path: internal/wasm/sdk/test/e2e/exceptions.yaml, added: 8, removed: 0}
+        - {path: v1/compile/compile_test.go, added: 1, removed: 1}
+        - {path: v1/test/cases/testdata/v1/negation/test-not-body.yaml, added: 143, removed: 0}
+        - {path: v1/topdown/eval.go, added: 74, removed: 14}
+        - {path: v1/topdown/exported_test.go, added: 69, removed: 13}
+        - {path: v1/topdown/topdown_partial_test.go, added: 2, removed: 2}
+        - {path: v1/topdown/topdown_test.go, added: 1, removed: 1}
+      treatment: harness
+      reason: "The PR also adds evaluation of Not expressions in v1/topdown (eval.go), adjusts topdown/compile tests whose AllFutureKeywords option would now enable not-bodies, adds the v1/test/cases yaml for not-bodies, and adds skip lists for the planner/wasm case generators (build/, internal/wasm/, cmd/ capabilities test). None of it is built by the v1/ast test command. The diff touches only files outside v1/ast, applies cleanly to the seed, and refers to v1/ast only through ast.Not and its Body field, both fixed by the task text. Having the agent write the evaluator would add a large piece of work outside the measured package."
+      patch: step-1/outside.patch
+    test_cmd: "go test -count=1 ./v1/ast"
+    known_failing: []
+    white_box_tests:
+      - {test: "TestMermaidGraph", reason: "tests the unexported debugging helper mermaidGraph, which is not public API; the task text asks for its behaviour only so that the suite compiles"}
+      - {test: "TestCompilerNotImport", reason: "compares the whole compiled module with go-cmp, including the numbering of generated __localN__ variables and the order of generated expressions; these follow from the existing compiler stages, but any extra or reordered rewriting inside Not bodies fails the case"}
+    intermediate:
+      commits: []
+      handling: "none: no commit touched the package, its in-module dependencies, go.mod or go.sum"
+  - n: 2
+    pr: 8482
+    title: "Allow back-to-back metadata blocks"
+    merge: 7d266cb687ca5351cbec7aed2142917f6952e2f4
+    parent: 48fdef5f69c2139c70e59e9cd565fd04d4aeb10c
+    stage: 1
+    task: step-2/task.md
+    hidden: step-2/hidden
+    names: step-2/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./v1/ast"
+    known_failing: []
+    intermediate:
+      commits:
+        - {sha: 69361eddfb58, title: "build(deps): bump the dependencies group across 2 directories with 8 updates (#8471)", files: [go.mod, go.sum]}
+        - {sha: 1447757444f3, title: "build(deps): bump the go-opentelemetry-io group across 1 directory with 7 updates (#8470)", files: [go.mod, go.sum]}
+        - {sha: fa913dd5d3ae, title: "Integrate 1.15.1 patch release (#8462)", files: [capabilities/v1.15.1.json]}
+      handling: "not applied. The commits in between only bump modules in go.mod/go.sum (none used by v1/ast or its tests) and change packages outside v1/ast's build (planner, docs, release). Checked: the step's hidden suite passes at the merge with go.mod and go.sum reverted to the seed."
+  - n: 3
+    pr: 8485
+    title: "type checker: identify compatible type from reference"
+    merge: 261a4f6c042433c89c544a59194014a6123ab432
+    parent: dc3313b1892becec4777c6644411009edab31e36
+    stage: 1
+    task: step-3/task.md
+    hidden: step-3/hidden
+    names: step-3/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./v1/ast"
+    known_failing: []
+    intermediate:
+      commits:
+        - {sha: 12b729069736, title: "distributedtracing: export Prometheus metrics via OTLP (#8450)", files: [go.mod, go.sum]}
+        - {sha: 918b8cc96988, title: "fmt: add new line between METADATA blocks (#8483)", files: [v1/ast/parser.go, v1/format/format.go]}
+      handling: "not applied. #8483 (fmt) exports the existing unexported metadata-comment check in v1/ast as IsMetadataComment (8 lines, a rename) and makes v1/format call it; v1/ast's tests use neither (v1/format is only used by parser_ext_test.go to format rule bodies). Applying only the v1/format half would break the v1/ast test build unless the agent exported the same name, so both halves are left out. The remaining commits bump go.mod/go.sum and change packages outside v1/ast's build. Checked: the hidden suite passes at the merge with v1/format, go.mod and go.sum reverted to the seed."
+  - n: 4
+    pr: 8468
+    title: "ast: catch functions in dynamic extent of ref head rule"
+    merge: 04ee2c86add924e4490123f0c5ced630cff1a412
+    parent: 9b90626150c06907cfc76b1c57f5dc76ebe82606
+    stage: 1
+    task: step-4/task.md
+    hidden: step-4/hidden
+    names: step-4/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./v1/ast"
+    known_failing: []
+    intermediate:
+      commits:
+        - {sha: 4b47732f7768, title: "fmt: Allow indenting all `with`s in expression (#8508)", files: [v1/format/format.go]}
+        - {sha: 65609fcf0a32, title: "build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp (#8506)", files: [go.mod, go.sum]}
+        - {sha: cf0f5fd80492, title: "build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp (#8503)", files: [go.mod, go.sum]}
+      handling: "not applied. #8508 changes v1/format only (with-indenting); the rest bump go.mod/go.sum or change other packages. Checked as for step 3."
+  - n: 5
+    pr: 8511
+    title: "ast: fix parenthesis in String() of {obj,arr,set} comprehensions"
+    merge: 42baad2bc4cb7b64941d8b409ad7001b108dabf7
+    parent: 1de861f2d61903f7cdc99e6a3f5ab0d68631e670
+    stage: 2
+    task: step-5/task.md
+    hidden: step-5/hidden
+    names: step-5/names.yaml
+    given: []
+    outside:
+      files: []
+      treatment: none
+    test_cmd: "go test -count=1 ./v1/ast"
+    known_failing: []
+    intermediate:
+      commits:
+        - {sha: 1de861f2d619, title: "Add support for days, weeks and years in parse_duration_ns (#8463)", files: [v1/ast/builtins.go]}
+      handling: "not applied. #8463 changes only the description string of the parse_duration_ns built-in in v1/ast (2 lines) together with a new duration parser in v1/topdown; no v1/ast test reads the description. Checked: the hidden suite passes at the merge with that line, v1/format, go.mod and go.sum reverted to the seed."

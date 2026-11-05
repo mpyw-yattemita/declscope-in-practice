@@ -1,0 +1,816 @@
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/internal/static_handler.go b/cmd/jaeger/internal/extension/jaegerquery/internal/static_handler.go
+index 1a9e4197..1918a31e 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/internal/static_handler.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/internal/static_handler.go
+@@ -42,9 +42,17 @@ var uiConfigReloadInterval = 10 * time.Second
+ // BackendCapabilities is the JSON shape injected into index.html via the
+ // JAEGER_BACKEND_CAPABILITIES search-replace pattern.
+ type BackendCapabilities struct {
+-	ArchiveStorage bool `json:"archiveStorage"`
+-	MetricsStorage bool `json:"metricsStorage"`
+-	AIAssistant    bool `json:"aiAssistant"`
++	// Storage capabilities, mirrored from querysvc.StorageCapabilities: what the
++	// configured storage backends can do. Fixed for the process lifetime, since they
++	// follow from the storage configuration.
++	ArchiveStorage           bool `json:"archiveStorage"`
++	MetricsStorage           bool `json:"metricsStorage"`
++	SearchWithoutServiceName bool `json:"searchWithoutServiceName"`
++
++	// AIAssistant is not a storage property: it tracks whether a live AI sidecar is
++	// reachable, so it can flip while the process runs and is re-evaluated on every
++	// SPA serve.
++	AIAssistant bool `json:"aiAssistant"`
+ }
+ 
+ // RegisterStaticHandler builds and registers the static-assets handler on r.
+@@ -172,9 +180,10 @@ func (h *staticAssetsHandler) deriveIndexHTML() []byte {
+ 		aiAvailable = h.aiHealthCheck()
+ 	}
+ 	capsJSON, _ := json.Marshal(BackendCapabilities{
+-		ArchiveStorage: h.storageCaps.ArchiveStorage,
+-		MetricsStorage: h.storageCaps.MetricsStorage,
+-		AIAssistant:    aiAvailable,
++		ArchiveStorage:           h.storageCaps.ArchiveStorage,
++		MetricsStorage:           h.storageCaps.MetricsStorage,
++		SearchWithoutServiceName: h.storageCaps.SearchWithoutServiceName,
++		AIAssistant:              aiAvailable,
+ 	})
+ 	out = capabilitiesPattern.ReplaceAll(out, fmt.Appendf(nil, "JAEGER_BACKEND_CAPABILITIES = %s;", capsJSON))
+ 	return out
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/internal/static_handler_test.go b/cmd/jaeger/internal/extension/jaegerquery/internal/static_handler_test.go
+index 601c0b04..28c3f1d9 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/internal/static_handler_test.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/internal/static_handler_test.go
+@@ -78,7 +78,7 @@ func TestRegisterStaticHandler(t *testing.T) {
+ 			logAccess:                   true,
+ 			UIConfigPath:                "",
+ 			expectedUIConfig:            "JAEGER_CONFIG=DEFAULT_CONFIG;",
+-			expectedBackendCapabilities: `JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":false,"metricsStorage":false,"aiAssistant":false};`,
++			expectedBackendCapabilities: `JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":false,"metricsStorage":false,"searchWithoutServiceName":false,"aiAssistant":false};`,
+ 		},
+ 		{
+ 			basePath:                    "/",
+@@ -86,7 +86,7 @@ func TestRegisterStaticHandler(t *testing.T) {
+ 			archiveStorage:              false,
+ 			UIConfigPath:                "fixture/ui-config.json",
+ 			expectedUIConfig:            `JAEGER_CONFIG = {"x":"y"};`,
+-			expectedBackendCapabilities: `JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":false,"metricsStorage":false,"aiAssistant":false};`,
++			expectedBackendCapabilities: `JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":false,"metricsStorage":false,"searchWithoutServiceName":false,"aiAssistant":false};`,
+ 		},
+ 		{
+ 			basePath:                    "/jaeger",
+@@ -95,7 +95,7 @@ func TestRegisterStaticHandler(t *testing.T) {
+ 			archiveStorage:              true,
+ 			UIConfigPath:                "fixture/ui-config.js",
+ 			expectedUIConfig:            "function UIConfig(){",
+-			expectedBackendCapabilities: `JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":true,"metricsStorage":false,"aiAssistant":false};`,
++			expectedBackendCapabilities: `JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":true,"metricsStorage":false,"searchWithoutServiceName":false,"aiAssistant":false};`,
+ 		},
+ 		{
+ 			basePath:                    "/metrics",
+@@ -104,7 +104,7 @@ func TestRegisterStaticHandler(t *testing.T) {
+ 			metricsStorage:              true,
+ 			UIConfigPath:                "fixture/ui-config.js",
+ 			expectedUIConfig:            "function UIConfig(){",
+-			expectedBackendCapabilities: `JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":false,"metricsStorage":true,"aiAssistant":false};`,
++			expectedBackendCapabilities: `JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":false,"metricsStorage":true,"searchWithoutServiceName":false,"aiAssistant":false};`,
+ 		},
+ 	}
+ 	httpClient = &http.Client{
+@@ -167,11 +167,12 @@ func TestRegisterStaticHandler(t *testing.T) {
+ 
+ func TestStaticHandlerInjectsBackendCapabilities(t *testing.T) {
+ 	tests := []struct {
+-		name              string
+-		archiveStorage    bool
+-		metricsStorage    bool
+-		aiHealthCheck     func() bool
+-		expectAIAssistant bool
++		name                     string
++		archiveStorage           bool
++		metricsStorage           bool
++		searchWithoutServiceName bool
++		aiHealthCheck            func() bool
++		expectAIAssistant        bool
+ 	}{
+ 		{
+ 			name:              "no AI health check injects aiAssistant=false",
+@@ -195,6 +196,10 @@ func TestStaticHandlerInjectsBackendCapabilities(t *testing.T) {
+ 			aiHealthCheck:     func() bool { return true },
+ 			expectAIAssistant: true,
+ 		},
++		{
++			name:                     "search without service name is advertised when the backend supports it",
++			searchWithoutServiceName: true,
++		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+@@ -203,8 +208,9 @@ func TestStaticHandlerInjectsBackendCapabilities(t *testing.T) {
+ 				r, zap.NewNop(),
+ 				&QueryOptions{UIConfig: UIConfig{AssetsPath: "fixture"}, BasePath: ""},
+ 				querysvc.StorageCapabilities{
+-					ArchiveStorage: tt.archiveStorage,
+-					MetricsStorage: tt.metricsStorage,
++					ArchiveStorage:           tt.archiveStorage,
++					MetricsStorage:           tt.metricsStorage,
++					SearchWithoutServiceName: tt.searchWithoutServiceName,
+ 				},
+ 				tt.aiHealthCheck,
+ 			)
+@@ -215,8 +221,8 @@ func TestStaticHandlerInjectsBackendCapabilities(t *testing.T) {
+ 			body := rr.Body.String()
+ 
+ 			expected := fmt.Sprintf(
+-				`JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":%t,"metricsStorage":%t,"aiAssistant":%t};`,
+-				tt.archiveStorage, tt.metricsStorage, tt.expectAIAssistant,
++				`JAEGER_BACKEND_CAPABILITIES = {"archiveStorage":%t,"metricsStorage":%t,"searchWithoutServiceName":%t,"aiAssistant":%t};`,
++				tt.archiveStorage, tt.metricsStorage, tt.searchWithoutServiceName, tt.expectAIAssistant,
+ 			)
+ 			assert.Contains(t, body, expected, "backend capabilities injection mismatch")
+ 		})
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator.go b/cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator.go
+index de168886..617df082 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator.go
+@@ -164,6 +164,12 @@ func (r *reader) GetTraces(ctx context.Context, traceIDs ...tracestore.GetTraceP
+ 	}
+ }
+ 
++// SearchCapabilities forwards the wrapped reader's declaration: an interceptor gates
++// and sanitizes queries, it does not change which query shapes the backend accepts.
++func (r *reader) SearchCapabilities(ctx context.Context) (tracestore.SearchCapabilities, error) {
++	return r.next.SearchCapabilities(ctx)
++}
++
+ func (r *reader) GetServices(ctx context.Context) ([]string, error) {
+ 	return r.next.GetServices(ctx)
+ }
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator_test.go b/cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator_test.go
+index 1adccc56..ae88a9b3 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator_test.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/queryinterceptor/reader_decorator_test.go
+@@ -6,6 +6,7 @@ package queryinterceptor
+ import (
+ 	"context"
+ 	"errors"
++	"fmt"
+ 	"iter"
+ 	"testing"
+ 
+@@ -33,6 +34,12 @@ type fakeReader struct {
+ 	gotSummaryQuery tracestore.TraceQueryParams
+ 	summaries       []tracestore.TraceSummary
+ 	summaryErr      error
++	capabilities    tracestore.SearchCapabilities
++	capabilitiesErr error
++}
++
++func (f *fakeReader) SearchCapabilities(context.Context) (tracestore.SearchCapabilities, error) {
++	return f.capabilities, f.capabilitiesErr
+ }
+ 
+ func (f *fakeReader) FindTraces(ctx context.Context, q tracestore.TraceQueryParams) iter.Seq2[[]ptrace.Traces, error] {
+@@ -534,3 +541,38 @@ func TestReader_FindTraceSummaries_StorageErrorPropagates(t *testing.T) {
+ 	}
+ 	require.ErrorIs(t, err, sentinel)
+ }
++
++// TestReader_SearchCapabilities_ForwardsBackendDeclaration pins that wrapping does not
++// change which query shapes the backend accepts. An interceptor gates and sanitizes
++// queries; if the decorator answered for itself, a capability the backend has would be
++// lost to every caller that consults it (RFC 0013 §3.1).
++//
++// The cases enumerate every permutation of SearchCapabilities, so forwarding is proven
++// per field rather than for one value that happens to pass;
++// TestSearchCapabilities_FieldCount fails when a field is added without extending this
++// table.
++func TestReader_SearchCapabilities_ForwardsBackendDeclaration(t *testing.T) {
++	for _, caps := range []tracestore.SearchCapabilities{
++		{WithoutServiceName: false},
++		{WithoutServiceName: true},
++	} {
++		t.Run(fmt.Sprintf("%+v", caps), func(t *testing.T) {
++			r := NewReaderDecorator(&fakeReader{capabilities: caps}, fakeInterceptor{})
++
++			got, err := r.SearchCapabilities(t.Context())
++			require.NoError(t, err)
++			assert.Equal(t, caps, got)
++		})
++	}
++}
++
++// TestReader_SearchCapabilities_ForwardsFailure pins that "cannot answer" survives the
++// wrapper too: a decorator that swallowed the error would turn it into "no capabilities",
++// which is a different claim.
++func TestReader_SearchCapabilities_ForwardsFailure(t *testing.T) {
++	sentinel := errors.New("cannot ask the backend")
++	r := NewReaderDecorator(&fakeReader{capabilitiesErr: sentinel}, fakeInterceptor{})
++
++	_, err := r.SearchCapabilities(t.Context())
++	require.ErrorIs(t, err, sentinel)
++}
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go b/cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go
+index ff550581..5e96a26c 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/querysvc/service.go
+@@ -39,6 +39,10 @@ type QueryServiceOptions struct {
+ type StorageCapabilities struct {
+ 	ArchiveStorage bool `json:"archiveStorage"`
+ 	MetricsStorage bool `json:"metricsStorage"`
++	// SearchWithoutServiceName reports whether the trace storage backend accepts a
++	// search that omits the service name and reads it as "any service" (RFC 0013).
++	// The UI offers its "All Services" option only when this is true.
++	SearchWithoutServiceName bool `json:"searchWithoutServiceName"`
+ 	// Potential future extensions:
+ 	// SupportRegex     bool
+ 	// SupportTagFilter bool
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/server.go b/cmd/jaeger/internal/extension/jaegerquery/server.go
+index 4b09d79c..d9f52807 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/server.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/server.go
+@@ -118,9 +118,18 @@ func (s *server) Start(ctx context.Context, host component.Host) error {
+ 	tm := tenancy.NewManager(&s.config.Tenancy)
+ 	s.tenancyManager = tm
+ 
++	searchCaps, err := traceReader.SearchCapabilities(ctx)
++	if err != nil {
++		telset.Logger.Info(
++			"Storage did not report its search capabilities; assuming baseline",
++			zap.Error(err),
++		)
++	}
++
+ 	caps := querysvc.StorageCapabilities{
+-		ArchiveStorage: opts.ArchiveTraceReader != nil && opts.ArchiveTraceWriter != nil,
+-		MetricsStorage: s.config.Storage.Metrics != "",
++		ArchiveStorage:           opts.ArchiveTraceReader != nil && opts.ArchiveTraceWriter != nil,
++		MetricsStorage:           s.config.Storage.Metrics != "",
++		SearchWithoutServiceName: searchCaps.WithoutServiceName,
+ 	}
+ 
+ 	s.aiHealth = buildAIHealthChecker(&s.config.QueryOptions, telset.Logger)
+diff --git a/cmd/jaeger/internal/extension/jaegerquery/server_test.go b/cmd/jaeger/internal/extension/jaegerquery/server_test.go
+index 2d8c946b..6cea3a7f 100644
+--- a/cmd/jaeger/internal/extension/jaegerquery/server_test.go
++++ b/cmd/jaeger/internal/extension/jaegerquery/server_test.go
+@@ -13,6 +13,7 @@ import (
+ 
+ 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage/storagetest"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/mock"
+ 	"github.com/stretchr/testify/require"
+ 	"go.opentelemetry.io/collector/component"
+ 	"go.opentelemetry.io/collector/component/componenttest"
+@@ -44,6 +45,9 @@ import (
+ 
+ type fakeFactory struct {
+ 	name string
++	// searchWithoutServiceName is what the reader this factory builds declares, so a
++	// test can drive what server.Start advertises to the UI.
++	searchWithoutServiceName bool
+ }
+ 
+ func (ff fakeFactory) CreateDependencyReader() (depstore.Reader, error) {
+@@ -57,7 +61,11 @@ func (ff fakeFactory) CreateTraceReader() (tracestore.Reader, error) {
+ 	if ff.name == "need-span-reader-error" {
+ 		return nil, errors.New("test-error")
+ 	}
+-	return &tracestoremocks.Reader{}, nil
++	reader := &tracestoremocks.Reader{}
++	reader.On("SearchCapabilities", mock.Anything).
++		Return(tracestore.SearchCapabilities{WithoutServiceName: ff.searchWithoutServiceName}, nil).
++		Maybe()
++	return reader, nil
+ }
+ 
+ func (ff fakeFactory) CreateTraceWriter() (tracestore.Writer, error) {
+diff --git a/cmd/jaeger/internal/integration/trace_reader.go b/cmd/jaeger/internal/integration/trace_reader.go
+index 20531929..17ba2e4c 100644
+--- a/cmd/jaeger/internal/integration/trace_reader.go
++++ b/cmd/jaeger/internal/integration/trace_reader.go
+@@ -41,6 +41,16 @@ type traceReader struct {
+ 	client     api_v3.QueryServiceClient
+ }
+ 
++// SearchCapabilities cannot be answered: api_v3 has no capability discovery, so this
++// client has no way to ask the query service what the storage behind it supports
++// (RFC 0013 §3.7 proposes the API that would let it). Reporting ErrUnsupported says
++// exactly that, where any concrete value would be a guess a caller might trust.
++func (*traceReader) SearchCapabilities(context.Context) (tracestore.SearchCapabilities, error) {
++	return tracestore.SearchCapabilities{}, fmt.Errorf(
++		"api_v3 does not expose the backend's search capabilities: %w", errors.ErrUnsupported,
++	)
++}
++
+ func createTraceReader(logger *zap.Logger, port int) (*traceReader, error) {
+ 	logger.Info("Creating the trace reader", zap.Int("port", port))
+ 	opts := []grpc.DialOption{
+diff --git a/internal/storage/v2/api/tracestore/mocks/mocks.go b/internal/storage/v2/api/tracestore/mocks/mocks.go
+index 26e9483b..6a4c1472 100644
+--- a/internal/storage/v2/api/tracestore/mocks/mocks.go
++++ b/internal/storage/v2/api/tracestore/mocks/mocks.go
+@@ -637,6 +637,66 @@ func (_c *Reader_GetTraces_Call) RunAndReturn(run func(ctx context.Context, trac
+ 	return _c
+ }
+ 
++// SearchCapabilities provides a mock function for the type Reader
++func (_mock *Reader) SearchCapabilities(ctx context.Context) (tracestore.SearchCapabilities, error) {
++	ret := _mock.Called(ctx)
++
++	if len(ret) == 0 {
++		panic("no return value specified for SearchCapabilities")
++	}
++
++	var r0 tracestore.SearchCapabilities
++	var r1 error
++	if returnFunc, ok := ret.Get(0).(func(context.Context) (tracestore.SearchCapabilities, error)); ok {
++		return returnFunc(ctx)
++	}
++	if returnFunc, ok := ret.Get(0).(func(context.Context) tracestore.SearchCapabilities); ok {
++		r0 = returnFunc(ctx)
++	} else {
++		r0 = ret.Get(0).(tracestore.SearchCapabilities)
++	}
++	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
++		r1 = returnFunc(ctx)
++	} else {
++		r1 = ret.Error(1)
++	}
++	return r0, r1
++}
++
++// Reader_SearchCapabilities_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SearchCapabilities'
++type Reader_SearchCapabilities_Call struct {
++	*mock.Call
++}
++
++// SearchCapabilities is a helper method to define mock.On call
++//   - ctx context.Context
++func (_e *Reader_Expecter) SearchCapabilities(ctx interface{}) *Reader_SearchCapabilities_Call {
++	return &Reader_SearchCapabilities_Call{Call: _e.mock.On("SearchCapabilities", ctx)}
++}
++
++func (_c *Reader_SearchCapabilities_Call) Run(run func(ctx context.Context)) *Reader_SearchCapabilities_Call {
++	_c.Call.Run(func(args mock.Arguments) {
++		var arg0 context.Context
++		if args[0] != nil {
++			arg0 = args[0].(context.Context)
++		}
++		run(
++			arg0,
++		)
++	})
++	return _c
++}
++
++func (_c *Reader_SearchCapabilities_Call) Return(searchCapabilities tracestore.SearchCapabilities, err error) *Reader_SearchCapabilities_Call {
++	_c.Call.Return(searchCapabilities, err)
++	return _c
++}
++
++func (_c *Reader_SearchCapabilities_Call) RunAndReturn(run func(ctx context.Context) (tracestore.SearchCapabilities, error)) *Reader_SearchCapabilities_Call {
++	_c.Call.Return(run)
++	return _c
++}
++
+ // NewWriter creates a new instance of Writer. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+ // The first argument is typically a *testing.T value.
+ func NewWriter(t interface {
+diff --git a/internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics.go b/internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics.go
+index d2878b35..56947521 100644
+--- a/internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics.go
++++ b/internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics.go
+@@ -128,6 +128,12 @@ func (m *ReadMetricsDecorator) GetTraces(ctx context.Context, traceIDs ...traces
+ }
+ 
+ // GetServices implements tracestore.Reader#GetServices
++// SearchCapabilities forwards the wrapped reader's declaration: the decorator only
++// times queries, so the backend's abilities are what callers must see.
++func (m *ReadMetricsDecorator) SearchCapabilities(ctx context.Context) (tracestore.SearchCapabilities, error) {
++	return m.traceReader.SearchCapabilities(ctx)
++}
++
+ func (m *ReadMetricsDecorator) GetServices(ctx context.Context) ([]string, error) {
+ 	start := time.Now()
+ 	retMe, err := m.traceReader.GetServices(ctx)
+diff --git a/internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics_test.go b/internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics_test.go
+index 7f5de312..c3821810 100644
+--- a/internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics_test.go
++++ b/internal/storage/v2/api/tracestore/tracestoremetrics/reader_metrics_test.go
+@@ -5,10 +5,12 @@ package tracestoremetrics
+ 
+ import (
+ 	"context"
++	"fmt"
+ 	"iter"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/mock"
+ 	"github.com/stretchr/testify/require"
+ 	"go.opentelemetry.io/collector/pdata/ptrace"
+ 
+@@ -249,3 +251,30 @@ func TestReadMetricsDecorator_FindTraceSummaries_EarlyExit(t *testing.T) {
+ 	assert.Equal(t, int64(1), counters["requests|operation=find_trace_summaries|result=ok"])
+ 	assert.Equal(t, int64(2), counters["responses|operation=find_trace_summaries"])
+ }
++
++// TestReadMetricsDecorator_SearchCapabilities pins that the decorator forwards the
++// backend's declaration rather than answering for itself. This decorator wraps every
++// reader the factories build, so answering here would hide a capability the backend has
++// from everything downstream (RFC 0013 §3.1).
++//
++// The cases enumerate every permutation of SearchCapabilities, so forwarding is proven
++// per field rather than for one value that happens to pass;
++// TestSearchCapabilities_FieldCount fails when a field is added without extending this
++// table.
++func TestReadMetricsDecorator_SearchCapabilities(t *testing.T) {
++	for _, caps := range []tracestore.SearchCapabilities{
++		{WithoutServiceName: false},
++		{WithoutServiceName: true},
++	} {
++		t.Run(fmt.Sprintf("%+v", caps), func(t *testing.T) {
++			inner := &mocks.Reader{}
++			inner.On("SearchCapabilities", mock.Anything).Return(caps, nil)
++
++			d := NewReaderDecorator(inner, metricstest.NewFactory(0))
++
++			got, err := d.SearchCapabilities(context.Background())
++			require.NoError(t, err)
++			assert.Equal(t, caps, got)
++		})
++	}
++}
+diff --git a/internal/storage/v2/cassandra/tracestore/reader.go b/internal/storage/v2/cassandra/tracestore/reader.go
+index 0667ac9d..9c18ee65 100644
+--- a/internal/storage/v2/cassandra/tracestore/reader.go
++++ b/internal/storage/v2/cassandra/tracestore/reader.go
+@@ -23,6 +23,13 @@ type TraceReader struct {
+ 	reader spanstore.CoreSpanReader
+ }
+ 
++func (*TraceReader) SearchCapabilities(context.Context) (tracestore.SearchCapabilities, error) {
++	return tracestore.SearchCapabilities{
++		// Every Cassandra index is keyed by service name, so a search cannot omit it.
++		WithoutServiceName: false,
++	}, nil
++}
++
+ func NewTraceReader(reader spanstore.CoreSpanReader) *TraceReader {
+ 	return &TraceReader{reader: reader}
+ }
+diff --git a/internal/storage/v2/cassandra/tracestore/reader_test.go b/internal/storage/v2/cassandra/tracestore/reader_test.go
+index 28b7972f..79c5d1ad 100644
+--- a/internal/storage/v2/cassandra/tracestore/reader_test.go
++++ b/internal/storage/v2/cassandra/tracestore/reader_test.go
+@@ -234,3 +234,11 @@ func mockIter(traces []cassdbmodel.Trace, err error) iter.Seq2[cassdbmodel.Trace
+ 		}
+ 	}
+ }
++
++// Every Cassandra index is keyed by service name, so the reader declares that a search
++// cannot omit any query field (RFC 0013).
++func TestTraceReader_SearchCapabilities(t *testing.T) {
++	caps, err := (&TraceReader{}).SearchCapabilities(context.Background())
++	require.NoError(t, err)
++	assert.Equal(t, tracestore.SearchCapabilities{}, caps)
++}
+diff --git a/internal/storage/v2/clickhouse/tracestore/reader.go b/internal/storage/v2/clickhouse/tracestore/reader.go
+index 7dcdf67d..c2b6a67d 100644
+--- a/internal/storage/v2/clickhouse/tracestore/reader.go
++++ b/internal/storage/v2/clickhouse/tracestore/reader.go
+@@ -58,6 +58,15 @@ func NewReader(conn driver.Conn, cfg ReaderConfig) *Reader {
+ 	return &Reader{conn: conn, config: cfg, attrMetaCache: attrMetaCache}
+ }
+ 
++func (*Reader) SearchCapabilities(context.Context) (tracestore.SearchCapabilities, error) {
++	return tracestore.SearchCapabilities{
++		// The search SQL starts from "WHERE 1=1" and appends the service predicate only
++		// when the query carries a name, so an omitted name matches spans from every
++		// service.
++		WithoutServiceName: true,
++	}, nil
++}
++
+ func (r *Reader) GetTraces(
+ 	ctx context.Context,
+ 	traceIDs ...tracestore.GetTraceParams,
+diff --git a/internal/storage/v2/clickhouse/tracestore/reader_test.go b/internal/storage/v2/clickhouse/tracestore/reader_test.go
+index 1ba207ec..b9dedc61 100644
+--- a/internal/storage/v2/clickhouse/tracestore/reader_test.go
++++ b/internal/storage/v2/clickhouse/tracestore/reader_test.go
+@@ -1231,3 +1231,11 @@ func TestFindTraceIDs_BuildQueryError(t *testing.T) {
+ 	_, err := jiter.FlattenWithErrors(iter)
+ 	require.ErrorContains(t, err, "failed to build query")
+ }
++
++// The search SQL appends every predicate conditionally, so ClickHouse answers a query
++// that omits the service name (RFC 0013).
++func TestReader_SearchCapabilities(t *testing.T) {
++	caps, err := (&Reader{}).SearchCapabilities(context.Background())
++	require.NoError(t, err)
++	assert.Equal(t, tracestore.SearchCapabilities{WithoutServiceName: true}, caps)
++}
+diff --git a/internal/storage/v2/elasticsearch/tracestore/core/reader.go b/internal/storage/v2/elasticsearch/tracestore/core/reader.go
+index c1777f44..b54b8b32 100644
+--- a/internal/storage/v2/elasticsearch/tracestore/core/reader.go
++++ b/internal/storage/v2/elasticsearch/tracestore/core/reader.go
+@@ -52,9 +52,6 @@ const (
+ )
+ 
+ var (
+-	// ErrServiceNameNotSet occurs when attempting to query with an empty service name
+-	ErrServiceNameNotSet = errors.New("service Name must be set")
+-
+ 	// ErrStartTimeMinGreaterThanMax occurs when start time min is above start time max
+ 	ErrStartTimeMinGreaterThanMax = errors.New("start Time Minimum is above Maximum")
+ 
+@@ -390,9 +387,6 @@ func buildTraceByIDQuery(traceID dbmodel.TraceID) esquery.Query {
+ }
+ 
+ func validateQuery(p dbmodel.TraceQueryParameters) error {
+-	if p.ServiceName == "" && len(p.Tags) > 0 {
+-		return ErrServiceNameNotSet
+-	}
+ 	if p.StartTimeMin.IsZero() || p.StartTimeMax.IsZero() {
+ 		return ErrStartAndEndTimeNotSet
+ 	}
+diff --git a/internal/storage/v2/elasticsearch/tracestore/core/reader_test.go b/internal/storage/v2/elasticsearch/tracestore/core/reader_test.go
+index c5d5368d..c2176384 100644
+--- a/internal/storage/v2/elasticsearch/tracestore/core/reader_test.go
++++ b/internal/storage/v2/elasticsearch/tracestore/core/reader_test.go
+@@ -734,22 +734,24 @@ func TestSpanReader_FindTraces(t *testing.T) {
+ 	})
+ }
+ 
+-func TestSpanReader_FindTracesInvalidQuery(t *testing.T) {
++// TestSpanReader_FindTracesRejectsQueryBeforeSearching covers the FindTraces side of
++// validation: a query that validateQuery rejects — here an unset time range — returns
++// the validation error without a round trip to the cluster. TestTraceQueryParameterValidation
++// covers which queries are rejected; this covers that rejection short-circuits the search.
++func TestSpanReader_FindTracesRejectsQueryBeforeSearching(t *testing.T) {
+ 	withSpanReader(t, func(r *spanReaderTest) {
+-		// Missing service name with tags fails validation before any search runs.
+ 		traceQuery := dbmodel.TraceQueryParameters{
+-			ServiceName: "",
++			ServiceName: serviceName,
+ 			Tags: map[string]string{
+ 				"hello": "world",
+ 			},
+-			StartTimeMin: time.Now().Add(-1 * time.Hour),
+-			StartTimeMax: time.Now(),
+ 		}
+ 
+ 		traces, err := r.reader.FindTraces(context.Background(), traceQuery)
+-		require.NotEmpty(t, r.traceBuffer.GetSpans(), "Spans recorded")
+-		require.Error(t, err)
++		require.ErrorIs(t, err, ErrStartAndEndTimeNotSet)
+ 		assert.Nil(t, traces)
++		r.searcher.AssertNotCalled(t, "Search")
++		require.NotEmpty(t, r.traceBuffer.GetSpans(), "the attempt is still traced")
+ 	})
+ }
+ 
+@@ -875,20 +877,23 @@ func mockSearchService(r *spanReaderTest) *mock.Call {
+ }
+ 
+ func TestTraceQueryParameterValidation(t *testing.T) {
++	// A tag search with no service name is a valid cross-service query (RFC 0013):
++	// the tag clauses do not reference the service, so only the time range is required.
+ 	tqp := dbmodel.TraceQueryParameters{
+ 		ServiceName: "",
+ 		Tags: map[string]string{
+ 			"hello": "world",
+ 		},
++		StartTimeMin: time.Now().Add(-1 * time.Hour),
++		StartTimeMax: time.Now(),
+ 	}
+-	err := validateQuery(tqp)
+-	require.EqualError(t, err, ErrServiceNameNotSet.Error())
++	require.NoError(t, validateQuery(tqp))
+ 
+ 	tqp.ServiceName = serviceName
+ 
+ 	tqp.StartTimeMin = time.Time{} // time.Unix(0,0) doesn't work because timezones
+ 	tqp.StartTimeMax = time.Time{}
+-	err = validateQuery(tqp)
++	err := validateQuery(tqp)
+ 	require.EqualError(t, err, ErrStartAndEndTimeNotSet.Error())
+ 
+ 	tqp.StartTimeMin = time.Now()
+@@ -962,6 +967,32 @@ func TestSpanReader_buildFindTraceIDsQuery(t *testing.T) {
+ 	})
+ }
+ 
++// TestSpanReader_buildFindTraceIDsQueryWithoutServiceName pins the cross-service
++// search RFC 0013 relies on: with no service name the query carries every other
++// clause and simply omits the process.serviceName term, so it matches spans from all
++// services rather than none.
++func TestSpanReader_buildFindTraceIDsQueryWithoutServiceName(t *testing.T) {
++	withSpanReader(t, func(r *spanReaderTest) {
++		traceQuery := dbmodel.TraceQueryParameters{
++			StartTimeMin: time.Time{},
++			StartTimeMax: time.Time{}.Add(time.Second),
++			Tags: map[string]string{
++				"hello": "world",
++			},
++		}
++
++		actual, err := r.reader.buildFindTraceIDsQuery(traceQuery).Source()
++		require.NoError(t, err)
++		expected, err := esquery.NewBoolQuery().
++			Must(
++				r.reader.buildStartTimeQuery(time.Time{}, time.Time{}.Add(time.Second)),
++				r.reader.buildTagQuery("hello", "world"),
++			).Source()
++		require.NoError(t, err)
++		assert.Equal(t, expected, actual)
++	})
++}
++
+ // TestSpanReader_buildFindTraceIDsQuery_errorTag covers the error tag special
+ // case. Non-error spans carry no error tag (only error spans get error=true), so a
+ // literal error=false match finds nothing; error=false must instead exclude
+diff --git a/internal/storage/v2/elasticsearch/tracestore/reader.go b/internal/storage/v2/elasticsearch/tracestore/reader.go
+index 17fe0960..a9a172ae 100644
+--- a/internal/storage/v2/elasticsearch/tracestore/reader.go
++++ b/internal/storage/v2/elasticsearch/tracestore/reader.go
+@@ -28,6 +28,15 @@ func NewTraceReader(p core.SpanReaderParams) *TraceReader {
+ 	}
+ }
+ 
++func (*TraceReader) SearchCapabilities(context.Context) (tracestore.SearchCapabilities, error) {
++	return tracestore.SearchCapabilities{
++		// The query adds its process.serviceName clause only when the query carries a
++		// name, and no other clause depends on it, so an omitted name matches spans from
++		// every service.
++		WithoutServiceName: true,
++	}, nil
++}
++
+ func (r *TraceReader) GetTraces(ctx context.Context, params ...tracestore.GetTraceParams) iter.Seq2[[]ptrace.Traces, error] {
+ 	return func(yield func([]ptrace.Traces, error) bool) {
+ 		dbTraceIds := make([]dbmodel.TraceID, 0, len(params))
+diff --git a/internal/storage/v2/elasticsearch/tracestore/reader_test.go b/internal/storage/v2/elasticsearch/tracestore/reader_test.go
+index bded7241..a0e306f4 100644
+--- a/internal/storage/v2/elasticsearch/tracestore/reader_test.go
++++ b/internal/storage/v2/elasticsearch/tracestore/reader_test.go
+@@ -24,6 +24,15 @@ import (
+ 	"github.com/jaegertracing/jaeger/internal/storage/v2/elasticsearch/tracestore/core/mocks"
+ )
+ 
++// TestTraceReader_SearchCapabilities pins the declaration the UI reads: the search
++// query adds its process.serviceName clause only when the query carries a service
++// name, so Elasticsearch/OpenSearch answers a query that omits it (RFC 0013).
++func TestTraceReader_SearchCapabilities(t *testing.T) {
++	caps, err := (&TraceReader{}).SearchCapabilities(context.Background())
++	require.NoError(t, err)
++	assert.Equal(t, tracestore.SearchCapabilities{WithoutServiceName: true}, caps)
++}
++
+ func TestTraceReader_GetServices(t *testing.T) {
+ 	coreReader := &mocks.Reader{}
+ 	reader := TraceReader{spanReader: coreReader}
+diff --git a/internal/storage/v2/grpc/tracereader.go b/internal/storage/v2/grpc/tracereader.go
+index 6130fbfb..d866e027 100644
+--- a/internal/storage/v2/grpc/tracereader.go
++++ b/internal/storage/v2/grpc/tracereader.go
+@@ -36,6 +36,19 @@ func NewTraceReader(conn *grpc.ClientConn) *TraceReader {
+ 	}
+ }
+ 
++// SearchCapabilities cannot be answered: jaeger.storage.v2 has no capability RPC, so a
++// remote backend's abilities are invisible from here and any value would be a guess.
++// Callers treat ErrUnsupported as no capabilities, which keeps every existing remote
++// deployment behaving as it does today, while leaving "unknown" distinguishable from a
++// backend that declared nothing. RFC 0013 Milestone 5 adds the operator-set override that
++// lets a deployment answer for its own remote backend.
++func (*TraceReader) SearchCapabilities(context.Context) (tracestore.SearchCapabilities, error) {
++	return tracestore.SearchCapabilities{}, fmt.Errorf(
++		"jaeger.storage.v2 does not expose the remote backend's search capabilities: %w",
++		errors.ErrUnsupported,
++	)
++}
++
+ func (tr *TraceReader) GetTraces(
+ 	ctx context.Context,
+ 	traceIDs ...tracestore.GetTraceParams,
+diff --git a/internal/storage/v2/grpc/tracereader_test.go b/internal/storage/v2/grpc/tracereader_test.go
+index 338e72c5..6d1720e4 100644
+--- a/internal/storage/v2/grpc/tracereader_test.go
++++ b/internal/storage/v2/grpc/tracereader_test.go
+@@ -815,3 +815,11 @@ func TestTraceReader_FindTraceSummaries_Unimplemented(t *testing.T) {
+ 	}))
+ 	require.ErrorIs(t, err, errors.ErrUnsupported)
+ }
++
++// A remote backend's abilities cannot be introspected over jaeger.storage.v2, so the
++// reader says it cannot answer rather than reporting a value a caller might trust
++// (RFC 0013 §3.1). Milestone 5 adds the operator-set override.
++func TestTraceReader_SearchCapabilities(t *testing.T) {
++	_, err := (&TraceReader{}).SearchCapabilities(context.Background())
++	require.ErrorIs(t, err, errors.ErrUnsupported)
++}
+diff --git a/internal/storage/v2/memory/memory.go b/internal/storage/v2/memory/memory.go
+index 57360501..130c1213 100644
+--- a/internal/storage/v2/memory/memory.go
++++ b/internal/storage/v2/memory/memory.go
+@@ -101,6 +101,14 @@ func (st *Store) GetServices(ctx context.Context) ([]string, error) {
+ 	return retMe, nil
+ }
+ 
++func (*Store) SearchCapabilities(context.Context) (tracestore.SearchCapabilities, error) {
++	return tracestore.SearchCapabilities{
++		// The span matcher treats an empty query service name as "match any", so an
++		// omitted name spans every service in the store.
++		WithoutServiceName: true,
++	}, nil
++}
++
+ func (st *Store) FindTraces(ctx context.Context, query tracestore.TraceQueryParams) iter.Seq2[[]ptrace.Traces, error] {
+ 	m := st.getTenant(tenancy.GetTenant(ctx))
+ 	return func(yield func([]ptrace.Traces, error) bool) {
+diff --git a/internal/storage/v2/memory/memory_test.go b/internal/storage/v2/memory/memory_test.go
+index 70beb476..a190f61c 100644
+--- a/internal/storage/v2/memory/memory_test.go
++++ b/internal/storage/v2/memory/memory_test.go
+@@ -662,6 +662,43 @@ func TestGetOperationsWithKind(t *testing.T) {
+ 	}
+ }
+ 
++// TestFindTracesWithoutServiceName is the behavior behind the store's
++// SearchCapabilities declaration (RFC 0013): a query that omits the service name
++// matches spans from every service, not none.
++func TestFindTracesWithoutServiceName(t *testing.T) {
++	store, err := NewStore(Configuration{MaxTraces: 10})
++	require.NoError(t, err)
++	caps, err := store.SearchCapabilities(context.Background())
++	require.NoError(t, err)
++	assert.True(t, caps.WithoutServiceName)
++
++	for i, service := range []string{"service-a", "service-b"} {
++		td := ptrace.NewTraces()
++		resourceSpan := td.ResourceSpans().AppendEmpty()
++		resourceSpan.Resource().Attributes().PutStr(conventions.ServiceNameKey, service)
++		span := resourceSpan.ScopeSpans().AppendEmpty().Spans().AppendEmpty()
++		span.SetTraceID(fromString(t, fmt.Sprintf("0000000000000%03d0000000000000000", i+1)))
++		span.SetName("span")
++		require.NoError(t, store.WriteTraces(context.Background(), td))
++	}
++
++	query := tracestore.TraceQueryParams{Attributes: pcommon.NewMap(), SearchDepth: 10}
++	var found int
++	for traces, err := range store.FindTraces(context.Background(), query) {
++		require.NoError(t, err)
++		found += len(traces)
++	}
++	assert.Equal(t, 2, found, "a search with no service name must span both services")
++
++	query.ServiceName = "service-a"
++	found = 0
++	for traces, err := range store.FindTraces(context.Background(), query) {
++		require.NoError(t, err)
++		found += len(traces)
++	}
++	assert.Equal(t, 1, found, "a search naming one service still filters to it")
++}
++
+ func TestGetTraces_IterBreak(t *testing.T) {
+ 	store, err := NewStore(Configuration{
+ 		MaxTraces: 10,
+diff --git a/internal/storage/v2/v1adapter/tracereader.go b/internal/storage/v2/v1adapter/tracereader.go
+index b8049d0e..1fb3de5a 100644
+--- a/internal/storage/v2/v1adapter/tracereader.go
++++ b/internal/storage/v2/v1adapter/tracereader.go
+@@ -27,6 +27,14 @@ type TraceReader struct {
+ 	spanReader spanstore.Reader
+ }
+ 
++func (*TraceReader) SearchCapabilities(context.Context) (tracestore.SearchCapabilities, error) {
++	return tracestore.SearchCapabilities{
++		// The v1 readers reject a query with no service name: Cassandra and Badger both
++		// index by it.
++		WithoutServiceName: false,
++	}, nil
++}
++
+ func NewTraceReader(spanReader spanstore.Reader) *TraceReader {
+ 	return &TraceReader{
+ 		spanReader: spanReader,
+diff --git a/internal/storage/v2/v1adapter/tracereader_test.go b/internal/storage/v2/v1adapter/tracereader_test.go
+index a6457593..4c20424d 100644
+--- a/internal/storage/v2/v1adapter/tracereader_test.go
++++ b/internal/storage/v2/v1adapter/tracereader_test.go
+@@ -497,3 +497,11 @@ func TestTraceReader_FindTraceIDsDelegatesResponse(t *testing.T) {
+ 		})
+ 	}
+ }
++
++// The v1 readers reject a query with no service name, so the adapter declares that every
++// query field is required (RFC 0013).
++func TestTraceReader_SearchCapabilities(t *testing.T) {
++	caps, err := (&TraceReader{}).SearchCapabilities(context.Background())
++	require.NoError(t, err)
++	assert.Equal(t, tracestore.SearchCapabilities{}, caps)
++}
