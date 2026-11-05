@@ -72,11 +72,22 @@ A task is usable when all of these hold:
 | Criterion | Why |
 | --- | --- |
 | The package has 8 or more non-test files and 3 or more namespaces, by `declscope survey` | Below that, declscope has little to say |
-| The pull request was merged after the training cutoff of the model under measurement. For Claude Opus 5.5, that means July 2026 or later | Earlier ones may be in the model's training data |
 | It adds a feature, touches 2 or more files of the package, and changes 50 to 500 lines | It needs placement decisions, and it fits one agent run |
 | Its tests call exported API or observable behaviour | Tests that name unexported identifiers break when the agent names things differently |
 | `go test` passes without network or external services | The tests must run in the workspace |
 | A later pull request changes the same package | It becomes the follow-up task |
+
+> [!IMPORTANT]
+> A good task comes first. The merge date only breaks ties.
+
+The model under measurement may have seen an older pull request in training. It may then recall the upstream code instead of designing its own. That helps no arm over another, but it narrows the gaps between them. So among suitable pull requests, those merged after the model's training cutoff are preferred. For Claude Opus 5.5, that means July 2026 or later.
+
+| Group | Use |
+| --- | --- |
+| Merged after the cutoff | Preferred |
+| Merged before the cutoff | Used when it makes a better task than the later ones |
+
+The two groups are reported apart. A small gap between them shows that recall had little effect.
 
 ## Two stages
 
