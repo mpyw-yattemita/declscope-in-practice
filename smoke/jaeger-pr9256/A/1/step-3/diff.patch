@@ -1,0 +1,799 @@
+diff --git a/internal/storage/v2/api/tracestore/filter.go b/internal/storage/v2/api/tracestore/filter.go
+new file mode 100644
+index 0000000..a4f500f
+--- /dev/null
++++ b/internal/storage/v2/api/tracestore/filter.go
+@@ -0,0 +1,393 @@
++// Copyright (c) 2026 The Jaeger Authors.
++// SPDX-License-Identifier: Apache-2.0
++
++package tracestore
++
++import (
++	"fmt"
++	"time"
++
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
++	"go.opentelemetry.io/collector/pdata/pcommon"
++)
++
++// EnsureFilterStandsAlone rejects a query that carries both a filter and one
++// of the predicate fields the filter replaces. The two filtering models are
++// mutually exclusive, so a reader never sees a mix of them.
++func (q TraceQueryParams) EnsureFilterStandsAlone() error {
++	if q.Filter == nil {
++		return nil
++	}
++	var conflicts []string
++	if q.ServiceName != "" {
++		conflicts = append(conflicts, "service_name")
++	}
++	if q.OperationName != "" {
++		conflicts = append(conflicts, "operation_name")
++	}
++	if q.DurationMin != 0 {
++		conflicts = append(conflicts, "duration_min")
++	}
++	if q.DurationMax != 0 {
++		conflicts = append(conflicts, "duration_max")
++	}
++	if attributeCount(q.Attributes) > 0 {
++		conflicts = append(conflicts, "attributes")
++	}
++	if len(conflicts) == 0 {
++		return nil
++	}
++	return fmt.Errorf("%w: a filter replaces the predicate fields %v, so it cannot be combined with them",
++		ErrFilterInvalid, conflicts)
++}
++
++// ForCapabilities gives the Reader whichever of the two filtering models it
++// declared it can evaluate: the filter itself when the Reader declared filter
++// support, and otherwise the filter expressed in the legacy predicate fields.
++// A filter that neither model can serve is refused.
++func (q TraceQueryParams) ForCapabilities(caps SearchCapabilities) (TraceQueryParams, error) {
++	if q.Filter == nil {
++		return q, nil
++	}
++	if caps.Filter.IsEmpty() {
++		return q.ToLegacyShape()
++	}
++	return q, caps.Filter.EnsureSupported(q.Filter)
++}
++
++// EnsureSupported walks the filter and refuses the first predicate the Reader
++// did not declare it can evaluate: an operator it did not list, or a reference
++// to a level it does not index. Constants need no support.
++func (c FilterCapabilities) EnsureSupported(filter *expression.Call) error {
++	if filter == nil {
++		return nil
++	}
++	return c.ensureCallSupported(filter, 1)
++}
++
++func (c FilterCapabilities) ensureCallSupported(call *expression.Call, depth int) error {
++	if depth > expression.MaxNestingDepth {
++		return fmt.Errorf("%w: %w", ErrFilterInvalid, expression.ErrTooDeeplyNested)
++	}
++	if !c.SupportsOperator(call.Op) {
++		return errUnsupportedOperator(call.Op)
++	}
++	for _, arg := range call.Args {
++		var err error
++		switch term := arg.(type) {
++		case *expression.Call:
++			if term != nil {
++				err = c.ensureCallSupported(term, depth+1)
++			}
++		case *expression.AttributeRef:
++			if term != nil {
++				err = c.ensureLevelSupported(term.Level)
++			}
++		case *expression.FieldRef:
++			if term != nil {
++				err = c.ensureLevelSupported(term.Level)
++			}
++		case *expression.NestedRef:
++			if term != nil {
++				err = c.ensureLevelSupported(term.Level)
++			}
++		}
++		if err != nil {
++			return err
++		}
++	}
++	return nil
++}
++
++func (c FilterCapabilities) ensureLevelSupported(level expression.Level) error {
++	if c.SupportsLevel(level) {
++		return nil
++	}
++	return errUnindexedLevel(level)
++}
++
++// ToFilterShape expresses q's scalar predicate fields as filter predicates.
++// It cannot fail, because each legacy field has an exact filter equivalent. A
++// query that already has a Filter is returned as it is.
++//
++// The predicates come in the order service, operation, attributes, minimum
++// duration, maximum duration, and are already resolved: the result passes
++// expression.ValidateFilter, and expression.ResolveConstants leaves it as it is.
++func (q TraceQueryParams) ToFilterShape() TraceQueryParams {
++	if q.Filter != nil {
++		return q
++	}
++	var predicates []*expression.Call
++	if q.ServiceName != "" {
++		predicates = append(predicates, equals(
++			&expression.FieldRef{Level: expression.LevelResource, Name: expression.ResourceFieldService},
++			&expression.StringValue{Value: q.ServiceName}))
++	}
++	if q.OperationName != "" {
++		predicates = append(predicates, equals(
++			&expression.FieldRef{Level: expression.LevelSpan, Name: expression.SpanFieldName},
++			&expression.StringValue{Value: q.OperationName}))
++	}
++	if attributeCount(q.Attributes) > 0 {
++		for key, value := range q.Attributes.All() {
++			// A tag declares no type, so its value stays untyped: a backend matches
++			// it at whatever type the attribute was stored.
++			predicates = append(predicates, equals(
++				&expression.AttributeRef{Key: key},
++				&expression.AnyValue{Value: value.AsString()}))
++		}
++	}
++	if q.DurationMin != 0 {
++		predicates = append(predicates, durationBound(expression.OpGte, q.DurationMin))
++	}
++	if q.DurationMax != 0 {
++		predicates = append(predicates, durationBound(expression.OpLte, q.DurationMax))
++	}
++
++	result := q
++	result.ServiceName = ""
++	result.OperationName = ""
++	result.Attributes = pcommon.NewMap()
++	result.DurationMin = 0
++	result.DurationMax = 0
++	switch len(predicates) {
++	case 0:
++		result.Filter = nil
++	case 1:
++		result.Filter = predicates[0]
++	default:
++		args := make([]expression.Expression, len(predicates))
++		for i, predicate := range predicates {
++			args[i] = predicate
++		}
++		result.Filter = &expression.Call{Op: expression.OpAnd, Args: args}
++	}
++	return result
++}
++
++func equals(ref, constant expression.Expression) *expression.Call {
++	return &expression.Call{Op: expression.OpEq, Args: []expression.Expression{ref, constant}}
++}
++
++func durationBound(op expression.Operator, d time.Duration) *expression.Call {
++	return &expression.Call{Op: op, Args: []expression.Expression{
++		&expression.FieldRef{Level: expression.LevelSpan, Name: expression.SpanFieldDuration},
++		&expression.DurationValue{Value: d},
++	}}
++}
++
++// ToLegacyShape expresses q's Filter in the scalar predicate fields every
++// backend serves. Only a flat conjunction of the predicates those fields can
++// hold converts; anything else is refused rather than approximated.
++//
++// The result has a nil Filter and a new Attributes map, so the caller's map
++// is not changed. On error the original query is returned.
++func (q TraceQueryParams) ToLegacyShape() (TraceQueryParams, error) {
++	if q.Filter == nil {
++		return q, nil
++	}
++	conjuncts, err := flattenConjunction(q.Filter, 1)
++	if err != nil {
++		return q, err
++	}
++	result := q
++	result.Filter = nil
++	result.Attributes = pcommon.NewMap()
++	if attributeCount(q.Attributes) > 0 {
++		q.Attributes.CopyTo(result.Attributes)
++	}
++	l := legacyBuilder{query: &result, attributes: make(map[string]bool)}
++	for _, conjunct := range conjuncts {
++		if err := l.add(conjunct); err != nil {
++			return q, err
++		}
++	}
++	return result, nil
++}
++
++// flattenConjunction returns the conjuncts of a filter, reading nested
++// conjunctions as one, since and is associative. A filter that is not a
++// conjunction is a conjunction of itself.
++func flattenConjunction(filter expression.Expression, depth int) ([]expression.Expression, error) {
++	call, ok := filter.(*expression.Call)
++	if !ok || call == nil || call.Op != expression.OpAnd {
++		return []expression.Expression{filter}, nil
++	}
++	if depth > expression.MaxNestingDepth {
++		return nil, fmt.Errorf("%w: %w", ErrFilterInvalid, expression.ErrTooDeeplyNested)
++	}
++	var conjuncts []expression.Expression
++	for _, arg := range call.Args {
++		nested, err := flattenConjunction(arg, depth+1)
++		if err != nil {
++			return nil, err
++		}
++		conjuncts = append(conjuncts, nested...)
++	}
++	return conjuncts, nil
++}
++
++// legacyBuilder writes the conjuncts of a filter into the legacy fields of a
++// query, refusing a second predicate on a field that holds a single value.
++type legacyBuilder struct {
++	query       *TraceQueryParams
++	service     bool
++	operation   bool
++	durationMin bool
++	durationMax bool
++	attributes  map[string]bool
++}
++
++func (l *legacyBuilder) add(conjunct expression.Expression) error {
++	call, ok := conjunct.(*expression.Call)
++	if !ok || call == nil {
++		return fmt.Errorf("%w: it serves a conjunction of predicates only", ErrFilterUnsupported)
++	}
++	switch call.Op {
++	case expression.OpOr, expression.OpNot, expression.OpExists:
++		return errUnsupportedOperator(call.Op)
++	}
++	if len(call.Args) != 2 {
++		return errUnsupportedOperator(call.Op)
++	}
++	switch ref := call.Args[0].(type) {
++	case *expression.AttributeRef:
++		if ref != nil {
++			return l.addAttribute(call.Op, ref, call.Args[1])
++		}
++	case *expression.FieldRef:
++		if ref != nil {
++			return l.addField(call.Op, ref, call.Args[1])
++		}
++	}
++	return fmt.Errorf("%w: it compares a reference against a constant only", ErrFilterUnsupported)
++}
++
++func (l *legacyBuilder) addAttribute(op expression.Operator, ref *expression.AttributeRef, operand expression.Expression) error {
++	switch ref.Level {
++	case "", expression.LevelSpan, expression.LevelResource, expression.LevelEvent:
++		// A plain tag matches any of these levels, so a qualified one widens to it.
++	default:
++		return errUnindexedLevel(ref.Level)
++	}
++	value, err := stringOperand(op, ref.Key, operand)
++	if err != nil {
++		return err
++	}
++	if l.attributes[ref.Key] {
++		return errDuplicatePredicate(ref.Key)
++	}
++	l.attributes[ref.Key] = true
++	l.query.Attributes.PutStr(ref.Key, value)
++	return nil
++}
++
++func (l *legacyBuilder) addField(op expression.Operator, ref *expression.FieldRef, operand expression.Expression) error {
++	switch {
++	case ref.Level == expression.LevelResource && ref.Name == expression.ResourceFieldService:
++		return setOnce(&l.service, &l.query.ServiceName, op, ref.Name, operand)
++	case ref.Level == expression.LevelSpan && ref.Name == expression.SpanFieldName:
++		return setOnce(&l.operation, &l.query.OperationName, op, ref.Name, operand)
++	case ref.Level == expression.LevelSpan && ref.Name == expression.SpanFieldDuration:
++		return l.addDurationBound(op, ref.Name, operand)
++	default:
++		return fmt.Errorf("%w: it does not support the built-in field %q of the %q level",
++			ErrFilterUnsupported, ref.Name, ref.Level)
++	}
++}
++
++func setOnce(seen *bool, field *string, op expression.Operator, name string, operand expression.Expression) error {
++	value, err := stringOperand(op, name, operand)
++	if err != nil {
++		return err
++	}
++	if *seen {
++		return errDuplicatePredicate(name)
++	}
++	*seen = true
++	*field = value
++	return nil
++}
++
++func (l *legacyBuilder) addDurationBound(op expression.Operator, name string, operand expression.Expression) error {
++	var seen *bool
++	var bound *time.Duration
++	switch op {
++	case expression.OpGte:
++		seen, bound = &l.durationMin, &l.query.DurationMin
++	case expression.OpLte:
++		seen, bound = &l.durationMax, &l.query.DurationMax
++	default:
++		return errUnsupportedComparison(op, name)
++	}
++	var value time.Duration
++	ok := false
++	switch constant := operand.(type) {
++	case *expression.DurationValue:
++		if constant != nil {
++			value, ok = constant.Value, true
++		}
++	case *expression.AnyValue:
++		if constant != nil {
++			return fmt.Errorf("%w: the bound %q on %q was never read as a duration; finalize the filter first",
++				ErrFilterInvalid, constant.Value, name)
++		}
++	}
++	if !ok {
++		return errNotADuration(name)
++	}
++	if *seen {
++		return errDuplicatePredicate(name)
++	}
++	*seen = true
++	*bound = value
++	return nil
++}
++
++// stringOperand returns the text of the constant an equality compares a tag,
++// the service or the operation name against.
++func stringOperand(op expression.Operator, name string, operand expression.Expression) (string, error) {
++	if op != expression.OpEq {
++		return "", errUnsupportedComparison(op, name)
++	}
++	switch constant := operand.(type) {
++	case *expression.StringValue:
++		if constant != nil {
++			return constant.Value, nil
++		}
++	case *expression.AnyValue:
++		if constant != nil {
++			return constant.Value, nil
++		}
++	}
++	return "", fmt.Errorf("%w: it compares %q against a string constant only", ErrFilterUnsupported, name)
++}
++
++// attributeCount is the number of entries in m, which is zero for a Map left
++// at its zero value rather than created with pcommon.NewMap.
++func attributeCount(m pcommon.Map) int {
++	if m == (pcommon.Map{}) {
++		return 0
++	}
++	return m.Len()
++}
++
++func errUnsupportedOperator(op expression.Operator) error {
++	return fmt.Errorf("%w: it does not support the operator %q", ErrFilterUnsupported, op)
++}
++
++func errUnsupportedComparison(op expression.Operator, name string) error {
++	return fmt.Errorf("%w: it does not support the operator %q on %q", ErrFilterUnsupported, op, name)
++}
++
++func errUnindexedLevel(level expression.Level) error {
++	return fmt.Errorf("%w: it does not index the %q level", ErrFilterUnsupported, level)
++}
++
++func errNotADuration(name string) error {
++	return fmt.Errorf("%w: it compares %q against a duration such as \"2s\" only", ErrFilterUnsupported, name)
++}
++
++func errDuplicatePredicate(name string) error {
++	return fmt.Errorf("%w: it accepts only one predicate on %q", ErrFilterUnsupported, name)
++}
+diff --git a/internal/storage/v2/api/tracestore/filter_test.go b/internal/storage/v2/api/tracestore/filter_test.go
+new file mode 100644
+index 0000000..f69f08b
+--- /dev/null
++++ b/internal/storage/v2/api/tracestore/filter_test.go
+@@ -0,0 +1,394 @@
++// Copyright (c) 2026 The Jaeger Authors.
++// SPDX-License-Identifier: Apache-2.0
++
++package tracestore
++
++import (
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++	"go.opentelemetry.io/collector/pdata/pcommon"
++
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
++)
++
++func call(op expression.Operator, args ...expression.Expression) *expression.Call {
++	return &expression.Call{Op: op, Args: args}
++}
++
++func attr(key string) *expression.AttributeRef {
++	return &expression.AttributeRef{Key: key}
++}
++
++func attrAt(level expression.Level, key string) *expression.AttributeRef {
++	return &expression.AttributeRef{Key: key, Level: level}
++}
++
++func field(level expression.Level, name string) *expression.FieldRef {
++	return &expression.FieldRef{Level: level, Name: name}
++}
++
++func untyped(v string) *expression.AnyValue { return &expression.AnyValue{Value: v} }
++
++func str(v string) *expression.StringValue { return &expression.StringValue{Value: v} }
++
++func dur(d time.Duration) *expression.DurationValue { return &expression.DurationValue{Value: d} }
++
++var (
++	serviceField   = field(expression.LevelResource, expression.ResourceFieldService)
++	operationField = field(expression.LevelSpan, expression.SpanFieldName)
++	durationField  = field(expression.LevelSpan, expression.SpanFieldDuration)
++)
++
++func filterQuery(filter *expression.Call) TraceQueryParams {
++	return TraceQueryParams{Attributes: pcommon.NewMap(), Filter: filter}
++}
++
++func TestEnsureFilterStandsAlone(t *testing.T) {
++	filter := call(expression.OpEq, attr("a"), untyped("1"))
++	tests := []struct {
++		name     string
++		query    func() TraceQueryParams
++		expected string
++	}{
++		{"no filter", func() TraceQueryParams {
++			return TraceQueryParams{ServiceName: "cart", Attributes: pcommon.NewMap()}
++		}, ""},
++		{"filter alone", func() TraceQueryParams { return filterQuery(filter) }, ""},
++		{"filter with zero attributes", func() TraceQueryParams { return TraceQueryParams{Filter: filter} }, ""},
++		{"service name", func() TraceQueryParams {
++			q := filterQuery(filter)
++			q.ServiceName = "cart"
++			return q
++		}, "[service_name]"},
++		{"every field", func() TraceQueryParams {
++			q := filterQuery(filter)
++			q.ServiceName = "cart"
++			q.OperationName = "GET"
++			q.DurationMin = time.Second
++			q.DurationMax = time.Minute
++			q.Attributes.PutStr("a", "1")
++			return q
++		}, "[service_name operation_name duration_min duration_max attributes]"},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			err := test.query().EnsureFilterStandsAlone()
++			if test.expected == "" {
++				require.NoError(t, err)
++				return
++			}
++			require.ErrorIs(t, err, ErrFilterInvalid)
++			assert.Contains(t, err.Error(), test.expected)
++		})
++	}
++}
++
++func TestForCapabilities(t *testing.T) {
++	filter := call(expression.OpEq, attr("http.method"), untyped("GET"))
++
++	t.Run("no filter", func(t *testing.T) {
++		q := TraceQueryParams{ServiceName: "cart", Attributes: pcommon.NewMap()}
++		got, err := q.ForCapabilities(SearchCapabilities{})
++		require.NoError(t, err)
++		assert.Equal(t, q, got)
++	})
++	t.Run("no declaration rewrites to legacy", func(t *testing.T) {
++		got, err := filterQuery(filter).ForCapabilities(SearchCapabilities{Filter: &FilterCapabilities{}})
++		require.NoError(t, err)
++		assert.Nil(t, got.Filter)
++		assert.Equal(t, map[string]any{"http.method": "GET"}, got.Attributes.AsRaw())
++	})
++	t.Run("no declaration refuses what legacy cannot hold", func(t *testing.T) {
++		q := filterQuery(call(expression.OpOr, filter, filter))
++		got, err := q.ForCapabilities(SearchCapabilities{})
++		require.ErrorIs(t, err, ErrFilterUnsupported)
++		assert.Equal(t, q, got)
++	})
++	t.Run("declaration passes the filter", func(t *testing.T) {
++		q := filterQuery(filter)
++		caps := SearchCapabilities{Filter: &FilterCapabilities{Operators: []expression.Operator{expression.OpEq}}}
++		got, err := q.ForCapabilities(caps)
++		require.NoError(t, err)
++		assert.Equal(t, q, got)
++	})
++	t.Run("declaration refuses what it lacks", func(t *testing.T) {
++		caps := SearchCapabilities{Filter: &FilterCapabilities{Operators: []expression.Operator{expression.OpNe}}}
++		_, err := filterQuery(filter).ForCapabilities(caps)
++		require.ErrorIs(t, err, ErrFilterUnsupported)
++		assert.Contains(t, err.Error(), `it does not support the operator "eq"`)
++	})
++}
++
++func TestEnsureSupported(t *testing.T) {
++	caps := FilterCapabilities{
++		Levels:    []expression.Level{expression.LevelSpan},
++		Operators: []expression.Operator{expression.OpAnd, expression.OpEq, expression.OpNe, expression.OpSome},
++	}
++	tests := []struct {
++		name     string
++		filter   *expression.Call
++		expected string
++	}{
++		{"nil filter", nil, ""},
++		{"supported", call(expression.OpAnd,
++			call(expression.OpEq, attr("a"), untyped("1")),
++			call(expression.OpNe, attrAt(expression.LevelSpan, "b"), attrAt(expression.LevelSpan, "c"))), ""},
++		{"operator", call(expression.OpOr, call(expression.OpEq, attr("a"), untyped("1"))),
++			`it does not support the operator "or"`},
++		{"nested operator", call(expression.OpAnd, call(expression.OpGt, attr("a"), untyped("1"))),
++			`it does not support the operator "gt"`},
++		{"attribute level", call(expression.OpEq, attrAt(expression.LevelLink, "a"), untyped("1")),
++			`it does not index the "link" level`},
++		{"field level", call(expression.OpEq, serviceField, str("cart")),
++			`it does not index the "resource" level`},
++		{"collection level", call(expression.OpSome, &expression.NestedRef{Level: expression.LevelEvent},
++			call(expression.OpEq, field(expression.LevelEvent, expression.EventFieldName), str("x"))),
++			`it does not index the "event" level`},
++		{"right side of a comparison", call(expression.OpNe,
++			attrAt(expression.LevelSpan, "a"), attrAt(expression.LevelScope, "a")),
++			`it does not index the "scope" level`},
++		{"call on the right side of a comparison", call(expression.OpEq,
++			attr("a"), call(expression.OpGt, attr("b"), untyped("1"))),
++			`it does not support the operator "gt"`},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			err := caps.EnsureSupported(test.filter)
++			if test.expected == "" {
++				require.NoError(t, err)
++				return
++			}
++			require.ErrorIs(t, err, ErrFilterUnsupported)
++			assert.Contains(t, err.Error(), test.expected)
++		})
++	}
++}
++
++func TestEnsureSupported_RefusesACycle(t *testing.T) {
++	cycle := call(expression.OpAnd)
++	cycle.Args = []expression.Expression{cycle}
++	err := FilterCapabilities{Operators: []expression.Operator{expression.OpAnd}}.EnsureSupported(cycle)
++	require.ErrorIs(t, err, ErrFilterInvalid)
++	require.ErrorIs(t, err, expression.ErrTooDeeplyNested)
++}
++
++func TestToFilterShape(t *testing.T) {
++	start := time.Unix(1000, 0)
++	tests := []struct {
++		name     string
++		query    func() TraceQueryParams
++		expected *expression.Call
++	}{
++		{"nothing", func() TraceQueryParams { return TraceQueryParams{Attributes: pcommon.NewMap()} }, nil},
++		{"zero attributes", func() TraceQueryParams { return TraceQueryParams{} }, nil},
++		{"service alone", func() TraceQueryParams {
++			return TraceQueryParams{ServiceName: "cart", Attributes: pcommon.NewMap()}
++		}, call(expression.OpEq, serviceField, str("cart"))},
++		{"everything", func() TraceQueryParams {
++			q := TraceQueryParams{
++				ServiceName:   "cart",
++				OperationName: "GET /cart",
++				Attributes:    pcommon.NewMap(),
++				DurationMin:   time.Second,
++				DurationMax:   time.Minute,
++			}
++			q.Attributes.PutStr("http.method", "GET")
++			q.Attributes.PutInt("http.status_code", 500)
++			return q
++		}, call(expression.OpAnd,
++			call(expression.OpEq, serviceField, str("cart")),
++			call(expression.OpEq, operationField, str("GET /cart")),
++			call(expression.OpEq, attr("http.method"), untyped("GET")),
++			call(expression.OpEq, attr("http.status_code"), untyped("500")),
++			call(expression.OpGte, durationField, dur(time.Second)),
++			call(expression.OpLte, durationField, dur(time.Minute)))},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			q := test.query()
++			q.StartTimeMin = start
++			q.StartTimeMax = start.Add(time.Hour)
++			q.SearchDepth = 20
++
++			got := q.ToFilterShape()
++			assert.Equal(t, test.expected, got.Filter)
++			assert.Empty(t, got.ServiceName)
++			assert.Empty(t, got.OperationName)
++			assert.Zero(t, got.DurationMin)
++			assert.Zero(t, got.DurationMax)
++			assert.Equal(t, 0, got.Attributes.Len())
++			assert.Equal(t, start, got.StartTimeMin)
++			assert.Equal(t, start.Add(time.Hour), got.StartTimeMax)
++			assert.Equal(t, 20, got.SearchDepth)
++			if got.Filter != nil {
++				require.NoError(t, expression.ValidateFilter(got.Filter))
++				resolved, err := expression.ResolveConstants(got.Filter)
++				require.NoError(t, err)
++				assert.Equal(t, got.Filter, resolved)
++			}
++		})
++	}
++}
++
++func TestToFilterShape_KeepsAnExistingFilter(t *testing.T) {
++	q := filterQuery(call(expression.OpEq, attr("a"), untyped("1")))
++	q.ServiceName = "cart"
++	assert.Equal(t, q, q.ToFilterShape())
++}
++
++func TestToLegacyShape_RoundTrip(t *testing.T) {
++	q := TraceQueryParams{
++		ServiceName:   "cart",
++		OperationName: "GET /cart",
++		Attributes:    pcommon.NewMap(),
++		StartTimeMin:  time.Unix(1000, 0),
++		DurationMin:   time.Second,
++		DurationMax:   time.Minute,
++		SearchDepth:   7,
++	}
++	q.Attributes.PutStr("http.method", "GET")
++	q.Attributes.PutStr("peer.service", "db")
++
++	got, err := q.ToFilterShape().ToLegacyShape()
++	require.NoError(t, err)
++	assert.Equal(t, q, got)
++}
++
++func TestToLegacyShape(t *testing.T) {
++	t.Run("no filter", func(t *testing.T) {
++		q := TraceQueryParams{ServiceName: "cart", Attributes: pcommon.NewMap()}
++		got, err := q.ToLegacyShape()
++		require.NoError(t, err)
++		assert.Equal(t, q, got)
++	})
++	t.Run("converts and flattens", func(t *testing.T) {
++		q := filterQuery(call(expression.OpAnd,
++			call(expression.OpEq, serviceField, untyped("cart")),
++			call(expression.OpAnd,
++				call(expression.OpEq, operationField, str("GET")),
++				call(expression.OpEq, attrAt(expression.LevelSpan, "a"), str("1"))),
++			call(expression.OpEq, attrAt(expression.LevelResource, "b"), untyped("2")),
++			call(expression.OpEq, attrAt(expression.LevelEvent, "c"), untyped("3")),
++			call(expression.OpEq, attr("d"), untyped("4")),
++			call(expression.OpGte, durationField, dur(time.Second)),
++			call(expression.OpLte, durationField, dur(time.Minute))))
++		original := q.Attributes
++
++		got, err := q.ToLegacyShape()
++		require.NoError(t, err)
++		assert.Nil(t, got.Filter)
++		assert.Equal(t, "cart", got.ServiceName)
++		assert.Equal(t, "GET", got.OperationName)
++		assert.Equal(t, time.Second, got.DurationMin)
++		assert.Equal(t, time.Minute, got.DurationMax)
++		assert.Equal(t, map[string]any{"a": "1", "b": "2", "c": "3", "d": "4"}, got.Attributes.AsRaw())
++		assert.Equal(t, 0, original.Len(), "the caller's map is not changed")
++	})
++	t.Run("keeps attributes already on the query", func(t *testing.T) {
++		q := filterQuery(call(expression.OpEq, attr("a"), untyped("1")))
++		q.Attributes.PutStr("b", "2")
++		got, err := q.ToLegacyShape()
++		require.NoError(t, err)
++		assert.Equal(t, map[string]any{"a": "1", "b": "2"}, got.Attributes.AsRaw())
++		assert.Equal(t, map[string]any{"b": "2"}, q.Attributes.AsRaw(), "the caller's map is not changed")
++	})
++	t.Run("single predicate with zero attributes", func(t *testing.T) {
++		got, err := TraceQueryParams{Filter: call(expression.OpEq, attr("a"), untyped("1"))}.ToLegacyShape()
++		require.NoError(t, err)
++		assert.Equal(t, map[string]any{"a": "1"}, got.Attributes.AsRaw())
++	})
++}
++
++func TestToLegacyShape_Refusals(t *testing.T) {
++	eqA := call(expression.OpEq, attr("a"), untyped("1"))
++	tests := []struct {
++		name     string
++		filter   *expression.Call
++		expected string
++	}{
++		{"or", call(expression.OpOr, eqA, eqA), `does not support the operator "or"`},
++		{"not", call(expression.OpNot, eqA), `does not support the operator "not"`},
++		{"exists", call(expression.OpExists, attr("a")), `does not support the operator "exists"`},
++		{"or nested in a conjunction", call(expression.OpAnd, eqA, call(expression.OpOr, eqA, eqA)),
++			`does not support the operator "or"`},
++		{"wrong arity", call(expression.OpEq, attr("a")), `does not support the operator "eq"`},
++		{"bare reference", call(expression.OpAnd, eqA, attr("b")), "conjunction of predicates only"},
++		{"ne on an attribute", call(expression.OpNe, attr("http.method"), untyped("GET")),
++			`does not support the operator "ne" on "http.method"`},
++		{"in on an attribute", call(expression.OpIn, attr("http.status_code"),
++			&expression.List{Values: []string{"500"}, Type: expression.ValueTypeInt}),
++			`does not support the operator "in" on "http.status_code"`},
++		{"gt on duration", call(expression.OpGt, durationField, dur(time.Second)),
++			`does not support the operator "gt" on "duration"`},
++		{"regex on name", call(expression.OpRegex, operationField, str("GET.*")),
++			`does not support the operator "regex" on "name"`},
++		{"ne on service", call(expression.OpNe, serviceField, str("cart")),
++			`does not support the operator "ne" on "service"`},
++		{"link attribute", call(expression.OpEq, attrAt(expression.LevelLink, "a"), untyped("1")),
++			`does not index the "link" level`},
++		{"scope attribute", call(expression.OpEq, attrAt(expression.LevelScope, "a"), untyped("1")),
++			`does not index the "scope" level`},
++		{"other built-in field", call(expression.OpEq, field(expression.LevelSpan, expression.SpanFieldKind), str("server")),
++			`does not support the built-in field "kind" of the "span" level`},
++		{"attribute against a list", call(expression.OpEq, attr("a"), &expression.List{Values: []string{"1"}}),
++			`compares "a" against a string constant only`},
++		{"attribute against an integer", call(expression.OpEq, attr("a"), &expression.IntValue{Value: 1}),
++			`compares "a" against a string constant only`},
++		{"service against a boolean", call(expression.OpEq, serviceField, &expression.BoolValue{Value: true}),
++			`compares "service" against a string constant only`},
++		{"operation against a reference", call(expression.OpEq, operationField, attr("b")),
++			`compares "name" against a string constant only`},
++		{"duration against a missing duration", call(expression.OpGte, durationField, (*expression.DurationValue)(nil)),
++			`compares "duration" against a duration such as "2s" only`},
++		{"duration against a missing constant", call(expression.OpLte, durationField, (*expression.AnyValue)(nil)),
++			`compares "duration" against a duration such as "2s" only`},
++		{"duration against a string", call(expression.OpGte, durationField, str("2s")),
++			`compares "duration" against a duration such as "2s" only`},
++		{"quantifier", call(expression.OpSome, &expression.NestedRef{Level: expression.LevelEvent}, eqA),
++			"compares a reference against a constant only"},
++		{"constant on the left", call(expression.OpEq, untyped("1"), attr("a")),
++			"compares a reference against a constant only"},
++		{"same attribute twice", call(expression.OpAnd, eqA, call(expression.OpEq, attrAt(expression.LevelSpan, "a"), untyped("2"))),
++			`only one predicate on "a"`},
++		{"service twice", call(expression.OpAnd,
++			call(expression.OpEq, serviceField, str("a")), call(expression.OpEq, serviceField, str("b"))),
++			`only one predicate on "service"`},
++		{"operation twice", call(expression.OpAnd,
++			call(expression.OpEq, operationField, str("a")), call(expression.OpEq, operationField, str("b"))),
++			`only one predicate on "name"`},
++		{"lower bound twice", call(expression.OpAnd,
++			call(expression.OpGte, durationField, dur(time.Second)), call(expression.OpGte, durationField, dur(time.Minute))),
++			`only one predicate on "duration"`},
++		{"upper bound twice", call(expression.OpAnd,
++			call(expression.OpLte, durationField, dur(time.Second)), call(expression.OpLte, durationField, dur(time.Minute))),
++			`only one predicate on "duration"`},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			q := filterQuery(test.filter)
++			got, err := q.ToLegacyShape()
++			require.ErrorIs(t, err, ErrFilterUnsupported)
++			assert.Contains(t, err.Error(), test.expected)
++			assert.Equal(t, q, got, "the original query is returned")
++		})
++	}
++}
++
++func TestToLegacyShape_UnresolvedDuration(t *testing.T) {
++	q := filterQuery(call(expression.OpGte, durationField, untyped("2s")))
++	got, err := q.ToLegacyShape()
++	require.ErrorIs(t, err, ErrFilterInvalid)
++	assert.Contains(t, err.Error(), `the bound "2s" on "duration" was never read as a duration`)
++	assert.Equal(t, q, got)
++}
++
++func TestToLegacyShape_RefusesACycle(t *testing.T) {
++	cycle := call(expression.OpAnd)
++	cycle.Args = []expression.Expression{cycle}
++	_, err := filterQuery(cycle).ToLegacyShape()
++	require.ErrorIs(t, err, ErrFilterInvalid)
++	require.ErrorIs(t, err, expression.ErrTooDeeplyNested)
++}
