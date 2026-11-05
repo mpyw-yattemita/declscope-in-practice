@@ -1,36 +1,36 @@
-# Design
+# 設計
 
-## The question
+## 問い
 
-[declscope](https://github.com/mpyw/declscope) is a Go linter. It gives a flat package a `private` scope per file. Helping an existing codebase is the obvious use. This experiment asks a different question:
+[declscope](https://github.com/mpyw/declscope) は Go の linter で、flat な package の中に、ファイル単位の `private` スコープを作る。既存のコードベースの改修に役立つのは明らかだが、この実験では別のことを問う。
 
-> When an AI agent adds new code to an existing package, does running declscope make the result easier to change and harder to criticise?
+> AI エージェントが既存の package に新しいコードを足すとき、declscope を使うと、結果のコードは「あとで変更しやすく、レビューで突っ込まれにくい」ものになるか？
 
-Models now follow written rules well. So the experiment also asks a second question:
+最近のモデルは、書かれたルールによく従う。そこで、もう一つ問う。
 
-> Does a deterministic check add anything over stating the same rule in the prompt?
+> 同じルールをプロンプトで伝えるだけでなく、決定論的なチェックを足す意味はあるか？
 
-## Conditions
+## 群
 
-Three arms are nested. Each adds one thing to the arm before it.
+3つの群を入れ子にする。各群は、前の群に1つだけ足したもの。
 
-| Arm | Adds | The difference from the previous arm shows |
+| 群 | 足すもの | 前の群との差で分かること |
 | --- | --- | --- |
-| **A**: none | The task and the shared self-review step | Nothing. This is the control |
-| **P**: prompt | The rule of `declscope-authoring`, rewritten in plain words without the tool | What stating the rule does |
-| **G**: guardrail | declscope itself, with a baseline, the lint loop and directives | What a deterministic check adds to the stated rule |
+| **A**: なし | 課題と、共通の自己レビュー手順 | なし。対照群 |
+| **P**: プロンプト | `declscope-authoring` のルールを、ツール抜きの平易な言葉で書き直したもの | ルールを伝えることの効果 |
+| **G**: ガードレール | declscope 本体。baseline、lint ループ、ディレクティブ | 伝えたルールに、決定論的なチェックが上乗せする効果 |
 
 | | A | P | G |
 | --- | --- | --- | --- |
-| Seed | The same commit, without history | Same | Same |
-| Self-review step | Yes | Yes | Yes |
-| Placement rule in the prompt | No | Yes | Yes |
-| declscope on `PATH`, with a baseline of the seed's findings | No | No | Yes |
-| Checks run before finishing | `go vet`, `go test` | `go vet`, `go test` | `go vet`, `go test`, `declscope ./...`, `declscope shrink ./...` |
-| `declscope-authoring` as a project skill | No | No | Yes |
-| Model and tools | Same | Same | Same |
+| seed | 同じ commit、履歴なし | 同じ | 同じ |
+| 自己レビュー手順 | あり | あり | あり |
+| プロンプトの中の置き場所のルール | なし | あり | あり |
+| `PATH` 上の declscope と、seed の指摘の baseline | なし | なし | あり |
+| 終える前に実行するチェック | `go vet`、`go test` | `go vet`、`go test` | `go vet`、`go test`、`declscope ./...`、`declscope shrink ./...` |
+| project skill としての `declscope-authoring` | なし | なし | あり |
+| モデルとツール | 同じ | 同じ | 同じ |
 
-Every arm gets the same self-review step before its checks:
+すべての群に、チェックの前に同じ自己レビュー手順を渡す。エージェントに渡す文言そのものなので、英語のままにする。
 
 ```text
 Before you finish, review the structure of your change and fix anything
@@ -38,159 +38,161 @@ you would flag in code review. Then run the checks below until they pass.
 ```
 
 > [!IMPORTANT]
-> The step gives every arm the same chance to look again. Without it, arm G alone would revise its code after a report. Its result would then mix declscope's effect with the effect of one more revision.
+> この手順で、どの群にも見直す機会を同じだけ与える。これがないと、指摘を受けて直す機会があるのは G 群だけになる。そうなると、G の結果に「declscope の効果」と「見直しが1回多い効果」が混ざる。
 
-Arm P's rule is the content of `declscope-authoring` with the tool removed. It says the same thing as the tool enforces. It names no command, directive or config. P and G must differ only in whether a machine checks the rule.
+P 群のルールは、`declscope-authoring` の内容からツールを取り除いたものにする。中身は declscope が検査するものと同じにし、コマンド、ディレクティブ、設定の名前は書かない。P と G の違いは、ルールを機械が検査するかどうかだけにする。
 
-The baseline absorbs what the seed already has. Arm G is reported only for what the agent adds.
-
-> [!NOTE]
-> A baseline key names the declaration and its own namespace, not the user. A new use of a declaration the baseline already records is not reported. Arm G therefore misses some new crossings. This biases the result against declscope, so the measured effect is a lower bound.
-
-Arm G may write `//declscope:` directives, since that is how the tool is meant to be used. It may not regenerate the baseline. Every arm is told not to change existing code beyond what the task needs.
-
-| Outcome | Reading |
-| --- | --- |
-| A < P, and P ≈ G | Stating the rule is enough for the model under measurement |
-| A < P < G | The check catches what the stated rule misses |
-| A ≈ P ≈ G | Neither the rule nor the check helps on these tasks |
-
-## Tasks
-
-Each task comes from a real merged pull request of a project that does not use declscope.
-
-| Part | Source |
-| --- | --- |
-| Seed | The base commit of the pull request |
-| Task text | The pull request and its issue, plus the signatures the hidden tests call |
-| Hidden tests | The tests the pull request added |
-| Follow-up task | A later pull request that changes the same package |
-| Follow-up hidden tests | The tests the later pull request added |
-
-A task is usable when all of these hold:
-
-| Criterion | Why |
-| --- | --- |
-| The package has 8 or more non-test files and 3 or more namespaces, by `declscope survey` | Below that, declscope has little to say |
-| It adds a feature, touches 2 or more files of the package, and changes 50 to 500 lines | It needs placement decisions, and it fits one agent run |
-| Its tests call exported API or observable behaviour | Tests that name unexported identifiers break when the agent names things differently |
-| `go test` passes without network or external services | The tests must run in the workspace |
-| A later pull request changes the same package | It becomes the follow-up task |
-| The follow-up's tests name only what the seed has and what the first task text specifies | A name upstream chose in the first pull request may differ from the agent's. The test would then fail on the name, not on harder code |
-| No other commit changes the package between the two pull requests | The follow-up must start from the same ground upstream and in the workspace |
-
-> [!IMPORTANT]
-> A good task comes first. The merge date only breaks ties.
-
-The model under measurement may have seen an older pull request in training. It may then recall the upstream code instead of designing its own. That helps no arm over another, but it narrows the gaps between them. So among suitable pull requests, those merged after the model's training cutoff are preferred. For Claude Opus 5.5, that means July 2026 or later.
-
-| Group | Use |
-| --- | --- |
-| Merged after the cutoff | Preferred |
-| Merged before the cutoff | Used when it makes a better task than the later ones |
-
-The two groups are reported apart. A small gap between them shows that recall had little effect.
-
-## Two stages
-
-| Stage | What runs | What it measures |
-| --- | --- | --- |
-| 1. Implement | Each arm implements the task | Hidden tests passed, tokens, turns, directives written |
-| 2. Change | A fresh agent implements the follow-up task on stage 1's result. declscope, its baseline and its directives are removed first, in every arm. The agent gets arm A's setup in every case | How easy the code is to change |
-
-Stage 2 is the main measure. Its agent has no declscope, so any difference comes from the structure stage 1 left.
-
-| Stage 2 metric | Role | Meaning |
-| --- | --- | --- |
-| Follow-up hidden tests passed | Main | The change succeeded |
-| Existing tests still passing | Main | The change broke nothing |
-| Tokens and turns | Main | The code was easy to understand |
-| Files and lines touched | Reference only | How far the change spread |
+baseline は seed にもともとある指摘を吸収する。G 群が報告されるのは、エージェントが足した分だけ。
 
 > [!NOTE]
-> Files touched has no good direction. declscope tends to split code by job into more files. A change may then touch more files and still be easier. So it is recorded, not used to judge.
+> baseline のキーは、宣言と、その宣言のある namespace で決まる。使う側は含まない。そのため、baseline がすでに記録している宣言を新しく使っても報告されない。G 群は新しい境界違反の一部を見逃すことになる。これは declscope に不利な向きのずれなので、測れる効果は下限になる。
 
-## Decision rule
+G 群は `//declscope:` ディレクティブを書いてよい。それがツールの本来の使い方だからだ。baseline の再生成はしてはいけない。すべての群に「課題に必要な範囲を超えて既存のコードを変えない」と指示する。
 
-This rule was fixed before any run. It decides the result. Every other number is reported as exploratory.
-
-Two stage 2 numbers decide each comparison of two arms.
-
-| Number | Role |
+| 結果 | 読み方 |
 | --- | --- |
-| Success rate: follow-up hidden tests pass and existing tests still pass | A guard. The better arm must not lose on it |
-| Tokens: every input and output token of the stage 2 run, cached input included | The measure. The better arm uses fewer |
+| A < P かつ P ≈ G | 測ったモデルには、ルールを伝えるだけで十分 |
+| A < P < G | 伝えたルールで漏れる部分を、チェックが拾っている |
+| A ≈ P ≈ G | これらの課題では、ルールもチェックも効かない |
 
-| Success rate of X against Y | Tokens of X against Y | Result |
+## 課題
+
+課題は、declscope を使っていないプロジェクトで実際にマージされた PR から作る。
+
+| 部分 | 出どころ |
+| --- | --- |
+| seed | PR の base commit |
+| 課題文 | PR とその issue の説明。隠しテストが呼ぶシグネチャ |
+| 隠しテスト | その PR で追加されたテスト |
+| 段階2の課題 | 同じ package を変更した、あとの PR |
+| 段階2の隠しテスト | あとの PR で追加されたテスト |
+
+次の条件をすべて満たす課題を使う。
+
+| 条件 | 理由 |
+| --- | --- |
+| `declscope survey` で、テスト以外のファイルが 8個以上、namespace が 3つ以上ある package | それより小さいと、declscope が言うことがほとんどない |
+| 機能追加で、その package の 2ファイル以上を触り、変更が 50〜500行 | 置き場所の判断が必要になり、エージェント1回の実行に収まる |
+| テストが export された API か、外から見える挙動を呼んでいる | unexported な名前を使うテストは、エージェントが別の名前を付けると壊れる |
+| `go test` がネットワークや外部サービスなしで通る | テストをワークスペースの中で実行するため |
+| あとで同じ package を変更した PR がある | 段階2の課題になる |
+| 段階2のテストが使う名前は、seed にあるものと、最初の課題文で指定したものだけ | upstream が最初の PR で付けた名前は、エージェントの付けた名前と違うかもしれない。そうなると、テストはコードの変更しにくさではなく、名前の違いで落ちる |
+| 2つの PR のあいだに、その package を変更した別の commit がない | 段階2は、upstream とワークスペースで同じ土台から始める必要がある |
+
+> [!IMPORTANT]
+> 題材として良いことが最優先。マージ日は、同じくらい良い候補を比べるときにだけ使う。
+
+測るモデルが、古い PR を学習のときに見ているかもしれない。すると、自分で設計せずに upstream のコードを思い出して書くおそれがある。どの群が得をするわけでもないが、群のあいだの差は縮む。そこで、題材として妥当な PR の中では、モデルの学習カットオフより後にマージされたものを優先する。Claude Opus 5.5 なら 2026年7月以降。
+
+| グループ | 使い方 |
+| --- | --- |
+| カットオフ後にマージ | 優先する |
+| カットオフ前にマージ | カットオフ後の候補より良い課題になるときに使う |
+
+2つのグループは分けて報告する。両者の差が小さければ、思い出しの影響は小さかったと言える。
+
+## 2つの段階
+
+| 段階 | 実行するもの | 測るもの |
 | --- | --- | --- |
-| Not lower | Fewer | X wins |
-| Not lower | No clear difference | No difference |
-| Lower | Any | X loses |
+| 1. 実装 | 各群が課題を実装する | 隠しテストの通過、トークン数、ターン数、書いたディレクティブの数 |
+| 2. 変更 | 新しいエージェントが、段階1の結果に段階2の課題を実装する。どの群でも、先に declscope、baseline、ディレクティブを取り除く。エージェントはどの場合も A 群の設定で動く | コードの変更しやすさ |
 
-| Term | Definition |
+主な測定は段階2で行う。段階2のエージェントは declscope を持たないので、差が出るとしたら、段階1が残した構造の差だけになる。
+
+| 段階2の指標 | 役割 | 意味 |
+| --- | --- | --- |
+| 段階2の隠しテストが通った | 主 | 変更に成功した |
+| 既存のテストが通り続けている | 主 | 変更で何も壊れていない |
+| トークン数とターン数 | 主 | コードを理解しやすかった |
+| 触ったファイル数と行数 | 参考のみ | 変更がどこまで広がったか |
+
+> [!NOTE]
+> 触ったファイル数は、多いのと少ないのとどちらが良いとも言えない。declscope を使うと、責務ごとにファイルを分ける方向に寄る。すると、変更が触るファイルは増えても、変更自体は楽になることがある。だから記録はするが、判定には使わない。
+
+## 判定ルール
+
+このルールは、どの run よりも前に固定した。結果はこのルールで決める。ほかの数字はすべて探索的な結果として報告する。
+
+2つの群を比べるときは、段階2の2つの数字で決める。
+
+| 数字 | 役割 |
 | --- | --- |
-| Not lower | X's success rate is at most 5 percentage points below Y's |
-| Lower | X's success rate is more than 5 percentage points below Y's |
-| Fewer | Each task gives the ratio of X's median tokens to Y's. The 95% bootstrap interval of the mean ratio over tasks lies wholly below 1 |
+| 成功率: 段階2の隠しテストが通り、既存のテストも通り続けている | 歯止め。良いとされる群は、これで負けてはいけない |
+| トークン数: 段階2の run の入力と出力のすべて。キャッシュから読んだ入力も含む | 測る量。良いとされる群のほうが少ない |
 
-A failed stage 2 run still counts its tokens. The same rule applies to A against P, P against G and A against G.
+| X の成功率（Y と比べて） | X のトークン数（Y と比べて） | 結果 |
+| --- | --- | --- |
+| 下がっていない | 少ない | X の勝ち |
+| 下がっていない | はっきりした差がない | 差なし |
+| 下がっている | どちらでも | X の負け |
 
-## Structural review
-
-A blind reviewer reads each stage 1 result for refactoring that should be done now.
-
-| Rule | Why |
+| 言葉 | 定義 |
 | --- | --- |
-| Directives, the baseline and declscope files are stripped first | The reviewer must not know the arm |
-| The rubric never uses declscope's terms or its criterion | Teaching the reviewer declscope's idea would make the measure circular |
-| The reviewer writes findings freely. Each has a file, a line and a concrete fix | Vague findings cannot be counted. A fixed list of categories would steer the reviewer |
-| A second agent verifies each finding | It removes padding |
-| A third agent sorts the verified findings into the categories below | The reviewer never sees the categories |
-| Only findings on changed lines, or absent from the seed's review, count | The seed's own problems are the same in every arm |
-| Counts are per 1,000 changed lines | The arms write different amounts of code |
+| 下がっていない | X の成功率が、Y より 5ポイントを超えて低くはない |
+| 下がっている | X の成功率が、Y より 5ポイントを超えて低い |
+| 少ない | 課題ごとに、X のトークン数の中央値と Y の中央値の比を取る。課題全体での比の平均について、95% ブートストラップ区間が丸ごと 1 を下回る |
 
-| Category | Example |
+失敗した段階2の run も、トークン数に数える。A と P、P と G、A と G のどの比較にも、同じルールを使う。
+
+## 構造レビュー
+
+ブラインドのレビュアーが、段階1の結果を読み、今すぐやるべきリファクタリングを探す。
+
+| ルール | 理由 |
 | --- | --- |
-| `naming` | A name does not match its role, or one idea has two names |
-| `duplication` | The same logic is written twice |
-| `over-abstraction` | A shared helper couples callers that are not related |
-| `mixed-job` | One function or type does two unrelated jobs |
-| `dead` | A definition is unused |
-| `other` | None of the above |
+| 先にディレクティブ、baseline、declscope のファイルを取り除く | レビュアーに群を知られないようにする |
+| 評価の基準に、declscope の用語も判定基準も使わない | declscope の考え方をレビュアーに教えると、評価が循環する |
+| レビュアーは指摘を自由に書く。指摘ごとにファイル、行、具体的な直し方を書く | あいまいな指摘は数えられない。決まったカテゴリの一覧を渡すと、レビュアーがそれに引っ張られる |
+| 2つ目のエージェントが、指摘を一つずつ検証する | 水増しを取り除く |
+| 3つ目のエージェントが、検証済みの指摘を下のカテゴリに分ける | レビュアーはカテゴリを見ない |
+| 変更した行にかかる指摘か、seed のレビューになかった指摘だけを数える | seed にもともとある問題は、どの群でも同じ |
+| 件数は変更した 1,000行あたりで数える | 群によって書くコードの量が違う |
+
+| カテゴリ | 例 |
+| --- | --- |
+| `naming` | 名前が役割と合わない。一つの概念に2つの名前がある |
+| `duplication` | 同じロジックが2回書かれている |
+| `over-abstraction` | 共通の helper が、関係のない呼び出し元同士を結びつけている |
+| `mixed-job` | 一つの関数や型が、関係のない2つの仕事をしている |
+| `dead` | 使われていない定義がある |
+| `other` | 上のどれでもない |
 
 > [!IMPORTANT]
-> No category may restate declscope's rule. "A helper meant for one file is used from another" is that rule in other words. A category like that favours arms P and G by construction, so it is not one of the categories. A finding of that kind goes to `other` and is reported separately.
+> declscope のルールを言い換えたカテゴリは作らない。「1つのファイルのための helper が、別のファイルから使われている」は、そのルールの言い換えにあたる。こういうカテゴリは、作りからして P と G に有利になる。だからカテゴリには入れない。この種の指摘は `other` に入れ、別に報告する。
 
-The per-category result says where the tool helps and where it does not.
+カテゴリ別の結果を見れば、ツールがどこに効いて、どこに効かないかが分かる。
 
-## Isolation
+## 隔離
 
-The agents under measurement must not see this repository, the other arm, or the upstream answer.
+測られるエージェントに、このリポジトリ、ほかの群、upstream の答えを見せてはいけない。
 
-| Leak | Guard |
+| 漏れ方 | 防ぎ方 |
 | --- | --- |
-| This repository's files and its name | Workspaces live outside it, under a directory whose path says nothing about the experiment |
-| Which arm a run is | Run directories have random names |
-| Other runs | An `AGENTS.md` at the workspace root forbids reading outside the working directory. `harness/workspace-AGENTS.md` is its source |
-| The upstream answer in git history | The seed is exported with `git archive` and committed once into a new repository |
-| The upstream answer on the network | `WebFetch` and `WebSearch` are disallowed. The instructions forbid fetching. `GOPROXY=off` after the module cache is warmed |
-| Hidden tests | They stay out of the workspace until the agent finishes |
+| このリポジトリのファイルと名前 | ワークスペースはこのリポジトリの外に置き、そのパスにも実験を示す語を入れない |
+| run がどの群か | run のディレクトリ名をランダムにする |
+| ほかの run | ワークスペースのルートに置く `AGENTS.md` で、作業ディレクトリの外を読むことを禁じる。元のファイルは `harness/workspace-AGENTS.md` |
+| git 履歴の中の upstream の答え | seed は `git archive` で書き出し、新しいリポジトリに1回だけ commit する |
+| ネットワーク上の upstream の答え | `WebFetch` と `WebSearch` を禁止する。指示でも取得を禁じる。モジュールのキャッシュを温めてから `GOPROXY=off` にする |
+| 隠しテスト | エージェントが終わるまで、ワークスペースに置かない |
 
-The instructions are not enforced by a sandbox. Every transcript is audited instead. A run that touched a path outside its workspace or ran `gh`, `curl`, `wget`, `git fetch` or `git clone` is discarded and run again.
+指示はサンドボックスで強制するわけではない。その代わり、すべてのトランスクリプトを監査する。ワークスペースの外のパスに触れた run や、`gh`、`curl`、`wget`、`git fetch`、`git clone` を実行した run は捨てて、やり直す。
 
 > [!IMPORTANT]
-> Nothing an agent under measurement can read may mention declscope, the arms, or this experiment. That covers the workspace path, the workspace `AGENTS.md`, the task text, and the prompts of arms A and P. Arm G alone sees declscope.
+> 測られるエージェントが読めるものには、declscope、群、この実験のことを一切書かない。対象は、ワークスペースのパス、ワークスペースの `AGENTS.md`、課題文、A 群と P 群のプロンプト。declscope を見るのは G 群だけ。
 
-## Scale
+測られるエージェントに渡す文言（ワークスペースの `AGENTS.md`、自己レビュー手順、各群のプロンプト）は英語で書く。課題文が英語の PR から作られるので、エージェントへの入力の言語をそろえるため。
 
-The first round uses 4 or 5 repositories and 2 or 3 pull requests each, about 10 tasks. Each arm runs 5 times per task. That is about 150 stage 1 runs and 150 stage 2 runs. If usage limits make that too slow, the number of runs or tasks is cut once the candidates are known.
+## 規模
 
-## Layout
+最初の回では、4〜5 リポジトリから 2〜3 PR ずつ、約10課題を使う。各群を課題ごとに5回実行する。段階1と段階2が、それぞれ約150回になる。利用上限のせいで時間がかかりすぎる場合は、候補が分かった時点で、回数か課題数を減らす。
 
-| Path | Holds |
+## 構成
+
+| パス | 中身 |
 | --- | --- |
-| `candidates/` | `survey` results and the record of how repositories and pull requests were chosen |
-| `tasks/<repo>-pr<N>/task.yaml` | The seed commit, task text, hidden tests and follow-up |
-| `harness/` | Export, baseline, run, collect and audit |
-| `runs/<task>/<arm>/<n>/` | Diffs, `metrics.json` and gzipped transcripts |
-| `analysis/` | Aggregation scripts and result tables |
+| `candidates/` | `survey` の結果と、リポジトリや PR を選んだ記録 |
+| `tasks/<repo>-pr<N>/task.yaml` | seed の commit、課題文、隠しテスト、段階2の課題 |
+| `harness/` | 書き出し、baseline、実行、回収、監査 |
+| `runs/<task>/<arm>/<n>/` | 差分、`metrics.json`、gzip したトランスクリプト |
+| `analysis/` | 集計スクリプトと結果の表 |
