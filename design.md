@@ -76,6 +76,8 @@ A task is usable when all of these hold:
 | Its tests call exported API or observable behaviour | Tests that name unexported identifiers break when the agent names things differently |
 | `go test` passes without network or external services | The tests must run in the workspace |
 | A later pull request changes the same package | It becomes the follow-up task |
+| The follow-up's tests name only what the seed has and what the first task text specifies | A name upstream chose in the first pull request may differ from the agent's. The test would then fail on the name, not on harder code |
+| No other commit changes the package between the two pull requests | The follow-up must start from the same ground upstream and in the workspace |
 
 > [!IMPORTANT]
 > A good task comes first. The merge date only breaks ties.
