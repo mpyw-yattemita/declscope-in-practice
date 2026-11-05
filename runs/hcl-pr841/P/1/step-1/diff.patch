@@ -1,0 +1,194 @@
+diff --git a/hclwrite/ast_expression.go b/hclwrite/ast_expression.go
+index 57350e3..ee21a59 100644
+--- a/hclwrite/ast_expression.go
++++ b/hclwrite/ast_expression.go
+@@ -138,19 +138,34 @@ func NewExpressionAbsTraversal(traversal hcl.Traversal) *Expression {
+ }
+ 
+ // Variables returns the absolute traversals that exist within the receiving
+-// expression.
++// expression, in source order.
++//
++// This includes the traversals in any expressions nested inside the receiver,
++// such as the keys and values of an object-construct expression. A naked
++// identifier used as an object key is a literal name, not a variable, so it
++// is not included.
+ func (e *Expression) Variables() []*Traversal {
+-	nodes := e.absTraversals.List()
+-	ret := make([]*Traversal, len(nodes))
+-	for i, node := range nodes {
+-		ret[i] = node.content.(*Traversal)
++	ret := make([]*Traversal, 0)
++	var walk internalWalkFunc
++	walk = func(n *node) {
++		switch c := n.content.(type) {
++		case *Traversal:
++			if e.absTraversals.Has(n) {
++				ret = append(ret, c)
++			}
++		case *Expression:
++			ret = append(ret, c.Variables()...)
++		default:
++			c.walkChildNodes(walk)
++		}
+ 	}
++	e.walkChildNodes(walk)
+ 	return ret
+ }
+ 
+-// RenameVariablePrefix examines each of the absolute traversals in the
+-// receiving expression to see if they have the given sequence of names as
+-// a prefix prefix. If so, they are updated in place to have the given
++// RenameVariablePrefix examines each of the absolute traversals that
++// Variables returns for the receiving expression to see if they have the
++// given sequence of names as a prefix prefix. If so, they are updated in place to have the given
+ // replacement names instead of that prefix.
+ //
+ // This can be used to implement symbol renaming. The calling application can
+@@ -165,8 +180,7 @@ func (e *Expression) RenameVariablePrefix(search, replacement []string) {
+ 		panic(fmt.Sprintf("search and replacement length mismatch (%d and %d)", len(search), len(replacement)))
+ 	}
+ Traversals:
+-	for node := range e.absTraversals {
+-		traversal := node.content.(*Traversal)
++	for _, traversal := range e.Variables() {
+ 		if len(traversal.steps) < len(search) {
+ 			// If it's shorter then it can't have our prefix
+ 			continue
+diff --git a/hclwrite/ast_expression_test.go b/hclwrite/ast_expression_test.go
+new file mode 100644
+index 0000000..aaecf9f
+--- /dev/null
++++ b/hclwrite/ast_expression_test.go
+@@ -0,0 +1,114 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: MPL-2.0
++
++package hclwrite
++
++import (
++	"fmt"
++	"strings"
++	"testing"
++
++	"github.com/hashicorp/hcl/v2"
++	"github.com/hashicorp/hcl/v2/hclsyntax"
++)
++
++func TestExpressionVariablesObjectCons(t *testing.T) {
++	tests := []struct {
++		src     string
++		want    []string // source of each traversal, in order
++		renamed string
++	}{
++		{
++			"a = { k = old.x }\n",
++			[]string{"old.x"},
++			"a = { k = new.x }\n",
++		},
++		{
++			"a = { k = old.x, j = old.y }\n",
++			[]string{"old.x", "old.y"},
++			"a = { k = new.x, j = new.y }\n",
++		},
++		{
++			"a = { k = { j = old.x } }\n",
++			[]string{"old.x"},
++			"a = { k = { j = new.x } }\n",
++		},
++		{
++			"a = { k = [old.x] }\n",
++			[]string{"old.x"},
++			"a = { k = [new.x] }\n",
++		},
++		{
++			"a = { k = f(old.x) }\n",
++			[]string{"old.x"},
++			"a = { k = f(new.x) }\n",
++		},
++		{
++			"a = { old = 1 }\n",
++			nil,
++			"a = { old = 1 }\n",
++		},
++		{
++			"a = { old = old.x }\n",
++			[]string{"old.x"},
++			"a = { old = new.x }\n",
++		},
++		{
++			"a = { (old.x) = 1 }\n",
++			[]string{"old.x"},
++			"a = { (new.x) = 1 }\n",
++		},
++		{
++			"a = { (old.x) = old.y }\n",
++			[]string{"old.x", "old.y"},
++			"a = { (new.x) = new.y }\n",
++		},
++		{
++			"a = { \"k\" = old.x }\n",
++			[]string{"old.x"},
++			"a = { \"k\" = new.x }\n",
++		},
++		{
++			"a = { k = { old = 1 } }\n",
++			nil,
++			"a = { k = { old = 1 } }\n",
++		},
++		{
++			"a = {\n  k = old.x\n  j = {\n    (old.y) = [f(old.z)]\n  }\n}\n",
++			[]string{"old.x", "old.y", "old.z"},
++			"a = {\n  k = new.x\n  j = {\n    (new.y) = [f(new.z)]\n  }\n}\n",
++		},
++	}
++
++	for _, test := range tests {
++		t.Run(test.src, func(t *testing.T) {
++			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected diagnostics: %s", diags)
++			}
++			expr := f.Body().GetAttribute("a").Expr()
++
++			var got []string
++			for _, traversal := range expr.Variables() {
++				got = append(got, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
++			}
++			if fmt.Sprint(got) != fmt.Sprint(test.want) {
++				t.Errorf("wrong variables\ngot:  %q\nwant: %q", got, test.want)
++			}
++
++			nativeFile, diags := hclsyntax.ParseConfig([]byte(test.src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected hclsyntax diagnostics: %s", diags)
++			}
++			nativeAttrs, _ := nativeFile.Body.JustAttributes()
++			if nativeVars := nativeAttrs["a"].Expr.Variables(); len(got) != len(nativeVars) {
++				t.Errorf("got %d variables, but hclsyntax reports %d", len(got), len(nativeVars))
++			}
++
++			expr.RenameVariablePrefix([]string{"old"}, []string{"new"})
++			if got := string(f.Bytes()); got != test.renamed {
++				t.Errorf("wrong result after rename\ngot:  %q\nwant: %q", got, test.renamed)
++			}
++		})
++	}
++}
+diff --git a/hclwrite/parser.go b/hclwrite/parser.go
+index 64eb034..32b8a09 100644
+--- a/hclwrite/parser.go
++++ b/hclwrite/parser.go
+@@ -467,6 +467,12 @@ func parseObjectConsExpr(nativeExpr *hclsyntax.ObjectConsExpr, from inputTokens)
+ // literal is functionally equivalent to an Identifier.
+ func parseObjectConsKeyExpr(nativeExpr *hclsyntax.ObjectConsKeyExpr, from inputTokens) *node {
+ 	expr := parseExpression(nativeExpr.Wrapped, from)
++	if hcl.ExprAsKeyword(nativeExpr.Wrapped) != "" {
++		// As in hclsyntax, a naked identifier key is a literal name rather
++		// than a reference. We keep its traversal node so the key keeps its
++		// structure, but it is not one of the expression's variables.
++		expr.content.(*Expression).absTraversals.Clear()
++	}
+ 	wrapExpr := newObjectConsKeyExpr(expr)
+ 
+ 	return newNode(wrapExpr)
