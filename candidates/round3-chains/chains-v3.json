@@ -1,0 +1,2742 @@
+{
+ "generated": "2026-11-05",
+ "chains": [
+  {
+   "rank": 1,
+   "repo": "hashicorp/hcl",
+   "package": "hclwrite",
+   "package_import_path": "github.com/hashicorp/hcl/v2/hclwrite",
+   "nontest_files_at_head": 17,
+   "namespaces_at_head": 18,
+   "seed_commit": "a786e4fc556660d857b53b3479b3fa401da0f904",
+   "final_commit": "4a347c448ee961e556dde0fad522a996e04c00c0",
+   "pkg_nontest_lines": 788,
+   "whole_pr_nontest_lines": 788,
+   "distinct_pkg_files": [
+    "hclwrite/ast.go",
+    "hclwrite/ast_body.go",
+    "hclwrite/ast_expression.go",
+    "hclwrite/ast_function_call_expr.go",
+    "hclwrite/ast_object_cons_expr.go",
+    "hclwrite/ast_tuple_cons_expr.go",
+    "hclwrite/node.go",
+    "hclwrite/parser.go",
+    "hclwrite/public.go",
+    "hclwrite/unwrap.go"
+   ],
+   "steps": [
+    {
+     "pr": 841,
+     "title": "hclwrite: find traversals inside object-construct expressions",
+     "merged_at": "2026-10-13T20:59:29Z",
+     "merge_commit": "d3e7bdf00f4559aea011a06b5ebc34aebd81f0c2",
+     "base_commit_merge_parent": "a786e4fc556660d857b53b3479b3fa401da0f904",
+     "gh_base_ref_oid": "4932c1452af6bd71e2241ba244f253643d1828da",
+     "pkg_nontest_lines": 25,
+     "pkg_nontest_files": [
+      "hclwrite/ast_expression.go",
+      "hclwrite/ast_object_cons_expr.go",
+      "hclwrite/parser.go"
+     ],
+     "pkg_test_files": [
+      "hclwrite/ast_expression_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 25,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 811,
+     "title": "hclwrite: add read and write API for `ObjectConsExpr`",
+     "merged_at": "2026-10-14T12:35:06Z",
+     "merge_commit": "8ea3801be7bdcad48bf54c3e12c38c96692c5668",
+     "base_commit_merge_parent": "d3e7bdf00f4559aea011a06b5ebc34aebd81f0c2",
+     "gh_base_ref_oid": "d3e7bdf00f4559aea011a06b5ebc34aebd81f0c2",
+     "pkg_nontest_lines": 452,
+     "pkg_nontest_files": [
+      "hclwrite/ast.go",
+      "hclwrite/ast_expression.go",
+      "hclwrite/ast_object_cons_expr.go",
+      "hclwrite/node.go",
+      "hclwrite/parser.go",
+      "hclwrite/unwrap.go"
+     ],
+     "pkg_test_files": [
+      "hclwrite/ast_object_cons_expr_test.go",
+      "hclwrite/parser_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 452,
+     "names_to_specify_exported": [
+      "ObjectConsExpr.ItemFor",
+      "ObjectConsExpr.SetItem",
+      "ObjectConsExpr.SetItemRaw",
+      "ObjectConsExpr.SetItemTraversal",
+      "ObjectConsExpr.SetItemValue",
+      "ObjectConsExpr.ValueExprFor"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 820,
+     "title": "hclwrite: parse function call and tuple-construct expressions",
+     "merged_at": "2026-10-14T20:45:57Z",
+     "merge_commit": "8b26c6768c674aba5d5547b1bd5abc8951719b6b",
+     "base_commit_merge_parent": "8ea3801be7bdcad48bf54c3e12c38c96692c5668",
+     "gh_base_ref_oid": "8ea3801be7bdcad48bf54c3e12c38c96692c5668",
+     "pkg_nontest_lines": 221,
+     "pkg_nontest_files": [
+      "hclwrite/ast_expression.go",
+      "hclwrite/ast_function_call_expr.go",
+      "hclwrite/ast_tuple_cons_expr.go",
+      "hclwrite/parser.go"
+     ],
+     "pkg_test_files": [
+      "hclwrite/parser_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 221,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Expression.unwrap",
+      "ObjectConsExpr.variables",
+      "ObjectConsKeyExpr.unwrap",
+      "unwrapNode.unwrap"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 835,
+     "title": "hclwrite: New function `NewExpression()` and `Body.SetAttribute()`",
+     "merged_at": "2026-10-19T17:16:37Z",
+     "merge_commit": "4a347c448ee961e556dde0fad522a996e04c00c0",
+     "base_commit_merge_parent": "8b26c6768c674aba5d5547b1bd5abc8951719b6b",
+     "gh_base_ref_oid": "8b26c6768c674aba5d5547b1bd5abc8951719b6b",
+     "pkg_nontest_lines": 90,
+     "pkg_nontest_files": [
+      "hclwrite/ast_body.go",
+      "hclwrite/parser.go",
+      "hclwrite/public.go"
+     ],
+     "pkg_test_files": [
+      "hclwrite/parser_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 90,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [
+      "parseExpr"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "FunctionCallExpr.name"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "medium",
+     "rename_risk_note": "`parseExpr(src, filename, pos)` is the expression-parse entry point; the agent almost certainly has an equivalent, but it may be named or shaped differently"
+    }
+   ],
+   "trivial_commits_between": [],
+   "names_to_specify_total": 7,
+   "names_unexported_total": 1,
+   "offline_test_seed": "pass",
+   "placement": "Each step adds a new expression kind or API wired through parser.go, ast_expression.go and the node/unwrap plumbing; the agent chooses between new files and existing ones, and #820/#835 build on #811's unwrap/variables code.",
+   "caveats": "#810 cannot join a strictly consecutive chain without #824 (51-line Body feature) in between; a 5-step variant #824 \u2192 #841 \u2192 #811 \u2192 #820 \u2192 #835 (839 lines) also qualifies.",
+   "status_vs_previous": "kept",
+   "worst_rename_risk": "medium",
+   "high_risk_steps": 0
+  },
+  {
+   "rank": 2,
+   "repo": "modelcontextprotocol/go-sdk",
+   "package": "mcp",
+   "package_import_path": "github.com/modelcontextprotocol/go-sdk/mcp",
+   "nontest_files_at_head": 25,
+   "namespaces_at_head": 34,
+   "seed_commit": "d54751a8eec734558a36560faa1e19e9c966e5ee",
+   "final_commit": "dd978160abb30bf7e4db06520cb2176a4f26eba6",
+   "pkg_nontest_lines": 617,
+   "whole_pr_nontest_lines": 646,
+   "distinct_pkg_files": [
+    "mcp/client.go",
+    "mcp/protocol.go",
+    "mcp/requests.go",
+    "mcp/server.go",
+    "mcp/shared.go",
+    "mcp/streamable.go",
+    "mcp/transport.go"
+   ],
+   "steps": [
+    {
+     "pr": 975,
+     "title": "mcp: Implement support for SEP-2575 on client side",
+     "merged_at": "2026-06-02T12:17:01Z",
+     "merge_commit": "c60a318d223cb6a9d0c25b04963b0e9ea54ff6ae",
+     "base_commit_merge_parent": "d54751a8eec734558a36560faa1e19e9c966e5ee",
+     "gh_base_ref_oid": "d54751a8eec734558a36560faa1e19e9c966e5ee",
+     "pkg_nontest_lines": 227,
+     "pkg_nontest_files": [
+      "mcp/client.go",
+      "mcp/protocol.go",
+      "mcp/requests.go",
+      "mcp/server.go",
+      "mcp/shared.go",
+      "mcp/streamable.go"
+     ],
+     "pkg_test_files": [
+      "mcp/client_test.go",
+      "mcp/mrtr_test.go",
+      "mcp/streamable_client_test.go",
+      "mcp/streamable_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 233,
+     "names_to_specify_exported": [
+      "CodeUnsupportedProtocolVersion",
+      "DiscoverParams",
+      "DiscoverResult",
+      "DiscoverResult.Capabilities",
+      "DiscoverResult.Instructions",
+      "DiscoverResult.ServerInfo",
+      "DiscoverResult.SupportedVersions"
+     ],
+     "names_to_specify_unexported": [
+      "methodDiscover"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "low",
+     "rename_risk_note": "only the unexported method-name constant `methodDiscover` (\"server/discover\"); if the agent inlines the string there is no named counterpart, but the renamer can substitute the literal only by changing a call site, which the rules allow"
+    },
+    {
+     "pr": 989,
+     "title": "mcp: Implement retry on advised supportedVersions in UnsupportedProtocolVersion error",
+     "merged_at": "2026-06-08T13:09:07Z",
+     "merge_commit": "d9714c61f11be185ba0cb994bff16ce2a072e318",
+     "base_commit_merge_parent": "5045d86fb477fbc195ea5949355b1183466b5f4a",
+     "gh_base_ref_oid": "5045d86fb477fbc195ea5949355b1183466b5f4a",
+     "pkg_nontest_lines": 94,
+     "pkg_nontest_files": [
+      "mcp/client.go",
+      "mcp/protocol.go",
+      "mcp/shared.go"
+     ],
+     "pkg_test_files": [
+      "mcp/client_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 94,
+     "names_to_specify_exported": [
+      "CodeUnsupportedProtocolVersion",
+      "DiscoverParams",
+      "DiscoverResult",
+      "DiscoverResult.Capabilities",
+      "DiscoverResult.ServerInfo",
+      "DiscoverResult.SupportedVersions",
+      "UnsupportedProtocolVersionData",
+      "UnsupportedProtocolVersionData.Requested",
+      "UnsupportedProtocolVersionData.Supported"
+     ],
+     "names_to_specify_unexported": [
+      "methodDiscover"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Client.discover",
+      "CodeUnsupportedProtocolVersion",
+      "DiscoverParams",
+      "DiscoverResult",
+      "DiscoverResult.Capabilities",
+      "DiscoverResult.ServerInfo",
+      "DiscoverResult.SupportedVersions",
+      "Server.discover",
+      "methodDiscover"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "low",
+     "rename_risk_note": "same `methodDiscover` constant"
+    },
+    {
+     "pr": 997,
+     "title": "mcp: add support for logging level (SEP-2575)",
+     "merged_at": "2026-06-08T13:56:38Z",
+     "merge_commit": "00d364284050b0787dd8741eb0310d23cf22e59a",
+     "base_commit_merge_parent": "d9714c61f11be185ba0cb994bff16ce2a072e318",
+     "gh_base_ref_oid": "d9714c61f11be185ba0cb994bff16ce2a072e318",
+     "pkg_nontest_lines": 44,
+     "pkg_nontest_files": [
+      "mcp/protocol.go",
+      "mcp/server.go",
+      "mcp/shared.go",
+      "mcp/streamable.go"
+     ],
+     "pkg_test_files": [
+      "mcp/shared_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 44,
+     "names_to_specify_exported": [
+      "MetaKeyLogLevel"
+     ],
+     "names_to_specify_unexported": [
+      "validatedMeta.logLevel"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "ClientSession.usesNewProtocol"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "high",
+     "rename_risk_note": "test reads the unexported field `validatedMeta.logLevel` of an internal per-request struct; no counterpart unless the agent kept the same struct"
+    },
+    {
+     "pr": 987,
+     "title": "mcp: Implement server-side support for discover method (SEP-2575)",
+     "merged_at": "2026-06-08T15:52:11Z",
+     "merge_commit": "dd978160abb30bf7e4db06520cb2176a4f26eba6",
+     "base_commit_merge_parent": "00d364284050b0787dd8741eb0310d23cf22e59a",
+     "gh_base_ref_oid": "00d364284050b0787dd8741eb0310d23cf22e59a",
+     "pkg_nontest_lines": 252,
+     "pkg_nontest_files": [
+      "mcp/server.go",
+      "mcp/shared.go",
+      "mcp/streamable.go",
+      "mcp/transport.go"
+     ],
+     "pkg_test_files": [
+      "mcp/client_test.go",
+      "mcp/mrtr_test.go",
+      "mcp/server_test.go",
+      "mcp/streamable_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 275,
+     "names_to_specify_exported": [
+      "CodeUnsupportedProtocolVersion",
+      "DiscoverResult",
+      "DiscoverResult.Capabilities",
+      "DiscoverResult.ServerInfo",
+      "DiscoverResult.SupportedVersions"
+     ],
+     "names_to_specify_unexported": [
+      "methodDiscover"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Client.discover",
+      "ClientSession.usesNewProtocol",
+      "CodeUnsupportedProtocolVersion",
+      "DiscoverParams",
+      "DiscoverResult",
+      "DiscoverResult.Capabilities",
+      "DiscoverResult.Instructions",
+      "DiscoverResult.ServerInfo",
+      "DiscoverResult.SupportedVersions",
+      "Server.discover",
+      "UnsupportedProtocolVersionData",
+      "UnsupportedProtocolVersionData.Requested",
+      "UnsupportedProtocolVersionData.Supported",
+      "methodDiscover"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "low",
+     "rename_risk_note": "`methodDiscover` constant"
+    }
+   ],
+   "trivial_commits_between": [],
+   "names_to_specify_total": 13,
+   "names_unexported_total": 2,
+   "offline_test_seed": "pass",
+   "placement": "One protocol feature (SEP-2575 discover / version negotiation) split into client side, retry, logging level and server side; each step touches 3-6 of client.go/server.go/shared.go/protocol.go/streamable.go and later steps call earlier steps' discover/usesNewProtocol code.",
+   "caveats": "#975 and #987 also change internal/jsonrpc2 slightly.",
+   "status_vs_previous": "kept",
+   "worst_rename_risk": "high",
+   "high_risk_steps": 1
+  },
+  {
+   "rank": 3,
+   "repo": "github/github-mcp-server",
+   "package": "pkg/github",
+   "package_import_path": "github.com/github/github-mcp-server/v2/pkg/github",
+   "nontest_files_at_head": 77,
+   "namespaces_at_head": 113,
+   "seed_commit": "e9533330b0ec2ea2f81ec490cc0c84d30538fcb9",
+   "final_commit": "13e7f10fc8ddff977e02043aec4574d9c8ded8ec",
+   "pkg_nontest_lines": 1233,
+   "whole_pr_nontest_lines": 1233,
+   "distinct_pkg_files": [
+    "pkg/github/code_scanning.go",
+    "pkg/github/dependabot.go",
+    "pkg/github/issue_fields.go",
+    "pkg/github/issues.go",
+    "pkg/github/minimal_types.go",
+    "pkg/github/search.go",
+    "pkg/github/search_utils.go",
+    "pkg/github/secret_scanning.go",
+    "pkg/github/tools.go"
+   ],
+   "steps": [
+    {
+     "pr": 2474,
+     "title": "Add field_values to search_issues results",
+     "merged_at": "2026-05-20T12:59:57Z",
+     "merge_commit": "8f4680b90acb7a53e1810ae569a7ea508568e7eb",
+     "base_commit_merge_parent": "e9533330b0ec2ea2f81ec490cc0c84d30538fcb9",
+     "gh_base_ref_oid": "e9533330b0ec2ea2f81ec490cc0c84d30538fcb9",
+     "pkg_nontest_lines": 215,
+     "pkg_nontest_files": [
+      "pkg/github/issues.go",
+      "pkg/github/search_utils.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/issues_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 215,
+     "names_to_specify_exported": [
+      "SearchIssueResult.FieldValues",
+      "SearchIssuesResponse",
+      "SearchIssuesResponse.IncompleteResults",
+      "SearchIssuesResponse.Items",
+      "SearchIssuesResponse.Total"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 2451,
+     "title": "feat: add pagination to list GHAS alerts tools",
+     "merged_at": "2026-05-20T13:27:05Z",
+     "merge_commit": "0bd0bf0818df3c8e47dd03e6abc4f37cfa806425",
+     "base_commit_merge_parent": "8f4680b90acb7a53e1810ae569a7ea508568e7eb",
+     "gh_base_ref_oid": "8f4680b90acb7a53e1810ae569a7ea508568e7eb",
+     "pkg_nontest_lines": 221,
+     "pkg_nontest_files": [
+      "pkg/github/code_scanning.go",
+      "pkg/github/dependabot.go",
+      "pkg/github/secret_scanning.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/code_scanning_test.go",
+      "pkg/github/dependabot_test.go",
+      "pkg/github/secret_scanning_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 221,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [
+      "pkg/github/__toolsnaps__/list_code_scanning_alerts.snap",
+      "pkg/github/__toolsnaps__/list_dependabot_alerts.snap",
+      "pkg/github/__toolsnaps__/list_secret_scanning_alerts.snap"
+     ],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 2284,
+     "title": "feat: Add search commit tool",
+     "merged_at": "2026-05-20T14:24:01Z",
+     "merge_commit": "6b4ca78505e719019e0b2e95ab7aec57f6c43a23",
+     "base_commit_merge_parent": "0bd0bf0818df3c8e47dd03e6abc4f37cfa806425",
+     "gh_base_ref_oid": "0bd0bf0818df3c8e47dd03e6abc4f37cfa806425",
+     "pkg_nontest_lines": 224,
+     "pkg_nontest_files": [
+      "pkg/github/minimal_types.go",
+      "pkg/github/search.go",
+      "pkg/github/tools.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/helper_test.go",
+      "pkg/github/search_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 224,
+     "names_to_specify_exported": [
+      "MinimalCommitSearchItem.Repository",
+      "MinimalRepoRef.FullName",
+      "MinimalRepoRef.HTMLURL",
+      "MinimalRepoRef.Private",
+      "MinimalSearchCommitsResult",
+      "MinimalSearchCommitsResult.IncompleteResults",
+      "MinimalSearchCommitsResult.Items",
+      "MinimalSearchCommitsResult.TotalCount",
+      "SearchCommits",
+      "SearchIssuesResponse.IncompleteResults",
+      "SearchIssuesResponse.Items",
+      "SearchIssuesResponse.Total"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [
+      "pkg/github/__toolsnaps__/search_commits.snap"
+     ],
+     "uses_names_from_earlier_steps": [
+      "SearchIssuesResponse.IncompleteResults",
+      "SearchIssuesResponse.Items",
+      "SearchIssuesResponse.Total"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 2445,
+     "title": "Add list_issue_fields tool",
+     "merged_at": "2026-05-21T14:19:51Z",
+     "merge_commit": "8f6050a5b8e42372ac40c1545ee8ca23dd3ac040",
+     "base_commit_merge_parent": "805ad75c62f7c8572be982d83923a8e44cb50934",
+     "gh_base_ref_oid": "970155ad64d2866c78a7969350cf40d5e1cd95d2",
+     "pkg_nontest_lines": 224,
+     "pkg_nontest_files": [
+      "pkg/github/issue_fields.go",
+      "pkg/github/tools.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/issue_fields_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 224,
+     "names_to_specify_exported": [
+      "IssueField",
+      "IssueField.DataType",
+      "IssueField.Description",
+      "IssueField.ID",
+      "IssueField.Name",
+      "IssueField.Options",
+      "IssueField.Visibility",
+      "IssueSingleSelectFieldOption",
+      "IssueSingleSelectFieldOption.Color",
+      "IssueSingleSelectFieldOption.Description",
+      "IssueSingleSelectFieldOption.ID",
+      "IssueSingleSelectFieldOption.Name",
+      "ListIssueFields",
+      "MinimalReviewThread.ID"
+     ],
+     "names_to_specify_unexported": [
+      "issueFieldsOrgQuery",
+      "issueFieldsRepoQuery"
+     ],
+     "snapshot_or_golden_files": [
+      "pkg/github/__toolsnaps__/list_issue_fields.snap"
+     ],
+     "uses_names_from_earlier_steps": [
+      "MinimalCommitSearchItem.Repository",
+      "searchIssuesNodesQuery.Nodes"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "high",
+     "rename_risk_note": "tests build the unexported githubv4 query structs `issueFieldsRepoQuery{}`/`issueFieldsOrgQuery{}` so the GraphQL mock can match the query shape; the agent's query struct must produce the same GraphQL text"
+    },
+    {
+     "pr": 2480,
+     "title": "Add custom field filtering to list_issues",
+     "merged_at": "2026-05-21T14:36:18Z",
+     "merge_commit": "13e7f10fc8ddff977e02043aec4574d9c8ded8ec",
+     "base_commit_merge_parent": "8f6050a5b8e42372ac40c1545ee8ca23dd3ac040",
+     "gh_base_ref_oid": "8f6050a5b8e42372ac40c1545ee8ca23dd3ac040",
+     "pkg_nontest_lines": 349,
+     "pkg_nontest_files": [
+      "pkg/github/issue_fields.go",
+      "pkg/github/issues.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/issues_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 349,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [
+      "issueFieldsRepoQuery"
+     ],
+     "snapshot_or_golden_files": [
+      "pkg/github/__toolsnaps__/list_issues.snap"
+     ],
+     "uses_names_from_earlier_steps": [
+      "IssueField",
+      "IssueField.DataType",
+      "IssueField.Description",
+      "IssueField.Name",
+      "IssueField.Options",
+      "IssueField.Visibility",
+      "IssueSingleSelectFieldOption",
+      "IssueSingleSelectFieldOption.Color",
+      "IssueSingleSelectFieldOption.Description",
+      "IssueSingleSelectFieldOption.Name",
+      "IssueSingleSelectFieldOption.Priority",
+      "MinimalCommitSearchItem.Repository",
+      "MinimalSearchCommitsResult.Items",
+      "SearchIssuesResponse.Items",
+      "issueFieldNode",
+      "issueFieldNode.IssueFieldDate",
+      "issueFieldNode.IssueFieldNumber",
+      "issueFieldNode.IssueFieldSingleSelect",
+      "issueFieldNode.IssueFieldText",
+      "issueFieldNode.TypeName",
+      "issueFieldsOrgQuery",
+      "issueFieldsOrgQuery.Organization",
+      "issueFieldsRepoQuery",
+      "issueFieldsRepoQuery.Repository",
+      "searchIssuesNodesQuery.Nodes"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "high",
+     "rename_risk_note": "same `issueFieldsRepoQuery{}` query struct"
+    }
+   ],
+   "trivial_commits_between": [
+    {
+     "sha": "805ad75c62f7c8572be982d83923a8e44cb50934",
+     "pr": 2515,
+     "title": "Fix return Thread node ID in get_review_comments response",
+     "lines": 3
+    }
+   ],
+   "names_to_specify_total": 30,
+   "names_unexported_total": 2,
+   "offline_test_seed": "pass",
+   "placement": "Five tool features across issues.go, search_utils.go, search.go, minimal_types.go, the three GHAS files and a new issue_fields.go; #2480 reuses #2445's IssueField types and query structs.",
+   "caveats": "`__toolsnaps__` snapshots ship with the task text (no penalty now). Trivial commit #2515 (3 lines) is a small fix of a review-comment node ID, not a no-op; listed.",
+   "status_vs_previous": "kept",
+   "worst_rename_risk": "high",
+   "high_risk_steps": 2
+  },
+  {
+   "rank": 4,
+   "repo": "open-policy-agent/opa",
+   "package": "v1/ast",
+   "package_import_path": "github.com/open-policy-agent/opa/v1/ast",
+   "nontest_files_at_head": 50,
+   "namespaces_at_head": 73,
+   "seed_commit": "878cbc79d389d87f366f386695eb107820d1eef9",
+   "final_commit": "42baad2bc4cb7b64941d8b409ad7001b108dabf7",
+   "pkg_nontest_lines": 875,
+   "whole_pr_nontest_lines": 997,
+   "distinct_pkg_files": [
+    "v1/ast/capabilities.go",
+    "v1/ast/check.go",
+    "v1/ast/compare.go",
+    "v1/ast/compile.go",
+    "v1/ast/mermaid.go",
+    "v1/ast/parser.go",
+    "v1/ast/policy.go",
+    "v1/ast/string_length.go",
+    "v1/ast/term.go",
+    "v1/ast/term_appenders.go",
+    "v1/ast/visit.go"
+   ],
+   "steps": [
+    {
+     "pr": 8427,
+     "title": "Add `not` AST node type",
+     "merged_at": "2026-03-30T16:12:57Z",
+     "merge_commit": "670d2e25567188f630615fa0594c4744cb31d941",
+     "base_commit_merge_parent": "878cbc79d389d87f366f386695eb107820d1eef9",
+     "gh_base_ref_oid": "878cbc79d389d87f366f386695eb107820d1eef9",
+     "pkg_nontest_lines": 765,
+     "pkg_nontest_files": [
+      "v1/ast/capabilities.go",
+      "v1/ast/compare.go",
+      "v1/ast/compile.go",
+      "v1/ast/mermaid.go",
+      "v1/ast/parser.go",
+      "v1/ast/policy.go",
+      "v1/ast/string_length.go",
+      "v1/ast/term.go",
+      "v1/ast/term_appenders.go",
+      "v1/ast/visit.go"
+     ],
+     "pkg_test_files": [
+      "v1/ast/compile_test.go",
+      "v1/ast/mermaid_test.go",
+      "v1/ast/parser_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 887,
+     "names_to_specify_exported": [
+      "Not",
+      "Not.Body",
+      "Not.Equal",
+      "NotExpr"
+     ],
+     "names_to_specify_unexported": [
+      "mermaidGraph"
+     ],
+     "snapshot_or_golden_files": [
+      "v1/test/cases/testdata/v1/negation/test-not-body.yaml"
+     ],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass (Go 1.25.5)",
+     "rename_risk": "medium",
+     "rename_risk_note": "calls the unexported `mermaidGraph` helper for the mermaid output test"
+    },
+    {
+     "pr": 8482,
+     "title": "Allow back-to-back metadata blocks",
+     "merged_at": "2026-04-02T20:14:02Z",
+     "merge_commit": "7d266cb687ca5351cbec7aed2142917f6952e2f4",
+     "base_commit_merge_parent": "48fdef5f69c2139c70e59e9cd565fd04d4aeb10c",
+     "gh_base_ref_oid": "48fdef5f69c2139c70e59e9cd565fd04d4aeb10c",
+     "pkg_nontest_lines": 2,
+     "pkg_nontest_files": [
+      "v1/ast/parser.go"
+     ],
+     "pkg_test_files": [
+      "v1/ast/parser_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 2,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Not.Location"
+     ],
+     "offline_test_at_merge": "pass (Go 1.25.5)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 8485,
+     "title": "type checker: identify compatible type from reference",
+     "merged_at": "2026-04-08T19:55:50Z",
+     "merge_commit": "261a4f6c042433c89c544a59194014a6123ab432",
+     "base_commit_merge_parent": "dc3313b1892becec4777c6644411009edab31e36",
+     "gh_base_ref_oid": "dc3313b1892becec4777c6644411009edab31e36",
+     "pkg_nontest_lines": 26,
+     "pkg_nontest_files": [
+      "v1/ast/check.go"
+     ],
+     "pkg_test_files": [
+      "v1/ast/check_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 26,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Not.Location"
+     ],
+     "offline_test_at_merge": "pass (Go 1.25.5)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 8468,
+     "title": "ast: catch functions in dynamic extent of ref head rule",
+     "merged_at": "2026-04-13T07:28:45Z",
+     "merge_commit": "04ee2c86add924e4490123f0c5ced630cff1a412",
+     "base_commit_merge_parent": "9b90626150c06907cfc76b1c57f5dc76ebe82606",
+     "gh_base_ref_oid": "9b90626150c06907cfc76b1c57f5dc76ebe82606",
+     "pkg_nontest_lines": 31,
+     "pkg_nontest_files": [
+      "v1/ast/compile.go"
+     ],
+     "pkg_test_files": [
+      "v1/ast/compile_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 31,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Not.IsGround",
+      "mermaidBuilder.node"
+     ],
+     "offline_test_at_merge": "pass (Go 1.25.5)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 8511,
+     "title": "ast: fix parenthesis in String() of {obj,arr,set} comprehensions",
+     "merged_at": "2026-04-14T07:29:40Z",
+     "merge_commit": "42baad2bc4cb7b64941d8b409ad7001b108dabf7",
+     "base_commit_merge_parent": "1de861f2d61903f7cdc99e6a3f5ab0d68631e670",
+     "gh_base_ref_oid": "1de861f2d61903f7cdc99e6a3f5ab0d68631e670",
+     "pkg_nontest_lines": 51,
+     "pkg_nontest_files": [
+      "v1/ast/string_length.go",
+      "v1/ast/term_appenders.go"
+     ],
+     "pkg_test_files": [
+      "v1/ast/term_appenders_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 51,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Not.AppendText",
+      "Not.Body",
+      "Not.String",
+      "Not.StringLength"
+     ],
+     "offline_test_at_merge": "pass (Go 1.25.5)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    }
+   ],
+   "trivial_commits_between": [
+    {
+     "sha": "918b8cc9698840b6e9e68c2e18d30f473eacdffc",
+     "pr": 8483,
+     "title": "fmt: add new line between METADATA blocks",
+     "lines": 8
+    },
+    {
+     "sha": "1de861f2d61903f7cdc99e6a3f5ab0d68631e670",
+     "pr": 8463,
+     "title": "Add support for days, weeks and years in parse_duration_ns",
+     "lines": 2
+    }
+   ],
+   "names_to_specify_total": 5,
+   "names_unexported_total": 1,
+   "offline_test_seed": "pass (Go 1.25.5)",
+   "placement": "#8427 adds a `Not` AST node across 10 files (term, compare, visit, compile, parser, string-length, mermaid); later steps are parser, type-checker, compiler and String() changes that touch the same code paths and use the new node's methods.",
+   "caveats": "Weight is front-loaded: #8427 is 765 of 875 lines; the four later steps are small fixes (2-51 lines) of observable parser/checker/compiler/printing behaviour. Trivial commits #8483 (8 lines, fmt newline) and #8463 (2 lines in this package) sit inside.",
+   "status_vs_previous": "new",
+   "worst_rename_risk": "medium",
+   "high_risk_steps": 0
+  },
+  {
+   "rank": 5,
+   "repo": "jaegertracing/jaeger",
+   "package": "internal/storage/v2/api/tracestore",
+   "package_import_path": "github.com/jaegertracing/jaeger/internal/storage/v2/api/tracestore",
+   "nontest_files_at_head": 16,
+   "namespaces_at_head": 17,
+   "seed_commit": "35c2a4082608273f885cf1bf361eb29bdf39d1bb",
+   "final_commit": "ea1291f54398ed1cdfd123892ee947ca892e7a4b",
+   "pkg_nontest_lines": 565,
+   "whole_pr_nontest_lines": 851,
+   "distinct_pkg_files": [
+    "internal/storage/v2/api/tracestore/admission.go",
+    "internal/storage/v2/api/tracestore/capabilities.go",
+    "internal/storage/v2/api/tracestore/reader.go",
+    "internal/storage/v2/api/tracestore/shape.go"
+   ],
+   "steps": [
+    {
+     "pr": 9256,
+     "title": "feat(storage): Let backends declare that search can omit the service name",
+     "merged_at": "2026-08-07T23:07:05Z",
+     "merge_commit": "3847bd90754b970d5f2870bea3310521a6ba1cc4",
+     "base_commit_merge_parent": "35c2a4082608273f885cf1bf361eb29bdf39d1bb",
+     "gh_base_ref_oid": "35c2a4082608273f885cf1bf361eb29bdf39d1bb",
+     "pkg_nontest_lines": 36,
+     "pkg_nontest_files": [
+      "internal/storage/v2/api/tracestore/reader.go"
+     ],
+     "pkg_test_files": [
+      "internal/storage/v2/api/tracestore/reader_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 216,
+     "names_to_specify_exported": [
+      "Reader.SearchCapabilities",
+      "SearchCapabilities"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 9356,
+     "title": "feat(storage): Let a reader declare which filters it evaluates",
+     "merged_at": "2026-08-19T05:09:10Z",
+     "merge_commit": "f45102541a4fada7a9db1eefd7b572e4b11b48c0",
+     "base_commit_merge_parent": "5bf8384ccc0e72ad528935e704a5d76cc631f6a1",
+     "gh_base_ref_oid": "acbbea43831bdb408f4322eb4ccd55b43e613fad",
+     "pkg_nontest_lines": 134,
+     "pkg_nontest_files": [
+      "internal/storage/v2/api/tracestore/capabilities.go",
+      "internal/storage/v2/api/tracestore/reader.go"
+     ],
+     "pkg_test_files": [
+      "internal/storage/v2/api/tracestore/capabilities_test.go",
+      "internal/storage/v2/api/tracestore/reader_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 134,
+     "names_to_specify_exported": [
+      "FilterCapabilities",
+      "FilterCapabilities.IsEmpty",
+      "FilterCapabilities.Levels",
+      "FilterCapabilities.Operators",
+      "FilterCapabilities.SupportsLevel",
+      "FilterCapabilities.SupportsOperator",
+      "Reader.SearchCapabilities",
+      "SearchCapabilities"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Reader.SearchCapabilities",
+      "SearchCapabilities",
+      "SearchCapabilities.WithoutServiceName"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 9357,
+     "title": "feat(query): Serve a filter query in the shape the backend understands",
+     "merged_at": "2026-08-19T05:09:12Z",
+     "merge_commit": "ea1291f54398ed1cdfd123892ee947ca892e7a4b",
+     "base_commit_merge_parent": "f45102541a4fada7a9db1eefd7b572e4b11b48c0",
+     "gh_base_ref_oid": "6f3921c47020613f7d665587b6341ba22378378b",
+     "pkg_nontest_lines": 395,
+     "pkg_nontest_files": [
+      "internal/storage/v2/api/tracestore/admission.go",
+      "internal/storage/v2/api/tracestore/shape.go"
+     ],
+     "pkg_test_files": [
+      "internal/storage/v2/api/tracestore/admission_test.go",
+      "internal/storage/v2/api/tracestore/shape_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 501,
+     "names_to_specify_exported": [
+      "ErrFilterInvalid",
+      "ErrFilterUnsupported",
+      "FilterCapabilities",
+      "FilterCapabilities.EnsureSupported",
+      "FilterCapabilities.Levels",
+      "FilterCapabilities.Operators",
+      "Reader.SearchCapabilities",
+      "SearchCapabilities",
+      "SearchCapabilities.Filter",
+      "TraceQueryParams.EnsureFilterStandsAlone",
+      "TraceQueryParams.Filter",
+      "TraceQueryParams.ForCapabilities",
+      "TraceQueryParams.ToFilterShape",
+      "TraceQueryParams.ToLegacyShape"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "ErrFilterInvalid",
+      "ErrFilterUnsupported",
+      "FilterCapabilities",
+      "FilterCapabilities.IsEmpty",
+      "FilterCapabilities.Levels",
+      "FilterCapabilities.Operators",
+      "FilterCapabilities.SupportsLevel",
+      "FilterCapabilities.SupportsOperator",
+      "Reader.SearchCapabilities",
+      "SearchCapabilities",
+      "SearchCapabilities.Filter",
+      "TraceQueryParams.Filter"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    }
+   ],
+   "trivial_commits_between": [
+    {
+     "sha": "83f312167ee91c5e1299616011f33bde6f87bb75",
+     "pr": 9261,
+     "title": "fix(memory): Return copies of stored traces, not references",
+     "lines": 8
+    },
+    {
+     "sha": "2487d690445e0d51b04075f04ea70abe078b4a35",
+     "pr": 9271,
+     "title": "docs(adr): Record the storage capability mechanism and close RFC 0013",
+     "lines": 20
+    }
+   ],
+   "names_to_specify_total": 17,
+   "names_unexported_total": 0,
+   "offline_test_seed": "pass",
+   "placement": "Storage capability declarations grow step by step (search without service name, then filter capabilities, then query shaping in new admission/shape code that consumes them); the agent decides where capability types and query-shape logic live.",
+   "caveats": "565 package lines, slightly under 600; 66% inside the package (the rest is in query/memory backends). Trivial commits #9261 (8 lines, memory backend returns copies) and #9271 (20 lines of ADR/doc comments) sit inside.",
+   "status_vs_previous": "new",
+   "worst_rename_risk": "none",
+   "high_risk_steps": 0
+  },
+  {
+   "rank": 6,
+   "repo": "github/github-mcp-server",
+   "package": "pkg/github",
+   "package_import_path": "github.com/github/github-mcp-server/v2/pkg/github",
+   "nontest_files_at_head": 77,
+   "namespaces_at_head": 113,
+   "seed_commit": "74964520cf15aae32400119762a9d4482eda0333",
+   "final_commit": "d5e1f48728dd85ecdb7aa12246c2f6e9a9eb3a8c",
+   "pkg_nontest_lines": 1247,
+   "whole_pr_nontest_lines": 1247,
+   "distinct_pkg_files": [
+    "pkg/github/actions.go",
+    "pkg/github/discussions.go",
+    "pkg/github/issues.go",
+    "pkg/github/notifications.go",
+    "pkg/github/pullrequests.go",
+    "pkg/github/repositories.go",
+    "pkg/github/search.go",
+    "pkg/github/search_utils.go",
+    "pkg/github/server.go",
+    "pkg/github/tools.go"
+   ],
+   "steps": [
+    {
+     "pr": 683,
+     "title": "Add pagination support to GraphQL-based tools",
+     "merged_at": "2025-07-21T15:31:30Z",
+     "merge_commit": "7ccc6b6493f184c6fce8620c41ed1ffda12837b8",
+     "base_commit_merge_parent": "74964520cf15aae32400119762a9d4482eda0333",
+     "gh_base_ref_oid": "74964520cf15aae32400119762a9d4482eda0333",
+     "pkg_nontest_lines": 382,
+     "pkg_nontest_files": [
+      "pkg/github/actions.go",
+      "pkg/github/discussions.go",
+      "pkg/github/issues.go",
+      "pkg/github/notifications.go",
+      "pkg/github/pullrequests.go",
+      "pkg/github/repositories.go",
+      "pkg/github/search.go",
+      "pkg/github/search_utils.go",
+      "pkg/github/server.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/discussions_test.go",
+      "pkg/github/server_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 382,
+     "names_to_specify_exported": [
+      "CursorPaginationParams.PerPage",
+      "PaginationParams.Page",
+      "PaginationParams.PerPage"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 470,
+     "title": "Add tools for sub-issue endpoint",
+     "merged_at": "2025-07-22T08:24:46Z",
+     "merge_commit": "60a5391d67543ca4ef53370cbb48a01f3702fc66",
+     "base_commit_merge_parent": "7ccc6b6493f184c6fce8620c41ed1ffda12837b8",
+     "gh_base_ref_oid": "7ccc6b6493f184c6fce8620c41ed1ffda12837b8",
+     "pkg_nontest_lines": 407,
+     "pkg_nontest_files": [
+      "pkg/github/issues.go",
+      "pkg/github/tools.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/issues_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 407,
+     "names_to_specify_exported": [
+      "AddSubIssue",
+      "ListSubIssues",
+      "RemoveSubIssue",
+      "ReprioritizeSubIssue"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [
+      "pkg/github/__toolsnaps__/add_sub_issue.snap",
+      "pkg/github/__toolsnaps__/list_sub_issues.snap",
+      "pkg/github/__toolsnaps__/remove_sub_issue.snap",
+      "pkg/github/__toolsnaps__/reprioritize_sub_issue.snap"
+     ],
+     "uses_names_from_earlier_steps": [
+      "CursorPaginationParams.PerPage",
+      "PaginationParams.Page",
+      "PaginationParams.PerPage"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 690,
+     "title": "feat: list_discussions sort by updatedAt & createdAt, return updatedAt and author",
+     "merged_at": "2025-07-24T10:26:00Z",
+     "merge_commit": "a9395651605765afe1f667516911901f13843ace",
+     "base_commit_merge_parent": "7a9bc91185c8552336b95a7fbbb2d37d63e0ce0a",
+     "gh_base_ref_oid": "7a9bc91185c8552336b95a7fbbb2d37d63e0ce0a",
+     "pkg_nontest_lines": 306,
+     "pkg_nontest_files": [
+      "pkg/github/discussions.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/discussions_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 306,
+     "names_to_specify_exported": [
+      "NodeFragment.Number"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "CursorPaginationParams.After",
+      "GraphQLPaginationParams.After",
+      "GraphQLPaginationParams.First",
+      "PaginationParams.After"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 740,
+     "title": "Changed q to query in search",
+     "merged_at": "2025-07-24T10:35:35Z",
+     "merge_commit": "efef8ae27a1d62c38c8f760ca38a65845efd3576",
+     "base_commit_merge_parent": "a9395651605765afe1f667516911901f13843ace",
+     "gh_base_ref_oid": "7a9bc91185c8552336b95a7fbbb2d37d63e0ce0a",
+     "pkg_nontest_lines": 4,
+     "pkg_nontest_files": [
+      "pkg/github/search.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/search_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 4,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [
+      "pkg/github/__toolsnaps__/search_code.snap"
+     ],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 774,
+     "title": "Add updating draft state to `update_pull_request` tool",
+     "merged_at": "2025-07-29T09:58:06Z",
+     "merge_commit": "d5e1f48728dd85ecdb7aa12246c2f6e9a9eb3a8c",
+     "base_commit_merge_parent": "efef8ae27a1d62c38c8f760ca38a65845efd3576",
+     "gh_base_ref_oid": "efef8ae27a1d62c38c8f760ca38a65845efd3576",
+     "pkg_nontest_lines": 148,
+     "pkg_nontest_files": [
+      "pkg/github/pullrequests.go",
+      "pkg/github/tools.go"
+     ],
+     "pkg_test_files": [
+      "pkg/github/pullrequests_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 148,
+     "names_to_specify_exported": [
+      "BasicNoOrder.Repository",
+      "BasicWithOrder.Repository",
+      "NodeFragment.Number",
+      "NodeFragment.Title",
+      "WithCategoryAndOrder.Repository",
+      "WithCategoryNoOrder.Repository"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [
+      "pkg/github/__toolsnaps__/update_pull_request.snap"
+     ],
+     "uses_names_from_earlier_steps": [
+      "BasicNoOrder.Repository",
+      "BasicWithOrder.Repository",
+      "NodeFragment.Number",
+      "NodeFragment.Title",
+      "WithCategoryAndOrder.Repository",
+      "WithCategoryNoOrder.Repository"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    }
+   ],
+   "trivial_commits_between": [],
+   "names_to_specify_total": 13,
+   "names_unexported_total": 0,
+   "offline_test_seed": "pass",
+   "placement": "#683 adds pagination parameter types across 9 tool files; #470, #690 and #774 use them, so the first step's placement of shared helpers is exercised by every later step.",
+   "caveats": "Merged 2025-07 (before the cutoff). #740 (rename of the search parameter `q` to `query`, observable tool schema) is now a step instead of an in-between commit.",
+   "status_vs_previous": "kept (now includes #740)",
+   "worst_rename_risk": "none",
+   "high_risk_steps": 0
+  },
+  {
+   "rank": 7,
+   "repo": "modelcontextprotocol/go-sdk",
+   "package": "mcp",
+   "package_import_path": "github.com/modelcontextprotocol/go-sdk/mcp",
+   "nontest_files_at_head": 25,
+   "namespaces_at_head": 34,
+   "seed_commit": "1943780255521f98ef57f083ae95b92fe727ee96",
+   "final_commit": "623780125cbb74daba04375807b887b935e50037",
+   "pkg_nontest_lines": 701,
+   "whole_pr_nontest_lines": 766,
+   "distinct_pkg_files": [
+    "mcp/client.go",
+    "mcp/event.go",
+    "mcp/protocol.go",
+    "mcp/requests.go",
+    "mcp/resource.go",
+    "mcp/server.go",
+    "mcp/shared.go",
+    "mcp/streamable.go",
+    "mcp/transport.go"
+   ],
+   "steps": [
+    {
+     "pr": 644,
+     "title": "Elicit defaults",
+     "merged_at": "2025-11-21T21:15:21Z",
+     "merge_commit": "d9263f7e47ba2fa85fb59c7a4c17a962f968c2db",
+     "base_commit_merge_parent": "1943780255521f98ef57f083ae95b92fe727ee96",
+     "gh_base_ref_oid": "9ef2b2742ea1b6fed83b8ae40a96d0006e45d739",
+     "pkg_nontest_lines": 60,
+     "pkg_nontest_files": [
+      "mcp/client.go",
+      "mcp/server.go"
+     ],
+     "pkg_test_files": [
+      "mcp/mcp_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 60,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 646,
+     "title": "mcp: support url mode elicitation",
+     "merged_at": "2025-11-23T17:58:29Z",
+     "merge_commit": "21fb03dd1ab987339fa35061e94c3e8cbdcf565f",
+     "base_commit_merge_parent": "d9263f7e47ba2fa85fb59c7a4c17a962f968c2db",
+     "gh_base_ref_oid": "d9263f7e47ba2fa85fb59c7a4c17a962f968c2db",
+     "pkg_nontest_lines": 188,
+     "pkg_nontest_files": [
+      "mcp/client.go",
+      "mcp/protocol.go",
+      "mcp/requests.go",
+      "mcp/server.go",
+      "mcp/shared.go"
+     ],
+     "pkg_test_files": [
+      "mcp/elicitation_test.go",
+      "mcp/mcp_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 236,
+     "names_to_specify_exported": [
+      "ClientOptions.ElicitationCompleteHandler",
+      "ClientOptions.ElicitationModes",
+      "ElicitParams.ElicitationID",
+      "ElicitParams.Mode",
+      "ElicitParams.URL",
+      "ElicitationCapabilities.URL",
+      "ElicitationCompleteNotificationRequest",
+      "ElicitationCompleteParams",
+      "ElicitationCompleteParams.ElicitationID"
+     ],
+     "names_to_specify_unexported": [
+      "notificationElicitationComplete"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "low",
+     "rename_risk_note": "`notificationElicitationComplete` method-name constant"
+    },
+    {
+     "pr": 655,
+     "title": "Expose JSON-RPC error codes, and URLElicitationRequired errors",
+     "merged_at": "2025-12-01T16:29:18Z",
+     "merge_commit": "2ce44d45e9f65c9e2bb8fee56d1a4663241aad11",
+     "base_commit_merge_parent": "96385fde3c84a5d8fe2882b7eeb7becc7231a82f",
+     "gh_base_ref_oid": "21fb03dd1ab987339fa35061e94c3e8cbdcf565f",
+     "pkg_nontest_lines": 258,
+     "pkg_nontest_files": [
+      "mcp/client.go",
+      "mcp/resource.go",
+      "mcp/server.go",
+      "mcp/shared.go",
+      "mcp/transport.go"
+     ],
+     "pkg_test_files": [
+      "mcp/client_test.go",
+      "mcp/elicitation_test.go",
+      "mcp/error_test.go",
+      "mcp/mcp_test.go",
+      "mcp/streamable_test.go",
+      "mcp/tool_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 275,
+     "names_to_specify_exported": [
+      "ClientOptions.ElicitationModes",
+      "CodeResourceNotFound",
+      "CodeURLElicitationRequired",
+      "ElicitParams.ElicitationID",
+      "ElicitParams.Mode",
+      "ElicitParams.URL",
+      "ElicitationCapabilities.Form",
+      "ElicitationCapabilities.URL",
+      "ElicitationCompleteParams",
+      "ElicitationCompleteParams.ElicitationID",
+      "FormElicitationCapabilities",
+      "URLElicitationCapabilities",
+      "URLElicitationRequiredError"
+     ],
+     "names_to_specify_unexported": [
+      "notificationElicitationComplete",
+      "urlElicitationMiddleware"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "ClientOptions.ElicitationModes",
+      "ElicitParams.ElicitationID",
+      "ElicitParams.Mode",
+      "ElicitationCapabilities.Form",
+      "ElicitationCompleteParams",
+      "ElicitationCompleteParams.ElicitationID",
+      "FormElicitationCapabilities",
+      "URLElicitationCapabilities",
+      "notificationElicitationComplete"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "medium",
+     "rename_risk_note": "installs `urlElicitationMiddleware()` in a test client"
+    },
+    {
+     "pr": 665,
+     "title": "fix: handle Windows CRLF in MCP client(#664)",
+     "merged_at": "2025-12-01T17:16:39Z",
+     "merge_commit": "1bec3c60a0229df71933fdea7d5046702fc8cc4b",
+     "base_commit_merge_parent": "2ce44d45e9f65c9e2bb8fee56d1a4663241aad11",
+     "gh_base_ref_oid": "96385fde3c84a5d8fe2882b7eeb7becc7231a82f",
+     "pkg_nontest_lines": 3,
+     "pkg_nontest_files": [
+      "mcp/transport.go"
+     ],
+     "pkg_test_files": [
+      "mcp/transport_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 3,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 663,
+     "title": "mcp: support SSE polling and server disconnects (SEP-1699)",
+     "merged_at": "2025-12-01T21:21:37Z",
+     "merge_commit": "623780125cbb74daba04375807b887b935e50037",
+     "base_commit_merge_parent": "1bec3c60a0229df71933fdea7d5046702fc8cc4b",
+     "gh_base_ref_oid": "96385fde3c84a5d8fe2882b7eeb7becc7231a82f",
+     "pkg_nontest_lines": 192,
+     "pkg_nontest_files": [
+      "mcp/event.go",
+      "mcp/shared.go",
+      "mcp/streamable.go"
+     ],
+     "pkg_test_files": [
+      "mcp/streamable_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 192,
+     "names_to_specify_exported": [
+      "ElicitParams.URL",
+      "ElicitationCapabilities.URL",
+      "RequestExtra.CloseStream"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    }
+   ],
+   "trivial_commits_between": [],
+   "names_to_specify_total": 18,
+   "names_unexported_total": 2,
+   "offline_test_seed": "pass",
+   "placement": "Elicitation defaults, URL-mode elicitation, error codes / URLElicitationRequired built on it, a CRLF fix, then SSE polling; spread over client.go, server.go, shared.go, protocol.go, transport.go, streamable.go, event.go.",
+   "caveats": "Merged 2025-11/12. #665 is a 3-line observable fix (Windows CRLF in SSE parsing).",
+   "status_vs_previous": "kept (now includes #644 and #665)",
+   "worst_rename_risk": "medium",
+   "high_risk_steps": 0
+  },
+  {
+   "rank": 8,
+   "repo": "go-git/go-git",
+   "package": "plumbing/protocol/packp",
+   "package_import_path": "github.com/go-git/go-git/v6/plumbing/protocol/packp",
+   "nontest_files_at_head": 25,
+   "namespaces_at_head": 27,
+   "seed_commit": "c8de2fac74153f0967e55070be683c46e06639f0",
+   "final_commit": "75f92acd2a833ea4f43da2fd9eeb79f0071f5388",
+   "pkg_nontest_lines": 1606,
+   "whole_pr_nontest_lines": 2357,
+   "distinct_pkg_files": [
+    "plumbing/protocol/packp/advrefs.go",
+    "plumbing/protocol/packp/advrefs_decode.go",
+    "plumbing/protocol/packp/advrefs_encode.go",
+    "plumbing/protocol/packp/capability_adv.go",
+    "plumbing/protocol/packp/command.go",
+    "plumbing/protocol/packp/fetch.go",
+    "plumbing/protocol/packp/gitproto.go",
+    "plumbing/protocol/packp/list.go",
+    "plumbing/protocol/packp/lsrefs.go",
+    "plumbing/protocol/packp/updreq.go"
+   ],
+   "steps": [
+    {
+     "pr": 2225,
+     "title": "plumbing: packp/transport, Slice-based AdvRefs and v1 handling (2/11)",
+     "merged_at": "2026-06-26T08:18:20Z",
+     "merge_commit": "3fe32a2a49583f8787dd28395609458b3cd4dbdb",
+     "base_commit_merge_parent": "c8de2fac74153f0967e55070be683c46e06639f0",
+     "gh_base_ref_oid": "af44b10efc235864155d53781d281ce7eab84268",
+     "pkg_nontest_lines": 39,
+     "pkg_nontest_files": [
+      "plumbing/protocol/packp/advrefs.go",
+      "plumbing/protocol/packp/advrefs_decode.go",
+      "plumbing/protocol/packp/advrefs_encode.go"
+     ],
+     "pkg_test_files": [
+      "plumbing/protocol/packp/advrefs_decode_test.go",
+      "plumbing/protocol/packp/advrefs_encode_test.go",
+      "plumbing/protocol/packp/advrefs_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 46,
+     "names_to_specify_exported": [
+      "AdvRefs.Version"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 2227,
+     "title": "plumbing: packp, Protocol v2 wire types with caller-owned packfile streaming (4/11)",
+     "merged_at": "2026-06-26T11:13:03Z",
+     "merge_commit": "34fa78dd321e548194b1974b92d3c23ccc4f257c",
+     "base_commit_merge_parent": "e261bd0ccac0411982924b1a9a2f357f21f663d1",
+     "gh_base_ref_oid": "a9ec7f3d86014dca2aaf884153396c5121099e5a",
+     "pkg_nontest_lines": 1223,
+     "pkg_nontest_files": [
+      "plumbing/protocol/packp/capability_adv.go",
+      "plumbing/protocol/packp/command.go",
+      "plumbing/protocol/packp/fetch.go",
+      "plumbing/protocol/packp/list.go",
+      "plumbing/protocol/packp/lsrefs.go"
+     ],
+     "pkg_test_files": [
+      "plumbing/protocol/packp/capability_adv_test.go",
+      "plumbing/protocol/packp/command_test.go",
+      "plumbing/protocol/packp/fetch_test.go",
+      "plumbing/protocol/packp/fuzz_test.go",
+      "plumbing/protocol/packp/lsrefs_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 1237,
+     "names_to_specify_exported": [
+      "Acknowledgments",
+      "Acknowledgments.ACKs",
+      "Acknowledgments.Ready",
+      "AdvRefs.Version",
+      "CapabilityAdv",
+      "CapabilityAdv.Capabilities",
+      "CapabilityAdv.Decode",
+      "CapabilityAdv.Encode",
+      "CapabilityAdv.Version",
+      "CommandRequest",
+      "CommandRequest.Args",
+      "CommandRequest.Capabilities",
+      "CommandRequest.Command",
+      "CommandRequest.Decode",
+      "CommandRequest.Encode",
+      "FetchArgs",
+      "FetchArgs.Decode",
+      "FetchArgs.Deepen",
+      "FetchArgs.DeepenNot",
+      "FetchArgs.DeepenRelative",
+      "FetchArgs.DeepenSince",
+      "FetchArgs.Done",
+      "FetchArgs.Encode",
+      "FetchArgs.Filter",
+      "FetchArgs.Haves",
+      "FetchArgs.IncludeTag",
+      "FetchArgs.NoProgress",
+      "FetchArgs.OFSDelta",
+      "FetchArgs.Shallows",
+      "FetchArgs.ThinPack",
+      "FetchArgs.WaitForDone",
+      "FetchArgs.Wants",
+      "FetchOutput",
+      "FetchOutput.Acknowledgments",
+      "FetchOutput.Decode",
+      "FetchOutput.Encode",
+      "FetchOutput.Packfile",
+      "FetchOutput.PackfileURIs",
+      "FetchOutput.ShallowInfo",
+      "FetchOutput.WantedRefs",
+      "LsRefsArgs",
+      "LsRefsArgs.Decode",
+      "LsRefsArgs.Encode",
+      "LsRefsArgs.Peel",
+      "LsRefsArgs.RefPrefixes",
+      "LsRefsArgs.Symrefs",
+      "LsRefsArgs.Unborn",
+      "LsRefsOutput",
+      "LsRefsOutput.Decode",
+      "LsRefsOutput.Encode",
+      "LsRefsOutput.References",
+      "PackfileURIs",
+      "PackfileURIs.URIs",
+      "ShallowInfo",
+      "ShallowInfo.Shallows",
+      "ShallowInfo.Unshallows",
+      "WantedRefs",
+      "WantedRefs.Refs"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "AdvRefs.Version"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 2237,
+     "title": "plumbing: default to wire protocol v2 and close client/server conformance gaps",
+     "merged_at": "2026-07-06T16:31:45Z",
+     "merge_commit": "533c6877795cc2e99a75d14c4217377e48b8c392",
+     "base_commit_merge_parent": "c5436660cc2edbb0d8f1ef3272c19bbde04ae363",
+     "gh_base_ref_oid": "c5436660cc2edbb0d8f1ef3272c19bbde04ae363",
+     "pkg_nontest_lines": 287,
+     "pkg_nontest_files": [
+      "plumbing/protocol/packp/advrefs.go",
+      "plumbing/protocol/packp/fetch.go",
+      "plumbing/protocol/packp/lsrefs.go"
+     ],
+     "pkg_test_files": [
+      "plumbing/protocol/packp/conformance_test.go",
+      "plumbing/protocol/packp/fetch_test.go",
+      "plumbing/protocol/packp/fuzz_test.go",
+      "plumbing/protocol/packp/lsrefs_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 1003,
+     "names_to_specify_exported": [
+      "CapabilityAdv",
+      "CapabilityAdv.Decode",
+      "CapabilityAdv.Encode",
+      "CommandRequest",
+      "CommandRequest.Args",
+      "CommandRequest.Decode",
+      "CommandRequest.Encode",
+      "FetchArgs",
+      "FetchArgs.Decode",
+      "FetchArgs.Encode",
+      "FetchOutput",
+      "FetchOutput.Decode",
+      "FetchOutput.Encode",
+      "FetchOutput.Packfile",
+      "LsRefsArgs",
+      "LsRefsArgs.Decode",
+      "LsRefsArgs.Encode",
+      "LsRefsArgs.Peel",
+      "LsRefsArgs.RefPrefixes",
+      "LsRefsArgs.Symrefs",
+      "LsRefsOutput",
+      "LsRefsOutput.Decode",
+      "LsRefsOutput.Encode",
+      "MalformedResponseError",
+      "MalformedResponseError.Error"
+     ],
+     "names_to_specify_unexported": [
+      "maxSectionLines",
+      "parseLsRefsLine",
+      "tooManyRefPrefixes"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "Acknowledgments",
+      "Acknowledgments.ACKs",
+      "Acknowledgments.Ready",
+      "CapabilityAdv",
+      "CapabilityAdv.Decode",
+      "CapabilityAdv.Encode",
+      "CommandRequest",
+      "CommandRequest.Args",
+      "CommandRequest.Decode",
+      "CommandRequest.Encode",
+      "FetchArgs",
+      "FetchArgs.Decode",
+      "FetchArgs.Deepen",
+      "FetchArgs.DeepenNot",
+      "FetchArgs.DeepenSince",
+      "FetchArgs.Encode",
+      "FetchArgs.Filter",
+      "FetchArgs.Haves",
+      "FetchArgs.Shallows",
+      "FetchArgs.Wants",
+      "FetchOutput",
+      "FetchOutput.Acknowledgments",
+      "FetchOutput.Decode",
+      "FetchOutput.Encode",
+      "FetchOutput.Packfile",
+      "FetchOutput.PackfileURIs",
+      "FetchOutput.ShallowInfo",
+      "FetchOutput.WantedRefs",
+      "FetchOutput.decodePackfileURIs",
+      "FetchOutput.decodeShallowInfo",
+      "FetchOutput.decodeWantedRefs",
+      "LsRefsArgs",
+      "LsRefsArgs.Decode",
+      "LsRefsArgs.Encode",
+      "LsRefsArgs.Peel",
+      "LsRefsArgs.RefPrefixes",
+      "LsRefsArgs.Symrefs",
+      "LsRefsOutput",
+      "LsRefsOutput.Decode",
+      "LsRefsOutput.Encode",
+      "LsRefsOutput.References",
+      "PackfileURIs",
+      "PackfileURIs.URIs",
+      "ShallowInfo",
+      "ShallowInfo.Shallows",
+      "ShallowInfo.Unshallows",
+      "WantedRefs",
+      "WantedRefs.Refs",
+      "parseLsRefsLine"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "high",
+     "rename_risk_note": "unit-tests the small line parser `parseLsRefsLine` and the limits `maxSectionLines`/`tooManyRefPrefixes`; no counterpart if the agent does not extract a line parser"
+    },
+    {
+     "pr": 2263,
+     "title": "plumbing: protocol/packp, reject control bytes in daemon request",
+     "merged_at": "2026-07-23T15:39:10Z",
+     "merge_commit": "1ebae94a9f3227c32b9c1a75c9c8321b44fbcdad",
+     "base_commit_merge_parent": "228a3ab5b62675153f9da8025c67d0f1d67e1c7f",
+     "gh_base_ref_oid": "5f90b841aef24f235002e2fc71bfb1e142f804cf",
+     "pkg_nontest_lines": 46,
+     "pkg_nontest_files": [
+      "plumbing/protocol/packp/gitproto.go"
+     ],
+     "pkg_test_files": [
+      "plumbing/protocol/packp/gitproto_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 46,
+     "names_to_specify_exported": [
+      "CapabilityAdv.Decode",
+      "CapabilityAdv.Encode",
+      "CommandRequest.Decode",
+      "CommandRequest.Encode",
+      "FetchArgs.Decode",
+      "FetchArgs.Encode",
+      "FetchOutput.Decode",
+      "FetchOutput.Encode",
+      "LsRefsArgs.Decode",
+      "LsRefsArgs.Encode",
+      "LsRefsOutput.Decode",
+      "LsRefsOutput.Encode"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "CapabilityAdv.Decode",
+      "CapabilityAdv.Encode",
+      "CommandRequest.Decode",
+      "CommandRequest.Encode",
+      "FetchArgs.Decode",
+      "FetchArgs.Encode",
+      "FetchOutput.Decode",
+      "FetchOutput.Encode",
+      "LsRefsArgs.Decode",
+      "LsRefsArgs.Encode",
+      "LsRefsOutput.Decode",
+      "LsRefsOutput.Encode"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 2264,
+     "title": "plumbing: protocol/packp, compare zero object ids by value in Action",
+     "merged_at": "2026-07-23T16:08:07Z",
+     "merge_commit": "75f92acd2a833ea4f43da2fd9eeb79f0071f5388",
+     "base_commit_merge_parent": "1ebae94a9f3227c32b9c1a75c9c8321b44fbcdad",
+     "gh_base_ref_oid": "5f90b841aef24f235002e2fc71bfb1e142f804cf",
+     "pkg_nontest_lines": 11,
+     "pkg_nontest_files": [
+      "plumbing/protocol/packp/updreq.go"
+     ],
+     "pkg_test_files": [
+      "plumbing/protocol/packp/updreq_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 25,
+     "names_to_specify_exported": [
+      "CommandRequest.Command",
+      "MalformedResponseError.Error"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "CommandRequest.Command",
+      "MalformedResponseError.Error"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    }
+   ],
+   "trivial_commits_between": [],
+   "names_to_specify_total": 63,
+   "names_unexported_total": 3,
+   "offline_test_seed": "pass",
+   "placement": "Protocol v2 support built in stages: slice-based AdvRefs, new v2 wire types (capability_adv, command, fetch, ls-refs), switching the default, then input-validation fixes on the new types.",
+   "caveats": "#2227 alone is 1223 of 1606 lines (one large step); 68% inside the package. #2264 (compare zero object IDs by value) is borderline: it may only matter for upstream's representation; read before use.",
+   "status_vs_previous": "new",
+   "worst_rename_risk": "high",
+   "high_risk_steps": 1
+  },
+  {
+   "rank": 9,
+   "repo": "traefik/traefik",
+   "package": "pkg/provider/kubernetes/gateway",
+   "package_import_path": "github.com/traefik/traefik/v3/pkg/provider/kubernetes/gateway",
+   "nontest_files_at_head": 9,
+   "namespaces_at_head": 9,
+   "seed_commit": "90a7b2b411ddd3bc61485cc97dfb2bb607e36c9b",
+   "final_commit": "074d02c09fae5a89463caf478013455f108316a2",
+   "pkg_nontest_lines": 597,
+   "whole_pr_nontest_lines": 970,
+   "distinct_pkg_files": [
+    "pkg/provider/kubernetes/gateway/client.go",
+    "pkg/provider/kubernetes/gateway/features.go",
+    "pkg/provider/kubernetes/gateway/grpcroute.go",
+    "pkg/provider/kubernetes/gateway/httproute.go",
+    "pkg/provider/kubernetes/gateway/kubernetes.go",
+    "pkg/provider/kubernetes/gateway/tlsroute.go"
+   ],
+   "steps": [
+    {
+     "pr": 14130,
+     "title": "Support HTTPRoute backendRequest timeout",
+     "merged_at": "2026-10-23T13:36:07Z",
+     "merge_commit": "eabc0714b367582dddbec155b5949889675b032d",
+     "base_commit_merge_parent": "90a7b2b411ddd3bc61485cc97dfb2bb607e36c9b",
+     "gh_base_ref_oid": "90a7b2b411ddd3bc61485cc97dfb2bb607e36c9b",
+     "pkg_nontest_lines": 28,
+     "pkg_nontest_files": [
+      "pkg/provider/kubernetes/gateway/features.go",
+      "pkg/provider/kubernetes/gateway/httproute.go"
+     ],
+     "pkg_test_files": [
+      "pkg/provider/kubernetes/gateway/kubernetes_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 28,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 14119,
+     "title": "Support Gateway backend client certificate",
+     "merged_at": "2026-10-26T16:18:19Z",
+     "merge_commit": "b46d3ea648b543a8d8c675a178b0780faae958c7",
+     "base_commit_merge_parent": "f1f227eda7d6b93988edd6cdbeae02c5d1cf79d5",
+     "gh_base_ref_oid": "f1f227eda7d6b93988edd6cdbeae02c5d1cf79d5",
+     "pkg_nontest_lines": 152,
+     "pkg_nontest_files": [
+      "pkg/provider/kubernetes/gateway/client.go",
+      "pkg/provider/kubernetes/gateway/features.go",
+      "pkg/provider/kubernetes/gateway/grpcroute.go",
+      "pkg/provider/kubernetes/gateway/httproute.go",
+      "pkg/provider/kubernetes/gateway/kubernetes.go",
+      "pkg/provider/kubernetes/gateway/tlsroute.go"
+     ],
+     "pkg_test_files": [
+      "pkg/provider/kubernetes/gateway/client_test.go",
+      "pkg/provider/kubernetes/gateway/kubernetes_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 152,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [
+      "Provider.loadGatewayBackendTLS",
+      "gatewayWithListeners.errResolvedRefsCondition"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "high",
+     "rename_risk_note": "calls `Provider.loadGatewayBackendTLS` and sets the internal field `gatewayWithListeners.errResolvedRefsCondition`"
+    },
+    {
+     "pr": 14127,
+     "title": "Support HTTPRoute retry",
+     "merged_at": "2026-10-27T11:00:09Z",
+     "merge_commit": "855f81ab0972791bb1969125846309deb98f2e50",
+     "base_commit_merge_parent": "b46d3ea648b543a8d8c675a178b0780faae958c7",
+     "gh_base_ref_oid": "b46d3ea648b543a8d8c675a178b0780faae958c7",
+     "pkg_nontest_lines": 54,
+     "pkg_nontest_files": [
+      "pkg/provider/kubernetes/gateway/features.go",
+      "pkg/provider/kubernetes/gateway/httproute.go",
+      "pkg/provider/kubernetes/gateway/kubernetes.go"
+     ],
+     "pkg_test_files": [
+      "pkg/provider/kubernetes/gateway/kubernetes_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 54,
+     "names_to_specify_exported": [
+      "Provider.RetryMaxRequestBodyBytes"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 14123,
+     "title": "Support HTTPRoute RequestMirror filter",
+     "merged_at": "2026-10-28T10:14:32Z",
+     "merge_commit": "c8740f8e276182e8d2852d03aceaa7e179151791",
+     "base_commit_merge_parent": "855f81ab0972791bb1969125846309deb98f2e50",
+     "gh_base_ref_oid": "855f81ab0972791bb1969125846309deb98f2e50",
+     "pkg_nontest_lines": 76,
+     "pkg_nontest_files": [
+      "pkg/provider/kubernetes/gateway/features.go",
+      "pkg/provider/kubernetes/gateway/httproute.go"
+     ],
+     "pkg_test_files": [
+      "pkg/provider/kubernetes/gateway/httproute_test.go",
+      "pkg/provider/kubernetes/gateway/kubernetes_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 447,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [
+      "Provider.loadRequestMirror"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "medium",
+     "rename_risk_note": "calls `Provider.loadRequestMirror(...)` with 10 positional arguments; the agent's builder likely differs in shape"
+    },
+    {
+     "pr": 13410,
+     "title": "Support ClusterTrustBundle CA certificate references",
+     "merged_at": "2026-10-28T15:58:07Z",
+     "merge_commit": "074d02c09fae5a89463caf478013455f108316a2",
+     "base_commit_merge_parent": "b73070140f9f884af97152da91579453974dcb0a",
+     "gh_base_ref_oid": "b73070140f9f884af97152da91579453974dcb0a",
+     "pkg_nontest_lines": 287,
+     "pkg_nontest_files": [
+      "pkg/provider/kubernetes/gateway/client.go",
+      "pkg/provider/kubernetes/gateway/features.go",
+      "pkg/provider/kubernetes/gateway/httproute.go",
+      "pkg/provider/kubernetes/gateway/kubernetes.go",
+      "pkg/provider/kubernetes/gateway/tlsroute.go"
+     ],
+     "pkg_test_files": [
+      "pkg/provider/kubernetes/gateway/kubernetes_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 289,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    }
+   ],
+   "trivial_commits_between": [
+    {
+     "sha": "f1f227eda7d6b93988edd6cdbeae02c5d1cf79d5",
+     "pr": 14125,
+     "title": "Bump sigs.k8s.io/gateway-api to v1.7.0-rc.3",
+     "lines": 12
+    },
+    {
+     "sha": "b73070140f9f884af97152da91579453974dcb0a",
+     "pr": 14145,
+     "title": "Merge branch v3.7 into master",
+     "lines": 2
+    }
+   ],
+   "names_to_specify_total": 4,
+   "names_unexported_total": 3,
+   "offline_test_seed": "pass",
+   "placement": "Five Gateway API features that each touch features.go and httproute.go plus some of kubernetes.go/client.go/grpcroute.go/tlsroute.go; #14119 and #13410 share TLS/CA loading.",
+   "caveats": "Building on earlier steps is only through shared files (no later step's test or code uses a name an earlier step added), 597 package lines, 62% inside. Fixture YAML ships with the hidden tests. Trivial commits #14125 (12-line dependency bump) and #14145 (2-line merge).",
+   "status_vs_previous": "kept",
+   "worst_rename_risk": "high",
+   "high_risk_steps": 1
+  },
+  {
+   "rank": 10,
+   "repo": "slack-go/slack",
+   "package": ".",
+   "package_import_path": "github.com/slack-go/slack",
+   "nontest_files_at_head": 125,
+   "namespaces_at_head": 149,
+   "seed_commit": "4c472cd10a45bd81ef26db9510a317a674293c78",
+   "final_commit": "af28090b40b608521911a84c0d563d13c93f193d",
+   "pkg_nontest_lines": 734,
+   "whole_pr_nontest_lines": 734,
+   "distinct_pkg_files": [
+    "assistant.go",
+    "block.go",
+    "block_alert.go",
+    "block_card.go",
+    "block_carousel.go",
+    "block_conv.go",
+    "block_data_table.go",
+    "block_plan.go",
+    "block_table.go",
+    "block_task_card.go",
+    "chat.go",
+    "chat_stream_chunks.go"
+   ],
+   "steps": [
+    {
+     "pr": 1551,
+     "title": "feat(block): add card and carousel blocks",
+     "merged_at": "2026-04-17T21:12:56Z",
+     "merge_commit": "e3c0e8b15630749da93cd18168a26e78a74fecd0",
+     "base_commit_merge_parent": "4c472cd10a45bd81ef26db9510a317a674293c78",
+     "gh_base_ref_oid": "4c472cd10a45bd81ef26db9510a317a674293c78",
+     "pkg_nontest_lines": 251,
+     "pkg_nontest_files": [
+      "block.go",
+      "block_card.go",
+      "block_carousel.go",
+      "block_conv.go",
+      "chat.go",
+      "chat_stream_chunks.go"
+     ],
+     "pkg_test_files": [
+      "block_card_test.go",
+      "block_carousel_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 251,
+     "names_to_specify_exported": [
+      "BlocksChunk.Blocks",
+      "BlocksChunk.Type",
+      "CardBlock",
+      "CardBlock.Actions",
+      "CardBlock.BlockType",
+      "CardBlock.Body",
+      "CardBlock.HeroImage",
+      "CardBlock.ID",
+      "CardBlock.Icon",
+      "CardBlock.Subtitle",
+      "CardBlock.Title",
+      "CardBlock.Type",
+      "CardBlock.WithActions",
+      "CardBlock.WithBody",
+      "CardBlock.WithHeroImage",
+      "CardBlock.WithIcon",
+      "CardBlock.WithSubtitle",
+      "CardBlock.WithTitle",
+      "CardBlockOptionBlockID",
+      "CarouselBlock",
+      "CarouselBlock.AddCard",
+      "CarouselBlock.BlockType",
+      "CarouselBlock.Elements",
+      "CarouselBlock.ID",
+      "CarouselBlock.Type",
+      "CarouselBlock.WithBlockID",
+      "MBTCard",
+      "MBTCarousel",
+      "MarkdownTextChunk.Text",
+      "MarkdownTextChunk.Type",
+      "NewCardBlock",
+      "NewCarouselBlock",
+      "PlanUpdateChunk.Title",
+      "PlanUpdateChunk.Type",
+      "TaskUpdateChunk.ID",
+      "TaskUpdateChunk.Title",
+      "TaskUpdateChunk.Type"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass except TestRTMDisconnect (dials slack.com)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 1553,
+     "title": "feat(assistant): add username and icon to status update",
+     "merged_at": "2026-04-20T22:11:46Z",
+     "merge_commit": "2df5cfa0b974d57fc8077ecd030be22e42a2e4a1",
+     "base_commit_merge_parent": "e3c0e8b15630749da93cd18168a26e78a74fecd0",
+     "gh_base_ref_oid": "e3c0e8b15630749da93cd18168a26e78a74fecd0",
+     "pkg_nontest_lines": 15,
+     "pkg_nontest_files": [
+      "assistant.go"
+     ],
+     "pkg_test_files": [
+      "assistant_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 15,
+     "names_to_specify_exported": [
+      "AssistantThreadsSetStatusParameters.IconEmoji",
+      "AssistantThreadsSetStatusParameters.IconURL",
+      "AssistantThreadsSetStatusParameters.Username"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass except TestRTMDisconnect (dials slack.com)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 1552,
+     "title": "feat(block): add alert block",
+     "merged_at": "2026-04-22T19:48:12Z",
+     "merge_commit": "ae59061d9e69253ce76fa676a2a91db238d363cf",
+     "base_commit_merge_parent": "2df5cfa0b974d57fc8077ecd030be22e42a2e4a1",
+     "gh_base_ref_oid": "2df5cfa0b974d57fc8077ecd030be22e42a2e4a1",
+     "pkg_nontest_lines": 73,
+     "pkg_nontest_files": [
+      "block.go",
+      "block_alert.go",
+      "block_conv.go"
+     ],
+     "pkg_test_files": [
+      "block_alert_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 73,
+     "names_to_specify_exported": [
+      "AlertBlock",
+      "AlertBlock.BlockType",
+      "AlertBlock.ID",
+      "AlertBlock.Level",
+      "AlertBlock.Text",
+      "AlertBlock.Type",
+      "AlertBlockOptionBlockID",
+      "AlertBlockOptionLevel",
+      "AlertLevelInfo",
+      "AlertLevelWarning",
+      "BlocksChunk.Blocks",
+      "BlocksChunk.Type",
+      "CardBlock.BlockType",
+      "CardBlock.ID",
+      "CardBlock.Type",
+      "CarouselBlock.BlockType",
+      "CarouselBlock.ID",
+      "CarouselBlock.Type",
+      "MBTAlert",
+      "MarkdownTextChunk.Text",
+      "MarkdownTextChunk.Type",
+      "NewAlertBlock",
+      "PlanUpdateChunk.Type",
+      "TaskUpdateChunk.ID",
+      "TaskUpdateChunk.Type"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "BlocksChunk.Blocks",
+      "BlocksChunk.Type",
+      "CardBlock.BlockID",
+      "CardBlock.BlockType",
+      "CardBlock.Type",
+      "CarouselBlock.BlockID",
+      "CarouselBlock.BlockType",
+      "CarouselBlock.Type",
+      "MarkdownTextChunk.Text",
+      "MarkdownTextChunk.Type",
+      "PlanUpdateChunk.Type",
+      "TaskUpdateChunk.Type"
+     ],
+     "offline_test_at_merge": "pass except TestRTMDisconnect (dials slack.com)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 1555,
+     "title": "feat: add new block kit block Data Table",
+     "merged_at": "2026-05-24T15:37:15Z",
+     "merge_commit": "8c5ef3c18b2999a9a7b4913560c8722249c531c5",
+     "base_commit_merge_parent": "ff3ada69277b00264224624c8a6e3192f2348c63",
+     "gh_base_ref_oid": "ff3ada69277b00264224624c8a6e3192f2348c63",
+     "pkg_nontest_lines": 223,
+     "pkg_nontest_files": [
+      "block.go",
+      "block_conv.go",
+      "block_data_table.go",
+      "block_plan.go",
+      "block_task_card.go"
+     ],
+     "pkg_test_files": [
+      "block_data_table_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 223,
+     "names_to_specify_exported": [
+      "AlertBlock.BlockType",
+      "AlertBlock.ID",
+      "AlertBlock.Text",
+      "AlertBlock.Type",
+      "BlocksChunk.Blocks",
+      "BlocksChunk.Type",
+      "CardBlock.BlockType",
+      "CardBlock.ID",
+      "CardBlock.Type",
+      "CarouselBlock.BlockType",
+      "CarouselBlock.Elements",
+      "CarouselBlock.ID",
+      "CarouselBlock.Type",
+      "DataTableBlock",
+      "DataTableBlock.AddRow",
+      "DataTableBlock.BlockType",
+      "DataTableBlock.Caption",
+      "DataTableBlock.ID",
+      "DataTableBlock.PageSize",
+      "DataTableBlock.RowHeaderColumnIndex",
+      "DataTableBlock.Rows",
+      "DataTableBlock.Type",
+      "DataTableBlock.WithPageSize",
+      "DataTableBlock.WithRowHeaderColumnIndex",
+      "DataTableBlockOptionBlockID",
+      "DataTableCell.DataTableCellType",
+      "DataTableCellRawNumber",
+      "DataTableCellRawText",
+      "DataTableCellType",
+      "DataTableRawNumberCell",
+      "DataTableRawNumberCell.DataTableCellType",
+      "DataTableRawNumberCell.Text",
+      "DataTableRawNumberCell.Type",
+      "DataTableRawNumberCell.Value",
+      "DataTableRawNumberCell.WithText",
+      "DataTableRawTextCell",
+      "DataTableRawTextCell.DataTableCellType",
+      "DataTableRawTextCell.Text",
+      "DataTableRawTextCell.Type",
+      "DataTableRichTextCell",
+      "DataTableRichTextCell.DataTableCellType",
+      "DataTableRichTextCell.Elements",
+      "DataTableRichTextCell.Type",
+      "MBTDataTable",
+      "MarkdownTextChunk.Text",
+      "MarkdownTextChunk.Type",
+      "NewDataTableBlock",
+      "NewDataTableRawNumberCell",
+      "NewDataTableRawTextCell",
+      "PlanUpdateChunk.Type",
+      "TaskUpdateChunk.ID",
+      "TaskUpdateChunk.Type"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "AlertBlock.BlockID",
+      "AlertBlock.BlockType",
+      "AlertBlock.Text",
+      "AlertBlock.Type",
+      "BlocksChunk.Blocks",
+      "BlocksChunk.Type",
+      "CardBlock.BlockID",
+      "CardBlock.BlockType",
+      "CardBlock.Type",
+      "CarouselBlock.BlockID",
+      "CarouselBlock.BlockType",
+      "CarouselBlock.Elements",
+      "CarouselBlock.Type",
+      "MarkdownTextChunk.Text",
+      "MarkdownTextChunk.Type",
+      "PlanUpdateChunk.Type",
+      "TaskUpdateChunk.Type"
+     ],
+     "offline_test_at_merge": "pass except TestRTMDisconnect (dials slack.com)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 1560,
+     "title": "fix!: preserve all cell types in `TableBlock`",
+     "merged_at": "2026-06-04T19:18:16Z",
+     "merge_commit": "af28090b40b608521911a84c0d563d13c93f193d",
+     "base_commit_merge_parent": "98066ee5026dce3fa1cc893d20895e3f5c3af21c",
+     "gh_base_ref_oid": "98066ee5026dce3fa1cc893d20895e3f5c3af21c",
+     "pkg_nontest_lines": 172,
+     "pkg_nontest_files": [
+      "block_table.go"
+     ],
+     "pkg_test_files": [
+      "block_roundtrip_test.go",
+      "block_table_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 172,
+     "names_to_specify_exported": [
+      "AlertBlock.BlockType",
+      "AlertBlock.Text",
+      "AlertBlock.Type",
+      "BlocksChunk.Blocks",
+      "BlocksChunk.Type",
+      "CardBlock.BlockType",
+      "CardBlock.Type",
+      "CarouselBlock.BlockType",
+      "CarouselBlock.Elements",
+      "CarouselBlock.Type",
+      "DataTableBlock.AddRow",
+      "DataTableBlock.BlockType",
+      "DataTableBlock.Rows",
+      "DataTableBlock.Type",
+      "DataTableRawNumberCell.Text",
+      "DataTableRawNumberCell.Type",
+      "DataTableRawNumberCell.Value",
+      "DataTableRawTextCell.Text",
+      "DataTableRawTextCell.Type",
+      "DataTableRichTextCell.Elements",
+      "DataTableRichTextCell.Type",
+      "MarkdownTextChunk.Text",
+      "MarkdownTextChunk.Type",
+      "NewTableRichTextCell",
+      "PlanUpdateChunk.Type",
+      "TableCell.TableCellType",
+      "TableCellRichText",
+      "TableCellType",
+      "TableRawNumberCell",
+      "TableRawNumberCell.TableCellType",
+      "TableRawNumberCell.Text",
+      "TableRawNumberCell.Type",
+      "TableRawNumberCell.Value",
+      "TableRawTextCell",
+      "TableRawTextCell.TableCellType",
+      "TableRawTextCell.Text",
+      "TableRawTextCell.Type",
+      "TableRichTextCell",
+      "TableRichTextCell.Elements",
+      "TableRichTextCell.TableCellType",
+      "TableRichTextCell.Type",
+      "TaskUpdateChunk.Type"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "AlertBlock.BlockID",
+      "AlertBlock.BlockType",
+      "AlertBlock.Text",
+      "AlertBlock.Type",
+      "BlocksChunk.Blocks",
+      "BlocksChunk.Type",
+      "CardBlock.BlockID",
+      "CardBlock.BlockType",
+      "CardBlock.Type",
+      "CarouselBlock.BlockID",
+      "CarouselBlock.BlockType",
+      "CarouselBlock.Elements",
+      "CarouselBlock.Type",
+      "DataTableBlock.AddRow",
+      "DataTableBlock.BlockID",
+      "DataTableBlock.BlockType",
+      "DataTableBlock.Rows",
+      "DataTableBlock.Type",
+      "DataTableBlock.UnmarshalJSON",
+      "DataTableRawNumberCell.Text",
+      "DataTableRawNumberCell.Type",
+      "DataTableRawNumberCell.Value",
+      "DataTableRawNumberCell.WithText",
+      "DataTableRawTextCell.Text",
+      "DataTableRawTextCell.Type",
+      "DataTableRichTextCell.Elements",
+      "DataTableRichTextCell.Type",
+      "DataTableRichTextCell.UnmarshalJSON",
+      "MarkdownTextChunk.Text",
+      "MarkdownTextChunk.Type",
+      "PlanUpdateChunk.Type",
+      "TaskUpdateChunk.Type"
+     ],
+     "offline_test_at_merge": "pass except TestRTMDisconnect (dials slack.com)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    }
+   ],
+   "trivial_commits_between": [
+    {
+     "sha": "34ad5c052e446f58505ae8d81a2a72821de107cc",
+     "pr": null,
+     "title": "security: reject empty signing secret for NewSecretsVerifier",
+     "lines": 19
+    }
+   ],
+   "names_to_specify_total": 103,
+   "names_unexported_total": 0,
+   "offline_test_seed": "pass except TestRTMDisconnect (dials slack.com)",
+   "placement": "New Block Kit blocks registered in block.go/block_conv.go plus new files; #1552/#1555/#1560 reuse the chunk/card/table types.",
+   "caveats": "About 100 exported names dictated by Slack's API (low rename risk but long task text); mostly one new file per step. A direct (non-PR) 19-line security commit sits inside. TestRTMDisconnect dials slack.com.",
+   "status_vs_previous": "kept (now includes #1560)",
+   "worst_rename_risk": "none",
+   "high_risk_steps": 0
+  },
+  {
+   "rank": 11,
+   "repo": "gofiber/fiber",
+   "package": "middleware/cache",
+   "package_import_path": "github.com/gofiber/fiber/v3/middleware/cache",
+   "nontest_files_at_head": 10,
+   "namespaces_at_head": 17,
+   "seed_commit": "0923873f4a1bd7e5582ab0d6729cf04e683db2ae",
+   "final_commit": "cec4e4dd4d7f0b2a3a124da326372292424a34d1",
+   "pkg_nontest_lines": 646,
+   "whole_pr_nontest_lines": 695,
+   "distinct_pkg_files": [
+    "middleware/cache/cache.go",
+    "middleware/cache/cachecontrol.go",
+    "middleware/cache/config.go",
+    "middleware/cache/heap.go",
+    "middleware/cache/keygen.go",
+    "middleware/cache/manager.go",
+    "middleware/cache/manager_msgp.go",
+    "middleware/cache/utils.go",
+    "middleware/cache/vary.go"
+   ],
+   "steps": [
+    {
+     "pr": 4735,
+     "title": "\ud83d\udc1b bug: accept tab OWS in X-Forwarded-For and share one OWS trim helper",
+     "merged_at": "2026-10-03T18:26:54Z",
+     "merge_commit": "78b8ee93c988865603e3e1e83f95958b259eba92",
+     "base_commit_merge_parent": "0923873f4a1bd7e5582ab0d6729cf04e683db2ae",
+     "gh_base_ref_oid": "0923873f4a1bd7e5582ab0d6729cf04e683db2ae",
+     "pkg_nontest_lines": 53,
+     "pkg_nontest_files": [
+      "middleware/cache/cachecontrol.go"
+     ],
+     "pkg_test_files": [
+      "middleware/cache/cache_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 83,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 4736,
+     "title": "\ud83d\udc1b bug: key cache entries by request scheme and host",
+     "merged_at": "2026-10-05T13:27:28Z",
+     "merge_commit": "8b69282de2d2ffdce0eb3ef2516540934a57b52c",
+     "base_commit_merge_parent": "5645b0c80d0b76ec629b90867a76d0224c0827a0",
+     "gh_base_ref_oid": "78b8ee93c988865603e3e1e83f95958b259eba92",
+     "pkg_nontest_lines": 35,
+     "pkg_nontest_files": [
+      "middleware/cache/cache.go",
+      "middleware/cache/config.go",
+      "middleware/cache/keygen.go"
+     ],
+     "pkg_test_files": [
+      "middleware/cache/cache_security_test.go",
+      "middleware/cache/cache_test.go",
+      "middleware/cache/keygen_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 39,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 4744,
+     "title": "\ud83d\udc1b bug: replay Vary on cache hits and mark credential-keyed entries private",
+     "merged_at": "2026-10-08T06:35:29Z",
+     "merge_commit": "cefb0f54b4a208ef08fcb44df4d937710a7d0845",
+     "base_commit_merge_parent": "ced6bfa8b6919900dd6d8c23aca0bbc55db7fc15",
+     "gh_base_ref_oid": "72a4d45b2875a8271ff318b2ac10ee53217991db",
+     "pkg_nontest_lines": 139,
+     "pkg_nontest_files": [
+      "middleware/cache/cache.go",
+      "middleware/cache/config.go",
+      "middleware/cache/manager.go",
+      "middleware/cache/manager_msgp.go",
+      "middleware/cache/utils.go",
+      "middleware/cache/vary.go"
+     ],
+     "pkg_test_files": [
+      "middleware/cache/cache_test.go",
+      "middleware/cache/coverage_test.go",
+      "middleware/cache/keygen_test.go",
+      "middleware/cache/manager_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 139,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [
+      "item.vary",
+      "maxVaryLen",
+      "varyListsCredential"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "high",
+     "rename_risk_note": "reads `item.vary` and calls `varyListsCredential`"
+    },
+    {
+     "pr": 4590,
+     "title": "\ud83d\udc1b bug: Delete stale entries after uncacheable revalidation",
+     "merged_at": "2026-10-12T07:30:10Z",
+     "merge_commit": "cec4e4dd4d7f0b2a3a124da326372292424a34d1",
+     "base_commit_merge_parent": "33abc3ae8b7b8456f14d8feee6730b0ff67df6b3",
+     "gh_base_ref_oid": "56cd561f7d57addc730992c75a8bde59f050c413",
+     "pkg_nontest_lines": 419,
+     "pkg_nontest_files": [
+      "middleware/cache/cache.go",
+      "middleware/cache/heap.go",
+      "middleware/cache/manager.go",
+      "middleware/cache/manager_msgp.go"
+     ],
+     "pkg_test_files": [
+      "middleware/cache/cache_test.go",
+      "middleware/cache/heap_replacement_test.go",
+      "middleware/cache/heap_test.go",
+      "middleware/cache/refresh_lock_test.go",
+      "middleware/cache/revalidation_cleanup_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 434,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [
+      "indexedHeap.generation",
+      "indexedHeap.matches",
+      "item.heapgen",
+      "manager.delIf",
+      "memoryEntryAbsent",
+      "memoryEntryDeleted",
+      "memoryEntryReplaced"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "item.vary"
+     ],
+     "offline_test_at_merge": "pass",
+     "rename_risk": "high",
+     "rename_risk_note": "reads `item.heapgen`, calls `indexedHeap.generation/matches` and `manager.delIf`; deep internal state of the cache store"
+    }
+   ],
+   "trivial_commits_between": [],
+   "names_to_specify_total": 10,
+   "names_unexported_total": 10,
+   "offline_test_seed": "pass",
+   "placement": "Four observable HTTP-cache fixes (OWS parsing, cache key by scheme/host, Vary replay, stale-entry deletion) that touch cache.go, manager.go, config.go and add vary.go/heap.go logic; later steps modify the cache entry structure earlier steps extended.",
+   "caveats": "All steps are fixes, no feature. Tests inspect cache entry internals (high rename risk).",
+   "status_vs_previous": "new",
+   "worst_rename_risk": "high",
+   "high_risk_steps": 2
+  },
+  {
+   "rank": 12,
+   "repo": "ollama/ollama",
+   "package": "cmd/launch",
+   "package_import_path": "github.com/ollama/ollama/cmd/launch",
+   "nontest_files_at_head": 28,
+   "namespaces_at_head": 37,
+   "seed_commit": "455f57457d26ffddc039188080f3109168ba0245",
+   "final_commit": "07ed752353dff39191fc333877629faf36dae1d0",
+   "pkg_nontest_lines": 698,
+   "whole_pr_nontest_lines": 698,
+   "distinct_pkg_files": [
+    "cmd/launch/hermes.go",
+    "cmd/launch/launch.go",
+    "cmd/launch/omp.go",
+    "cmd/launch/opencode.go",
+    "cmd/launch/pi.go",
+    "cmd/launch/registry.go"
+   ],
+   "steps": [
+    {
+     "pr": 16516,
+     "title": "launch: hermes-desktop app",
+     "merged_at": "2026-06-04T18:51:36Z",
+     "merge_commit": "3370ff8b1cda259b1b4cf947422a2faff7aaa58b",
+     "base_commit_merge_parent": "455f57457d26ffddc039188080f3109168ba0245",
+     "gh_base_ref_oid": "455f57457d26ffddc039188080f3109168ba0245",
+     "pkg_nontest_lines": 156,
+     "pkg_nontest_files": [
+      "cmd/launch/hermes.go",
+      "cmd/launch/launch.go",
+      "cmd/launch/registry.go"
+     ],
+     "pkg_test_files": [
+      "cmd/launch/hermes_test.go",
+      "cmd/launch/integrations_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 156,
+     "names_to_specify_exported": [
+      "HermesDesktop",
+      "HermesDesktop.Run"
+     ],
+     "names_to_specify_unexported": [
+      "HermesDesktop.launchArgs",
+      "hermesDesktopReleaseRoots"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass except TestShowInModelPicker (go-sqlite3 needs cgo; local cgo linker broken)",
+     "rename_risk": "medium",
+     "rename_risk_note": "calls `HermesDesktop.launchArgs` and `hermesDesktopReleaseRoots`"
+    },
+    {
+     "pr": 16410,
+     "title": "integrations: oh-my-pi",
+     "merged_at": "2026-06-05T00:49:50Z",
+     "merge_commit": "87cff95af86a1d8be1d81ce75fafc9bb4e67d002",
+     "base_commit_merge_parent": "3ef69ef7849e8723dbf29bdf4d251b22f545588e",
+     "gh_base_ref_oid": "3370ff8b1cda259b1b4cf947422a2faff7aaa58b",
+     "pkg_nontest_lines": 473,
+     "pkg_nontest_files": [
+      "cmd/launch/launch.go",
+      "cmd/launch/omp.go",
+      "cmd/launch/pi.go",
+      "cmd/launch/registry.go"
+     ],
+     "pkg_test_files": [
+      "cmd/launch/integrations_test.go",
+      "cmd/launch/omp_test.go",
+      "cmd/launch/runner_exec_only_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 473,
+     "names_to_specify_exported": [
+      "HermesDesktop.Run",
+      "HermesDesktop.String",
+      "OMP",
+      "OMP.ConfigureWithModels",
+      "OMP.CurrentModel",
+      "OMP.Paths",
+      "OMP.RequiresInteractiveOnboarding",
+      "OMP.Run",
+      "OMP.String"
+     ],
+     "names_to_specify_unexported": [
+      "OMP.args",
+      "OMP.findPath",
+      "ompExecutableNames",
+      "ompSetupVersion",
+      "ompWebSearchPlugin"
+     ],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "HermesDesktop.Onboard",
+      "HermesDesktop.String"
+     ],
+     "offline_test_at_merge": "pass except TestShowInModelPicker (go-sqlite3 needs cgo; local cgo linker broken)",
+     "rename_risk": "high",
+     "rename_risk_note": "calls small helpers `OMP.args`, `OMP.findPath` and reads `ompExecutableNames`/`ompSetupVersion`; likely no counterpart if the agent structures the launcher differently"
+    },
+    {
+     "pr": 16558,
+     "title": "launch: use native Windows Hermes config path",
+     "merged_at": "2026-06-06T00:29:20Z",
+     "merge_commit": "a0099da2d16751f7753fd75156c190e078f16c0e",
+     "base_commit_merge_parent": "25e0e81e120ccfa8f79729de677cb70abf21b496",
+     "gh_base_ref_oid": "25e0e81e120ccfa8f79729de677cb70abf21b496",
+     "pkg_nontest_lines": 29,
+     "pkg_nontest_files": [
+      "cmd/launch/hermes.go"
+     ],
+     "pkg_test_files": [
+      "cmd/launch/hermes_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 29,
+     "names_to_specify_exported": [
+      "OMP.Paths"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [
+      "OMP.Paths"
+     ],
+     "offline_test_at_merge": "pass except TestShowInModelPicker (go-sqlite3 needs cgo; local cgo linker broken)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 16683,
+     "title": "launch: Fix launch provider drift",
+     "merged_at": "2026-06-12T00:21:46Z",
+     "merge_commit": "12e04379cd5a9a2f150104a02c5761213f4be777",
+     "base_commit_merge_parent": "f8a48df24dc375d50285d879542442e26d88a495",
+     "gh_base_ref_oid": "82e0ddb6fe9dada39870cf6ced57027d394681d5",
+     "pkg_nontest_lines": 3,
+     "pkg_nontest_files": [
+      "cmd/launch/launch.go"
+     ],
+     "pkg_test_files": [
+      "cmd/launch/launch_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 3,
+     "names_to_specify_exported": [],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass except TestShowInModelPicker (go-sqlite3 needs cgo; local cgo linker broken)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    },
+    {
+     "pr": 15434,
+     "title": "launch: add thinking capability detection to opencode",
+     "merged_at": "2026-06-18T17:45:16Z",
+     "merge_commit": "07ed752353dff39191fc333877629faf36dae1d0",
+     "base_commit_merge_parent": "e1f7f9cbdbdad30b9811d5b673cf3d3f9c624dc2",
+     "gh_base_ref_oid": "e1f7f9cbdbdad30b9811d5b673cf3d3f9c624dc2",
+     "pkg_nontest_lines": 37,
+     "pkg_nontest_files": [
+      "cmd/launch/opencode.go"
+     ],
+     "pkg_test_files": [
+      "cmd/launch/opencode_test.go"
+     ],
+     "whole_pr_nontest_go_lines": 37,
+     "names_to_specify_exported": [
+      "HermesDesktop.Run",
+      "OMP.Run"
+     ],
+     "names_to_specify_unexported": [],
+     "snapshot_or_golden_files": [],
+     "uses_names_from_earlier_steps": [],
+     "offline_test_at_merge": "pass except TestShowInModelPicker (go-sqlite3 needs cgo; local cgo linker broken)",
+     "rename_risk": "none",
+     "rename_risk_note": "tests use only exported names or names present at the seed"
+    }
+   ],
+   "trivial_commits_between": [],
+   "names_to_specify_total": 17,
+   "names_unexported_total": 7,
+   "offline_test_seed": "pass except TestShowInModelPicker (go-sqlite3 needs cgo; local cgo linker broken)",
+   "placement": "Integration launchers (Hermes desktop, oh-my-pi, opencode) in a 28-file flat package; registry.go and launch.go are shared, and #16558 changes #16516's Hermes code.",
+   "caveats": "#16683 is a 3-line fix; integrations are largely one file each, so placement choices are moderate. Tests call small unexported helpers (args/path builders).",
+   "status_vs_previous": "new",
+   "worst_rename_risk": "high",
+   "high_risk_steps": 1
+  }
+ ],
+ "rejected": [
+  {
+   "repo": "jesseduffield/lazygit",
+   "package": "pkg/config",
+   "chain": "#5563 \u2192 #5565 \u2192 #5571 \u2192 #5634 (v2 rank 8)",
+   "why": "Dropped: only 36% of the chain's non-test lines are inside the package (rule: 45%+)"
+  },
+  {
+   "repo": "mark3labs/mcp-go",
+   "package": "server",
+   "chain": "#841 \u2192 #843 \u2192 #844 (v2 rank 7)",
+   "why": "Dropped: no later step uses code an earlier step added (three independent transport features)"
+  },
+  {
+   "repo": "prometheus/prometheus",
+   "package": "promql/parser",
+   "chain": "#19821 \u2192 #19683 \u2192 #19820 \u2192 #19827 \u2192 #20169 (2026-10)",
+   "why": "1417 of 1611 lines are the generated parser (generated_parser.y.go) in one step"
+  },
+  {
+   "repo": "prometheus/prometheus",
+   "package": "tsdb, web/api/v1",
+   "chain": "#19012 \u2192 #19013 \u2192 #19016 \u2192 #18905; #19910 \u2192 ... (2026)",
+   "why": "Rename risk 16-20 (white-box tests on internal state); web/api steps do not build on each other"
+  },
+  {
+   "repo": "temporalio/sdk-go",
+   "package": "internal, converter",
+   "chain": "#2522 \u2192 #2609 \u2192 #2602 \u2192 #2634 \u2192 #2617; #2703 \u2192 #2793 \u2192 #2763 (2026)",
+   "why": "Steps are 3-4 line fixes plus an 'expose internal APIs' refactor; converter chain is 53% inside and ends in a refactor"
+  },
+  {
+   "repo": "open-policy-agent/opa",
+   "package": "v1/ast",
+   "chain": "#9389 \u2192 #9414 \u2192 #9062 \u2192 #9377; #8298 \u2192 ... \u2192 #8310 (2026)",
+   "why": "Third/fourth opa chain (limit 2 per repo, only one kept); #9377's tests read RegoVersionSpan.min/max; #8304-#8310 test compiler stage internals"
+  },
+  {
+   "repo": "nats-io/nats-server",
+   "package": "server",
+   "chain": "#8540 \u2192 #8555 \u2192 #8556 and others (2026)",
+   "why": "Package tests take far too long to run at every step; rename risk 14-55"
+  },
+  {
+   "repo": "cockroachdb/pebble",
+   "package": ".",
+   "chain": "#5497 \u2192 #5504 \u2192 #5521 and others",
+   "why": "Does not build with Go 1.27 (cockroachdb/swiss)"
+  },
+  {
+   "repo": "danielgtaylor/huma",
+   "package": ".",
+   "chain": "#876 \u2192 #937 \u2192 #947 \u2192 #951 \u2192 #961 (2026-01/02)",
+   "why": "Last step is a 12-file 'Fix various issues' grab-bag; little building on earlier steps"
+  },
+  {
+   "repo": "juicedata/juicefs",
+   "package": "pkg/meta",
+   "chain": "#6656 \u2192 #6695 \u2192 #6698 (2026-02/03)",
+   "why": "Step 2 is a refactor; step 3 fixes tests"
+  },
+  {
+   "repo": "github/github-mcp-server",
+   "package": "pkg/github",
+   "chain": "#988 \u2192 #1023 \u2192 #1062 \u2192 #1073 \u2192 #1078 (2025-09); #1538 \u2192 #2694 \u2192 #2601 \u2192 #1974 \u2192 #2695 (2026-06)",
+   "why": "Good but over the 2-per-repository limit; ranked below the two kept github-mcp-server chains"
+  },
+  {
+   "repo": "quic-go/quic-go",
+   "package": ".",
+   "chain": "#5960 \u2192 #5961 \u2192 #5969 \u2192 #5970 \u2192 #5976 (2026-10)",
+   "why": "Rename risk 18-51; tests drive framer/packer internals"
+  },
+  {
+   "repo": "autobrr/autobrr",
+   "package": "internal/irc, internal/http",
+   "chain": "#2763 \u2192 #2765 \u2192 #2767; #2530 \u2192 #2791 \u2192 #2809",
+   "why": "Rename risk 18-74 (tests on handler/service internals)"
+  },
+  {
+   "repo": "caddyserver/caddy",
+   "package": "reverseproxy, caddyfile",
+   "chain": "#7649 \u2192 #8135 \u2192 #8139 \u2192 #8160 \u2192 #8159; #8047 \u2192 #8163 \u2192 #7880 \u2192 #8203",
+   "why": "Rename risk 35-64"
+  },
+  {
+   "repo": "traefik/traefik",
+   "package": "pkg/provider/kubernetes/gateway",
+   "chain": "#13951 \u2192 #13960 \u2192 #13965 \u2192 #13966 \u2192 #12909 (2026-09)",
+   "why": "Three of five steps are 'Merge branch v3.7' commits; rename risk 50"
+  }
+ ]
+}

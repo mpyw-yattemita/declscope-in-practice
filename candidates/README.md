@@ -4,8 +4,9 @@
 
 | ファイル | 中身 |
 | --- | --- |
-| [round2-chains/chains.md](round2-chains/chains.md) | 2回目（連続）の結果。ランク付きの表、各段の詳細、落とした連続 |
-| [round2-chains/chains.json](round2-chains/chains.json) | 同じ内容の機械可読版。seed とマージ commit の SHA を含む |
+| [round3-chains/chains-v3.md](round3-chains/chains-v3.md) | 3回目（連続、条件を見直したあと）の結果。ランク付きの表、各段の詳細、名前合わせの危険度、落とした連続。**これが最新** |
+| [round3-chains/chains-v3.json](round3-chains/chains-v3.json) | 同じ内容の機械可読版。seed とマージ commit の SHA を含む |
+| [round2-chains/](round2-chains/) | 2回目（連続）の結果。経緯として残す |
 | [round1-pairs/](round1-pairs/) | 1回目（PR のペア）の結果。設計を変えたので使わないが、経緯として残す |
 | [survey/](survey/) | 各リポジトリの `declscope survey -format=json` の生の出力 |
 
@@ -57,7 +58,8 @@
 | 回 | 探したもの | 結果 | 次にしたこと |
 | --- | --- | --- | --- |
 | 1回目 | PR のペア（PR1 と次の PR2） | 14 リポジトリから 19 ペア | PR が小さすぎた（上位でも 100行・2ファイル程度）。次の PR も、PR1 と無関係な小さな修正が多かった。そこで連続に切り替えた |
-| 2回目 | 3〜5本の連続 | 7 リポジトリから 9本 | いまここ |
+| 2回目 | 3〜5本の連続 | 7 リポジトリから 9本 | 要件の問題を4つ見つけ、設計で決めた |
+| 3回目 | 3〜5本の連続。テスト付きの修正を1段として認め、内部の名前では落とさず、仕様のスナップショットを減点しない | 10 リポジトリから 12本（1リポジトリ最大2本） | 使う課題を選ぶ（#2） |
 
 ### 2回目の検索の量
 
