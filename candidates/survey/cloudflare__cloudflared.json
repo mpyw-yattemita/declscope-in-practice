@@ -1,0 +1,1478 @@
+{
+  "checks": {
+    "typeCheck": {
+      "packages": 67,
+      "failed": []
+    },
+    "configs": [
+      {
+        "chain": [],
+        "packages": 67,
+        "rules": {
+          "boundary": true,
+          "qualify": "never",
+          "exported": false,
+          "surplus": "strict",
+          "unused": "strict"
+        }
+      }
+    ],
+    "baselines": []
+  },
+  "totals": {
+    "boundary": {
+      "asked": true,
+      "keyable": true,
+      "found": 645,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 645
+    },
+    "directive": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "filter": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "qualify": {
+      "asked": false,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "surplus": {
+      "asked": true,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "unused": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    }
+  },
+  "packages": [
+    {
+      "package": "github.com/cloudflare/cloudflared/ingress",
+      "namespaces": 13,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 87,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "originProxy",
+        "to": "originService",
+        "reached": 26,
+        "uses": 47
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/tunnel",
+      "namespaces": 16,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 72,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "subcommands",
+        "to": "subcommandContext",
+        "reached": 15,
+        "uses": 46
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/connection",
+      "namespaces": 16,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 59,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "http2",
+        "to": "connection",
+        "reached": 13,
+        "uses": 55
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/quicktunnelauth",
+      "namespaces": 10,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 53,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "callback",
+        "to": "state",
+        "reached": 10,
+        "uses": 35
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/token",
+      "namespaces": 9,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 46,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "token",
+        "to": "jwks",
+        "reached": 16,
+        "uses": 54
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/diagnostic",
+      "namespaces": 14,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 40,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "diagnostic",
+        "to": "consts",
+        "reached": 14,
+        "uses": 14
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/datagramsession",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 26,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "manager",
+        "to": "event",
+        "reached": 11,
+        "uses": 30
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/prechecks",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 26,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "checker",
+        "to": "probes",
+        "reached": 16,
+        "uses": 22
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/quic",
+      "namespaces": 9,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 25,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "tracing",
+        "to": "metrics",
+        "reached": 14,
+        "uses": 15
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/supervisor",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 24,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "supervisor",
+        "to": "tunnel",
+        "reached": 13,
+        "uses": 19
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/proxy",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 22,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "proxy",
+        "to": "logger",
+        "reached": 6,
+        "uses": 10
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/quic/v3_test",
+      "namespaces": 8,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 21,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "session",
+        "to": "muxer",
+        "reached": 5,
+        "uses": 22
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/access",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 16,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "carrier",
+        "to": "cmd",
+        "reached": 11,
+        "uses": 16
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/socks",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 16,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "requestHandler",
+        "to": "request",
+        "reached": 13,
+        "uses": 52
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/management",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 14,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "logger",
+        "to": "session",
+        "reached": 6,
+        "uses": 22
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/edgediscovery/allregions",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 11,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "regions",
+        "to": "mocksFor",
+        "reached": 4,
+        "uses": 15
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cfapi",
+      "namespaces": 9,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 10,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "tunnel",
+        "to": "baseClient",
+        "reached": 6,
+        "uses": 38
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/updater",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 9,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "check",
+        "to": "update",
+        "reached": 6,
+        "uses": 6
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/quic/v3",
+      "namespaces": 8,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 9,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "datagramErrors",
+        "to": "datagram",
+        "reached": 3,
+        "uses": 3
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/logger",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 8,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "create",
+        "to": "configuration",
+        "reached": 6,
+        "uses": 7
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 7,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "macosService",
+        "to": "commonService",
+        "reached": 4,
+        "uses": 5
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/tracing",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 7,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "tracing",
+        "to": "client",
+        "reached": 5,
+        "uses": 7
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/packet",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "decoder",
+        "to": "packet",
+        "reached": 5,
+        "uses": 9
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/tunnelrpc/quic",
+      "namespaces": 7,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "requestClientStream",
+        "to": "protocol",
+        "reached": 4,
+        "uses": 4
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/diagnostic/network",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 5,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "collectorUnix",
+        "to": "collector",
+        "reached": 4,
+        "uses": 4
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/credentials",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "credentials",
+        "to": "originCert",
+        "reached": 4,
+        "uses": 5
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/tunnelrpc/pogs",
+      "namespaces": 7,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "registrationServer",
+        "to": "errors",
+        "reached": 2,
+        "uses": 8
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/features",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "selector",
+        "to": "features",
+        "reached": 3,
+        "uses": 5
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/orchestration",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "orchestrator",
+        "to": "config",
+        "reached": 2,
+        "uses": 3
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/carrier",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "websocket",
+        "to": "carrier",
+        "reached": 2,
+        "uses": 5
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/metrics",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "debugEndpoints",
+        "to": "metrics",
+        "reached": 2,
+        "uses": 2
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/flow",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "limiter",
+        "to": "metrics",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/ingress/origins",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "dns",
+        "to": "metrics",
+        "reached": 1,
+        "uses": 8
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cfio",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/client",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/flags",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/inits",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/management",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/proxydns",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/cmd/cloudflared/tail",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/config",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/connection/dialopts",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/crypto",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/diagnostic/network_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/diagnostic_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/edgediscovery",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/flow_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/hello",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/ingress/middleware",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/internal/test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/ipaccess",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/metrics_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/mocks",
+      "namespaces": 0,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/overwatch",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/retry",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/signal",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/sshgen",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/stream",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/tlsconfig",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/tunnelrpc",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/tunnelrpc/metrics",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/tunnelrpc/proto",
+      "namespaces": 0,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/tunnelstate",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/validation",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/watcher",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/cloudflare/cloudflared/websocket",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    }
+  ]
+}

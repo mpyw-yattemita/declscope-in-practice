@@ -1,0 +1,1557 @@
+{
+  "checks": {
+    "typeCheck": {
+      "packages": 85,
+      "failed": [
+        "maunium.net/go/mautrix/bridgev2/matrix/mxmain: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/bridgev2/matrix/mxmain_test: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/bridgev2/matrix: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/crypto/cryptohelper: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/crypto/olm_test: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/crypto/verificationhelper: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/crypto/verificationhelper_test: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/crypto: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/crypto_test: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/example: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found",
+        "maunium.net/go/mautrix/mockserver: imports maunium.net/go/mautrix/crypto/libolm: <repos>/mautrix__go/crypto/libolm/account.go:4:11: fatal error: 'olm/olm.h' file not found"
+      ]
+    },
+    "configs": [
+      {
+        "chain": [],
+        "packages": 73,
+        "rules": {
+          "boundary": true,
+          "qualify": "never",
+          "exported": false,
+          "surplus": "strict",
+          "unused": "strict"
+        }
+      }
+    ],
+    "baselines": []
+  },
+  "totals": {
+    "boundary": {
+      "asked": true,
+      "keyable": true,
+      "found": 312,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 312
+    },
+    "directive": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "filter": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "qualify": {
+      "asked": false,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "surplus": {
+      "asked": true,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "unused": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    }
+  },
+  "packages": [
+    {
+      "package": "maunium.net/go/mautrix/bridgev2",
+      "namespaces": 21,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 145,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "portalinternal",
+        "to": "portal",
+        "reached": 90,
+        "uses": 90
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/beeperstream",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 43,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "publisher",
+        "to": "helper",
+        "reached": 24,
+        "uses": 111
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/appservice",
+      "namespaces": 10,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 17,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "websocket",
+        "to": "appservice",
+        "reached": 8,
+        "uses": 28
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/federation/pdu_test",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 17,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "signature",
+        "to": "pdu",
+        "reached": 11,
+        "uses": 32
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/ratchet",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 14,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "olm",
+        "to": "chain",
+        "reached": 11,
+        "uses": 28
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix",
+      "namespaces": 14,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 11,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "oauth",
+        "to": "client",
+        "reached": 8,
+        "uses": 53
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/pushrules_test",
+      "namespaces": 9,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 10,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "rule",
+        "to": "condition",
+        "reached": 5,
+        "uses": 57
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2/commands",
+      "namespaces": 13,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 9,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "managechat",
+        "to": "relay",
+        "reached": 4,
+        "uses": 5
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2/database",
+      "namespaces": 13,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "backfillqueue",
+        "to": "database",
+        "reached": 1,
+        "uses": 3
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/attachment",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "floe",
+        "to": "attachments",
+        "reached": 5,
+        "uses": 36
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/commands",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 5,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "container",
+        "to": "handler",
+        "reached": 4,
+        "uses": 7
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/federation",
+      "namespaces": 10,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 5,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "serverauth",
+        "to": "context",
+        "reached": 2,
+        "uses": 2
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/account_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "account",
+        "to": "accountData",
+        "reached": 4,
+        "uses": 5
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/ssss_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "key",
+        "to": "meta",
+        "reached": 3,
+        "uses": 6
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/event/cmdschema",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "stringify",
+        "to": "parse",
+        "reached": 2,
+        "uses": 4
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/message",
+      "namespaces": 7,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "groupMessage",
+        "to": "prekeyMessage",
+        "reached": 1,
+        "uses": 2
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/event",
+      "namespaces": 21,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "beeper",
+        "to": "capabilities",
+        "reached": 1,
+        "uses": 2
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/sqlstatestore",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "statestore",
+        "to": "v05MarkEncryptionStateResync",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2/bridgeconfig",
+      "namespaces": 9,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "upgrade",
+        "to": "legacymigrate",
+        "reached": 1,
+        "uses": 2
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2/database/upgrades",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "upgrades",
+        "to": "30RepairOtks",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/session",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "megolmInboundSession",
+        "to": "olmSession",
+        "reached": 1,
+        "uses": 2
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/sql_store_upgrade",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "upgrade",
+        "to": "20MessageKeyIndex",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/ssss",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "key",
+        "to": "meta",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/federation/eventauth",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "eventauthInternal",
+        "to": "eventauth",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/federation/pdu",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "v1",
+        "to": "auth",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/format/mdext",
+      "namespaces": 10,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "simplespoiler",
+        "to": "spoiler",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2/networkid",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2/provisionutil",
+      "namespaces": 7,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2/simplevent",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2/status",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/bridgev2_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/aescbc",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/aescbc_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/backup",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/backup_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/canonicaljson",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/canonicaljson_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/ed25519",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/ed25519_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/floe",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/account",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/aessha2",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/aessha2_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/crypto",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/crypto_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/goolmbase64",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/libolmpickle",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/libolmpickle_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/megolm",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/megolm_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/message_test",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/pk",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/pk_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/ratchet_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/goolm/session_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/olm",
+      "namespaces": 7,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/signatures",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/crypto/utils",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/event_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/federation/eventauth_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/federation/signutil",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/federation_test",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/format",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/format_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/id",
+      "namespaces": 8,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/id_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/mediaproxy",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/oauth",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/pushrules",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/pushrules/pushgateway",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix/synapseadmin",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "maunium.net/go/mautrix_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    }
+  ]
+}

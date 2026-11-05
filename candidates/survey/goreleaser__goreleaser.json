@@ -1,0 +1,2684 @@
+{
+  "checks": {
+    "typeCheck": {
+      "packages": 135,
+      "failed": []
+    },
+    "configs": [
+      {
+        "chain": [],
+        "packages": 135,
+        "rules": {
+          "boundary": true,
+          "qualify": "never",
+          "exported": false,
+          "surplus": "strict",
+          "unused": "strict"
+        }
+      }
+    ],
+    "baselines": []
+  },
+  "totals": {
+    "boundary": {
+      "asked": true,
+      "keyable": true,
+      "found": 219,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 219
+    },
+    "directive": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "filter": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "qualify": {
+      "asked": false,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "surplus": {
+      "asked": true,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "unused": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    }
+  },
+  "packages": [
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/cmd",
+      "namespaces": 12,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 32,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "util",
+        "reached": 4,
+        "uses": 17
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/docker/v2",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 23,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "docker",
+        "to": "baseimage",
+        "reached": 10,
+        "uses": 14
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/docker",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 16,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "docker",
+        "to": "api",
+        "reached": 5,
+        "uses": 24
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/client",
+      "namespaces": 8,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 15,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "github",
+        "to": "client",
+        "reached": 4,
+        "uses": 15
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/cask",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 14,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "cask",
+        "to": "template",
+        "reached": 14,
+        "uses": 37
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/winget",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 12,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "winget",
+        "to": "template",
+        "reached": 8,
+        "uses": 14
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/changelog",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 11,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "decode",
+        "to": "changelog",
+        "reached": 11,
+        "uses": 17
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/blob",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 9,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "blob",
+        "to": "upload",
+        "reached": 9,
+        "uses": 32
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/rust",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 8,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "targets",
+        "reached": 8,
+        "uses": 14
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/zig",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 8,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "targets",
+        "reached": 8,
+        "uses": 12
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/chocolatey",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 8,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "skip",
+        "to": "chocolatey",
+        "reached": 4,
+        "uses": 5
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/golang",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "targets",
+        "reached": 6,
+        "uses": 14
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/node",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "download",
+        "reached": 3,
+        "uses": 3
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/release",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "release",
+        "to": "scm",
+        "reached": 3,
+        "uses": 3
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/sign",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "signBinary",
+        "to": "sign",
+        "reached": 4,
+        "uses": 4
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/deno",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "targets",
+        "reached": 4,
+        "uses": 8
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/nodedist",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "download",
+        "to": "dist",
+        "reached": 3,
+        "uses": 6
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/aur",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "aur",
+        "to": "tmpl",
+        "reached": 4,
+        "uses": 14
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/aursources",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "aursources",
+        "to": "tmpl",
+        "reached": 4,
+        "uses": 14
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/bun",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "targets",
+        "reached": 3,
+        "uses": 7
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/brew",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "brew",
+        "to": "template",
+        "reached": 3,
+        "uses": 11
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/git",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "git",
+        "to": "errors",
+        "reached": 3,
+        "uses": 5
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/nix",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "nix",
+        "to": "template",
+        "reached": 2,
+        "uses": 3
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/config",
+      "namespaces": 11,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "jsonschema",
+        "to": "configSlack",
+        "reached": 2,
+        "uses": 2
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/linkedin",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "linkedin",
+        "to": "client",
+        "reached": 2,
+        "uses": 2
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/tmpl",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "tmpl",
+        "to": "errors",
+        "reached": 1,
+        "uses": 3
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/build",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "filter",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/discourse",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "discourse",
+        "to": "endpoint",
+        "reached": 1,
+        "uses": 2
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/universalbinary",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "universalbinary",
+        "to": "targets",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/build",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "build",
+        "to": "fail",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/archivefiles",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/artifact",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/base",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/buildtarget",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/buildtarget_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/golang/gomain",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/poetry",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/builders/uv",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/cargo",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/changelog",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/commitauthor",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/deprecate",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/elf",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/exec",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/experimental",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/extrafiles",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/gerrors",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/gio",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/git",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/git_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/golden",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/http",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/ids",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/logext",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/middleware",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/middleware/errhandler",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/middleware/logging",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/middleware/skip",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/packagejson",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/announce",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/archive",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/artifactory",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/before",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/bluesky",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/checksums",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/custompublishers",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/defaults",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/discord",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/dist",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/dockerdigest",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/effectiveconfig",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/env",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/flatpak",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/gomod",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/iru",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/ko",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/krew",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/makeself",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/mastodon",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/mattermost",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/mcp",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/metadata",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/milestone",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/nfpm",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/notary",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/opencollective",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/partial",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/prebuild",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/project",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/publish",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/reddit",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/reportsizes",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/sbom",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/scoop",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/semver",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/slack",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/smtp",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/snapcraft",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/snapshot",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/sourcearchive",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/srpm",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/teams",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/telegram",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/twitter",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/upload",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/upx",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipe/webhook",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pipeline",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/pyproject",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/redact",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/retryx",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/semerrgroup",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/shell",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/shell_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/skips",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/skips_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/static",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/summary",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/testctx",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/testlib",
+      "namespaces": 11,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/internal/yaml",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive/gzip",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive/tar",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive/targz",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive/tarxz",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive/tarzst",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive/xz",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive/xz_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/archive/zip",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/context",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/defaults",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "github.com/goreleaser/goreleaser/v2/pkg/healthcheck",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    }
+  ]
+}

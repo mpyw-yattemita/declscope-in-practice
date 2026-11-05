@@ -1,0 +1,326 @@
+{
+  "checks": {
+    "typeCheck": {
+      "packages": 12,
+      "failed": []
+    },
+    "configs": [
+      {
+        "chain": [],
+        "packages": 12,
+        "rules": {
+          "boundary": true,
+          "qualify": "never",
+          "exported": false,
+          "surplus": "strict",
+          "unused": "strict"
+        }
+      }
+    ],
+    "baselines": []
+  },
+  "totals": {
+    "boundary": {
+      "asked": true,
+      "keyable": true,
+      "found": 72,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 72
+    },
+    "directive": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "filter": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "qualify": {
+      "asked": false,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "surplus": {
+      "asked": true,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "unused": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    }
+  },
+  "packages": [
+    {
+      "package": "go.etcd.io/etcd/v3/tools/benchmark/cmd",
+      "namespaces": 14,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 29,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "util",
+        "to": "root",
+        "reached": 9,
+        "uses": 20
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/tools/etcd-dump-db",
+      "namespaces": 7,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 25,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "scan",
+        "to": "page",
+        "reached": 9,
+        "uses": 19
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/tools/etcd-dump-metrics",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 9,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "main",
+        "to": "etcd",
+        "reached": 4,
+        "uses": 6
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/tools/etcd-dump-logs",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "etcdDumpLog",
+        "to": "main",
+        "reached": 2,
+        "uses": 2
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/tools/local-tester/bridge",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "bridge",
+        "to": "dispatch",
+        "reached": 4,
+        "uses": 10
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/tools/proto-annotations/cmd",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "root",
+        "to": "etcdVersion",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/contrib/lock/client",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/contrib/lock/storage",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/tools/benchmark",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/tools/check-grpc-experimental",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "go.etcd.io/etcd/v3/tools/proto-annotations",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    }
+  ]
+}

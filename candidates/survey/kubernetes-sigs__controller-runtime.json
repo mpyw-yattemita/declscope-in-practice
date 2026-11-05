@@ -1,0 +1,2132 @@
+{
+  "checks": {
+    "typeCheck": {
+      "packages": 102,
+      "failed": []
+    },
+    "configs": [
+      {
+        "chain": [],
+        "packages": 102,
+        "rules": {
+          "boundary": true,
+          "qualify": "never",
+          "exported": false,
+          "surplus": "strict",
+          "unused": "strict"
+        }
+      }
+    ],
+    "baselines": []
+  },
+  "totals": {
+    "boundary": {
+      "asked": true,
+      "keyable": true,
+      "found": 250,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 250
+    },
+    "directive": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "filter": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "qualify": {
+      "asked": false,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "surplus": {
+      "asked": true,
+      "keyable": true,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    },
+    "unused": {
+      "asked": true,
+      "keyable": false,
+      "found": 0,
+      "ignored": 0,
+      "baselined": 0,
+      "reported": 0
+    }
+  },
+  "packages": [
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/manager",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 46,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "manager",
+        "to": "internal",
+        "reached": 33,
+        "uses": 89
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client",
+      "namespaces": 19,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 36,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "client",
+        "to": "clientRestResources",
+        "reached": 9,
+        "uses": 9
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client/fake",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 18,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "versionedTracker",
+        "to": "client",
+        "reached": 8,
+        "uses": 15
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/builder",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 15,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "options",
+        "to": "controller",
+        "reached": 10,
+        "uses": 15
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/cache",
+      "namespaces": 7,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 15,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "cache",
+        "to": "delegatingByGvkCache",
+        "reached": 4,
+        "uses": 5
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 15,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "priorityqueue",
+        "to": "metrics",
+        "reached": 15,
+        "uses": 100
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/cluster",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 13,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "cluster",
+        "to": "internal",
+        "reached": 11,
+        "uses": 19
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/envtest",
+      "namespaces": 8,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 10,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "webhook",
+        "to": "crd",
+        "reached": 3,
+        "uses": 3
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/log/zap",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 10,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "zap",
+        "to": "flags",
+        "reached": 8,
+        "uses": 8
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client/apiutil",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "restmapperWb",
+        "to": "restmapper",
+        "reached": 6,
+        "uses": 8
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/handler",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 6,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "enqueueMapped",
+        "to": "enqueue",
+        "reached": 2,
+        "uses": 9
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client_test",
+      "namespaces": 11,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 5,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "client",
+        "to": "clientSuite",
+        "reached": 3,
+        "uses": 325
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/envtest/komega",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 5,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "default",
+        "to": "komega",
+        "reached": 5,
+        "uses": 16
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook/admission",
+      "namespaces": 9,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 5,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "multi",
+        "to": "http",
+        "reached": 2,
+        "uses": 12
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/examples/builtins",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "main",
+        "to": "controller",
+        "reached": 2,
+        "uses": 2
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/cache/internal",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 4,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "informers",
+        "to": "cacheReader",
+        "reached": 4,
+        "uses": 4
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/controller_test",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "controller",
+        "to": "controllerSuite",
+        "reached": 2,
+        "uses": 32
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/controller",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "controller",
+        "to": "controllerSuite",
+        "reached": 3,
+        "uses": 12
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/recorder_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "recorder",
+        "to": "recorderSuite",
+        "reached": 2,
+        "uses": 10
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/testing/process",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "processInternal",
+        "to": "process",
+        "reached": 2,
+        "uses": 4
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/log",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "log",
+        "to": "deleg",
+        "reached": 2,
+        "uses": 5
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook/authentication",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 3,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "webhook",
+        "to": "http",
+        "reached": 2,
+        "uses": 2
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/certwatcher_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "certwatcher",
+        "to": "certwatcherSuite",
+        "reached": 2,
+        "uses": 25
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client/apiutil_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "apimachinery",
+        "to": "restmapper",
+        "reached": 2,
+        "uses": 2
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/source_test",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "sourceIntegration",
+        "to": "sourceSuite",
+        "reached": 2,
+        "uses": 12
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook_test",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 2,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "webhookIntegration",
+        "to": "webhookSuite",
+        "reached": 2,
+        "uses": 16
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/examples/tokenreview",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "main",
+        "to": "tokenreview",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/cache_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "cache",
+        "to": "cacheSuite",
+        "reached": 1,
+        "uses": 31
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/controller",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "controller",
+        "to": "name",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "controllerutil",
+        "to": "controllerutilSuite",
+        "reached": 1,
+        "uses": 35
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/handler_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "eventhandler",
+        "to": "eventhandlerSuite",
+        "reached": 1,
+        "uses": 3
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/healthz",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "healthz",
+        "to": "doc",
+        "reached": 1,
+        "uses": 3
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/manager/signals",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "signal",
+        "to": "signalPosix",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/metrics/filters",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "filters",
+        "to": "filterSuite",
+        "reached": 1,
+        "uses": 2
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/metrics/server",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "server",
+        "to": "doc",
+        "reached": 1,
+        "uses": 7
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "server",
+        "to": "doc",
+        "reached": 1,
+        "uses": 7
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook/conversion",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 1,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      },
+      "largest": {
+        "from": "conversionHubspoke",
+        "to": "conversion",
+        "reached": 1,
+        "uses": 1
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/examples/crd",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/examples/crd/pkg",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/examples/multiclustersync",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/examples/priorityqueue",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/examples/typed",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/hack/boilerplate/test",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/hack/tools/cmd/gomodcheck",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/builder_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/cache/cacheapi",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/cache/informertest",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/certwatcher",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/certwatcher/metrics",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client/config",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client/interceptor",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client/internal/consistencyhandler",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/client/internal/writebarrier",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/config",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/controller/controllertest",
+      "namespaces": 4,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/conversion",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/event",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/finalizer",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/healthz_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/controller/metrics",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/field/selector",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/field/selector_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/flock",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/httpserver",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/log",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/metrics",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/objectutil",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/recorder",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/source",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/source_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/syncs",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/testing/addr",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/testing/addr_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/testing/certs",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/testing/certs_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/testing/controlplane",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/testing/controlplane_test",
+      "namespaces": 6,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/internal/testing/process_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/leaderelection",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/leaderelection/fake",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/manager/internal/integration",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/manager/internal/integration/api/v1",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/manager/internal/integration/api/v2",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/manager_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/metrics",
+      "namespaces": 5,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/predicate",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/predicate_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/reconcile",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/reconcile_test",
+      "namespaces": 3,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/recorder",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/recorder_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/scheme",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/scheme_test",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/source",
+      "namespaces": 2,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook/admission/metrics",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook/conversion/metrics",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook/conversion_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    },
+    {
+      "package": "sigs.k8s.io/controller-runtime_test",
+      "namespaces": 1,
+      "coreFiles": 0,
+      "allCore": false,
+      "boundary": {
+        "asked": true,
+        "reported": 0,
+        "baselined": 0,
+        "declared": 0
+      },
+      "qualify": {
+        "asked": false,
+        "reported": 0,
+        "baselined": 0,
+        "exempt": 0
+      }
+    }
+  ]
+}

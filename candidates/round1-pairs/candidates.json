@@ -1,0 +1,1926 @@
+{
+ "generated": "2026-11-05",
+ "pairs": [
+  {
+   "rank": 1,
+   "repo": "hashicorp/hcl",
+   "package": "hclwrite",
+   "package_import_path": "github.com/hashicorp/hcl/v2/hclwrite",
+   "nontest_files_at_head": 17,
+   "namespaces_at_head": 18,
+   "boundary_findings_at_head": 88,
+   "pr1": {
+    "number": 811,
+    "title": "hclwrite: add read and write API for `ObjectConsExpr`",
+    "merged_at": "2026-10-14T12:35:06Z",
+    "merge_commit": "8ea3801be7bdcad48bf54c3e12c38c96692c5668",
+    "base_commit_merge_parent": "d3e7bdf00f4559aea011a06b5ebc34aebd81f0c2",
+    "gh_base_ref_oid": "d3e7bdf00f4559aea011a06b5ebc34aebd81f0c2",
+    "pkg_nontest_files": 6,
+    "pkg_nontest_lines": 452,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 6,
+    "whole_pr_nontest_go_lines": 452,
+    "pkg_files_touched": [
+     "hclwrite/ast.go",
+     "hclwrite/ast_expression.go",
+     "hclwrite/ast_object_cons_expr.go",
+     "hclwrite/ast_object_cons_expr_test.go",
+     "hclwrite/node.go",
+     "hclwrite/parser.go",
+     "hclwrite/parser_test.go",
+     "hclwrite/unwrap.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "ObjectConsExpr.ItemFor",
+    "ObjectConsExpr.ValueExprFor",
+    "ObjectConsExpr.SetItem",
+    "ObjectConsExpr.SetItemRaw",
+    "ObjectConsExpr.SetItemValue",
+    "ObjectConsExpr.SetItemTraversal"
+   ],
+   "pr2": {
+    "number": 820,
+    "title": "hclwrite: parse function call and tuple-construct expressions",
+    "merged_at": "2026-10-14T20:45:57Z",
+    "merge_commit": "8b26c6768c674aba5d5547b1bd5abc8951719b6b",
+    "base_commit_merge_parent": "8ea3801be7bdcad48bf54c3e12c38c96692c5668",
+    "gh_base_ref_oid": "8ea3801be7bdcad48bf54c3e12c38c96692c5668",
+    "pkg_nontest_files": 4,
+    "pkg_nontest_lines": 221,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 4,
+    "whole_pr_nontest_go_lines": 221,
+    "pkg_files_touched": [
+     "hclwrite/ast_expression.go",
+     "hclwrite/ast_function_call_expr.go",
+     "hclwrite/ast_tuple_cons_expr.go",
+     "hclwrite/parser.go",
+     "hclwrite/parser_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "hclwrite": "rc=0 ok  \tgithub.com/hashicorp/hcl/v2/hclwrite\t0.297s"
+   },
+   "offline_go_test_pr2_base": {
+    "hclwrite": "rc=0 ok  \tgithub.com/hashicorp/hcl/v2/hclwrite\t0.451s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Pure-Go, fast offline tests; PR1 spreads a read/write API over 6 files of a 17-file package; tests call only exported methods; PR2 is a feature in the same parser code with no new names",
+   "caveats": "Chains with #13 (#820 is PR2 here and PR1 there); use only one of them per task set. ObjectConsExpr itself already exists at the base (#810).",
+   "auto_check_raw": {
+    "pr1_new_names": 30,
+    "pr1_tests_need_exported": [
+     "ObjectConsExpr.ItemFor",
+     "ObjectConsExpr.SetItem",
+     "ObjectConsExpr.SetItemRaw",
+     "ObjectConsExpr.SetItemTraversal",
+     "ObjectConsExpr.SetItemValue",
+     "ObjectConsExpr.ValueExprFor"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 452,
+    "pr1_whole_nontest_files": 6,
+    "pr2_whole_nontest_lines": 221,
+    "pr2_whole_nontest_files": 4
+   },
+   "nontest_files_at_pr1_base": 14
+  },
+  {
+   "rank": 2,
+   "repo": "github/github-mcp-server",
+   "package": "pkg/github",
+   "package_import_path": "github.com/github/github-mcp-server/v2/pkg/github",
+   "nontest_files_at_head": 77,
+   "namespaces_at_head": 113,
+   "boundary_findings_at_head": 549,
+   "pr1": {
+    "number": 3284,
+    "title": "feat: add update_issue_comment tool",
+    "merged_at": "2026-09-15T16:55:06Z",
+    "merge_commit": "c71961c7fc314adf6c7855a4c4a348adba0243db",
+    "base_commit_merge_parent": "7d13a7ad6f2a17f351a6d77ce280c85ae1821f4d",
+    "gh_base_ref_oid": "7d13a7ad6f2a17f351a6d77ce280c85ae1821f4d",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 92,
+    "pkg_test_files": 3,
+    "whole_pr_nontest_go_files": 2,
+    "whole_pr_nontest_go_lines": 92,
+    "pkg_files_touched": [
+     "pkg/github/helper_test.go",
+     "pkg/github/issues.go",
+     "pkg/github/issues_test.go",
+     "pkg/github/public_repo_scopes_test.go",
+     "pkg/github/tools.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "UpdateIssueComment"
+   ],
+   "pr2": {
+    "number": 3285,
+    "title": "feat: add `remove_issue_reaction`, `remove_issue_comment_reaction ` and `remove_pull_request_review_comment_reaction` tools to the granular issues and pull requests toolsets",
+    "merged_at": "2026-09-16T09:58:30Z",
+    "merge_commit": "85598ba6e1256f7ebf4867b95d63b833c4549264",
+    "base_commit_merge_parent": "c71961c7fc314adf6c7855a4c4a348adba0243db",
+    "gh_base_ref_oid": "c71961c7fc314adf6c7855a4c4a348adba0243db",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 234,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 3,
+    "whole_pr_nontest_go_lines": 234,
+    "pkg_files_touched": [
+     "pkg/github/granular_tools_test.go",
+     "pkg/github/helper_test.go",
+     "pkg/github/issues_granular.go",
+     "pkg/github/pullrequests_granular.go",
+     "pkg/github/tools.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "GranularRemoveIssueReaction",
+    "GranularRemoveIssueCommentReaction",
+    "GranularRemovePullRequestReviewCommentReaction"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "pkg/github": "rc=0 ok  \tgithub.com/github/github-mcp-server/pkg/github\t1.136s"
+   },
+   "offline_go_test_pr2_base": {
+    "pkg/github": "rc=0 ok  \tgithub.com/github/github-mcp-server/pkg/github\t0.791s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Two sibling features (new MCP tools) in a 77-file flat package; tests call exported tool constructors with mocked HTTP; PR2 naturally reuses what PR1 added",
+   "caveats": "Tests compare tool schemas with `__toolsnaps__/*.snap` files, so the task text must ship the snapshot (exact tool name, description, schema). PR1 also edits tools.go registration and helper_test.go.",
+   "auto_check_raw": {
+    "pr1_new_names": 1,
+    "pr1_tests_need_exported": [
+     "UpdateIssueComment"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [
+     "GranularRemoveIssueCommentReaction",
+     "GranularRemoveIssueReaction",
+     "GranularRemovePullRequestReviewCommentReaction"
+    ],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 92,
+    "pr1_whole_nontest_files": 2,
+    "pr2_whole_nontest_lines": 234,
+    "pr2_whole_nontest_files": 3
+   },
+   "nontest_files_at_pr1_base": 56
+  },
+  {
+   "rank": 3,
+   "repo": "hashicorp/hcl",
+   "package": "hclwrite",
+   "package_import_path": "github.com/hashicorp/hcl/v2/hclwrite",
+   "nontest_files_at_head": 17,
+   "namespaces_at_head": 18,
+   "boundary_findings_at_head": 88,
+   "pr1": {
+    "number": 810,
+    "title": "hclwrite: parse object-construct expressions",
+    "merged_at": "2026-09-17T13:47:41Z",
+    "merge_commit": "3464b27a5e13f2a67e75280da424faa9b18ccc15",
+    "base_commit_merge_parent": "7ef33390690bb00610d06384470fba2bab36ae78",
+    "gh_base_ref_oid": "00057cf06d7b38a3f89e6e54d622eee98322b314",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 231,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 3,
+    "whole_pr_nontest_go_lines": 231,
+    "pkg_files_touched": [
+     "hclwrite/ast_expression.go",
+     "hclwrite/ast_object_cons_expr.go",
+     "hclwrite/parser.go",
+     "hclwrite/parser_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [],
+   "pr2": {
+    "number": 824,
+    "title": "hclwrite: introduce `Body.RemoveNewlineBeforeBlock`",
+    "merged_at": "2026-09-17T14:05:47Z",
+    "merge_commit": "4932c1452af6bd71e2241ba244f253643d1828da",
+    "base_commit_merge_parent": "3464b27a5e13f2a67e75280da424faa9b18ccc15",
+    "gh_base_ref_oid": "6bf1a67a9381988ec9d660b405a83dfc8b5fcf2a",
+    "pkg_nontest_files": 1,
+    "pkg_nontest_lines": 51,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 1,
+    "whole_pr_nontest_go_lines": 51,
+    "pkg_files_touched": [
+     "hclwrite/ast_body.go",
+     "hclwrite/ast_body_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "Body.RemoveNewlineBeforeBlock"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "hclwrite": "rc=0 ok  \tgithub.com/hashicorp/hcl/v2/hclwrite\t0.216s"
+   },
+   "offline_go_test_pr2_base": {
+    "hclwrite": "rc=0 ok  \tgithub.com/hashicorp/hcl/v2/hclwrite\t0.255s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Parser feature over 3 files; tests are table tests of parse output with names from the base; PR2 adds one exported Body method",
+   "caveats": "PR2 touches ast_body.go only (51 lines); weak overlap with PR1's code. PR1 tests are white-box (package hclwrite) but use only base-commit names.",
+   "auto_check_raw": {
+    "pr1_new_names": 25,
+    "pr1_tests_need_exported": [],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [
+     "Body.RemoveNewlineBeforeBlock"
+    ],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 231,
+    "pr1_whole_nontest_files": 3,
+    "pr2_whole_nontest_lines": 51,
+    "pr2_whole_nontest_files": 1
+   },
+   "nontest_files_at_pr1_base": 13
+  },
+  {
+   "rank": 4,
+   "repo": "alecthomas/kong",
+   "package": ".",
+   "package_import_path": "github.com/alecthomas/kong",
+   "nontest_files_at_head": 25,
+   "namespaces_at_head": 25,
+   "boundary_findings_at_head": 74,
+   "pr1": {
+    "number": 618,
+    "title": "feat: Support negatable bool mappers",
+    "merged_at": "2026-08-24T06:04:36Z",
+    "merge_commit": "4e565e8d77272aa8d3ab6fe3c4f5abdb1beabc99",
+    "base_commit_merge_parent": "bd34b5ff4d001c0666ac5413fe4269e2f5c95e18",
+    "gh_base_ref_oid": "f95198e6fefa43ee2a0757b4eaf662951e6f6719",
+    "pkg_nontest_files": 4,
+    "pkg_nontest_lines": 94,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 4,
+    "whole_pr_nontest_go_lines": 94,
+    "pkg_files_touched": [
+     "build.go",
+     "context.go",
+     "kong_test.go",
+     "mapper.go",
+     "tag.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [],
+   "pr2": {
+    "number": 620,
+    "title": "fix: Call hooks from unexported embedded fields",
+    "merged_at": "2026-08-24T06:05:53Z",
+    "merge_commit": "27d969c48021af998beb4ce2b0f89ccc71d3ff02",
+    "base_commit_merge_parent": "4e565e8d77272aa8d3ab6fe3c4f5abdb1beabc99",
+    "gh_base_ref_oid": "ae4bfddd76075bcb30595c09ff3c71d52534ca49",
+    "pkg_nontest_files": 1,
+    "pkg_nontest_lines": 16,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 1,
+    "whole_pr_nontest_go_lines": 16,
+    "pkg_files_touched": [
+     "callbacks.go",
+     "kong_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    ".": "rc=0 ok  \tgithub.com/alecthomas/kong\t0.270s"
+   },
+   "offline_go_test_pr2_base": {
+    ".": "rc=0 ok  \tgithub.com/alecthomas/kong\t0.296s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Behaviour change spread over 4 files (build/context/mapper/tag) of a 25-file package; tests drive the public parser only",
+   "caveats": "PR2 is a 16-line bugfix in callbacks.go with one test; small follow-up.",
+   "auto_check_raw": {
+    "pr1_new_names": 1,
+    "pr1_tests_need_exported": [],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 94,
+    "pr1_whole_nontest_files": 4,
+    "pr2_whole_nontest_lines": 16,
+    "pr2_whole_nontest_files": 1
+   },
+   "nontest_files_at_pr1_base": 25
+  },
+  {
+   "rank": 5,
+   "repo": "danielgtaylor/huma",
+   "package": ".",
+   "package_import_path": "github.com/danielgtaylor/huma/v2",
+   "nontest_files_at_head": 16,
+   "namespaces_at_head": 18,
+   "boundary_findings_at_head": 62,
+   "pr1": {
+    "number": 1060,
+    "title": "feat(form-data): handle unmarshalling and validation of non-file JSON form data fields",
+    "merged_at": "2026-07-15T15:09:29Z",
+    "merge_commit": "d6f2a37d705e0b8159bd5cc92f7681b1d7d4778e",
+    "base_commit_merge_parent": "214a18cd8047592ac84d0b52f9945bb95c44c09c",
+    "gh_base_ref_oid": "a8a668c0ab2624fcd3f3f01c96025cc166812be3",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 133,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 2,
+    "whole_pr_nontest_go_lines": 133,
+    "pkg_files_touched": [
+     "bench_test.go",
+     "formdata.go",
+     "huma.go",
+     "huma_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [],
+   "pr2": {
+    "number": 1065,
+    "title": "fix: do not panic on unresolved schema $ref during Validate",
+    "merged_at": "2026-07-17T20:08:38Z",
+    "merge_commit": "e114668342030691b884c9e37df9bcd6e7583d40",
+    "base_commit_merge_parent": "d6f2a37d705e0b8159bd5cc92f7681b1d7d4778e",
+    "gh_base_ref_oid": "d6f2a37d705e0b8159bd5cc92f7681b1d7d4778e",
+    "pkg_nontest_files": 1,
+    "pkg_nontest_lines": 43,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 2,
+    "whole_pr_nontest_go_lines": 44,
+    "pkg_files_touched": [
+     "validate.go",
+     "validate_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    ".": "rc=0 ok  \tgithub.com/danielgtaylor/huma/v2\t1.259s"
+   },
+   "offline_go_test_pr2_base": {
+    ".": "rc=0 ok  \tgithub.com/danielgtaylor/huma/v2\t1.478s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Feature driven by a struct tag (`contentType:\"application/json\"` on multipart form fields); tests use the public API only; PR2 is a validation fix with tests on exported API",
+   "caveats": "PR1 non-test code is mostly huma.go (2 files). PR2 touches validate.go, a different file.",
+   "auto_check_raw": {
+    "pr1_new_names": 6,
+    "pr1_tests_need_exported": [],
+    "pr1_tests_need_unexported": [
+     "paramFieldInfo.ContentType"
+    ],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [
+     "jsonFormFieldInfo.schema"
+    ],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 133,
+    "pr1_whole_nontest_files": 2,
+    "pr2_whole_nontest_lines": 44,
+    "pr2_whole_nontest_files": 2
+   },
+   "nontest_files_at_pr1_base": 14
+  },
+  {
+   "rank": 6,
+   "repo": "charmbracelet/bubbletea",
+   "package": ".",
+   "package_import_path": "charm.land/bubbletea/v2",
+   "nontest_files_at_head": 34,
+   "namespaces_at_head": 30,
+   "boundary_findings_at_head": 92,
+   "pr1": {
+    "number": 1841,
+    "title": "feat: OSC 7501",
+    "merged_at": "2026-10-08T17:36:08Z",
+    "merge_commit": "41bc6265643a4709ad355581b01e6bb70b2ed8ea",
+    "base_commit_merge_parent": "96d69d2f7eb182bb311be08fc56ed2c208239aff",
+    "gh_base_ref_oid": "96d69d2f7eb182bb311be08fc56ed2c208239aff",
+    "pkg_nontest_files": 4,
+    "pkg_nontest_lines": 111,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 5,
+    "whole_pr_nontest_go_lines": 204,
+    "pkg_files_touched": [
+     "cursed_renderer.go",
+     "input.go",
+     "programstatus.go",
+     "programstatus_test.go",
+     "tea.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "ProgramStatus",
+    "ProgramStatusKindQuestion",
+    "ProgramStateIdle",
+    "ProgramStateWorking",
+    "ProgramStateBlocked",
+    "ProgramStateDone",
+    "ProgramStatusSupportMsg",
+    "View.ProgramStatus"
+   ],
+   "pr2": {
+    "number": 1887,
+    "title": "fix: ignore implausible terminal resize reports",
+    "merged_at": "2026-10-26T13:59:17Z",
+    "merge_commit": "9c6c325f83348ee7215fb7a7aca3bc6316217056",
+    "base_commit_merge_parent": "f9df43c4f2c021d8740a2628d59cd810a862eb98",
+    "gh_base_ref_oid": "f9df43c4f2c021d8740a2628d59cd810a862eb98",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 19,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 2,
+    "whole_pr_nontest_go_lines": 19,
+    "pkg_files_touched": [
+     "screen.go",
+     "screen_test.go",
+     "tea.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "isPlausibleWindowSize (unexported, PR2's own)"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    ".": "rc=0 ok  \tcharm.land/bubbletea/v2\t1.097s"
+   },
+   "offline_go_test_pr2_base": {
+    ".": "rc=0 ok  \tcharm.land/bubbletea/v2\t1.249s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "New terminal-protocol feature (OSC 7501) wired through renderer, tea.go and a new file; exported API is easy to specify",
+   "caveats": "PR2 is a 19-line fix whose test calls the unexported helper `isPlausibleWindowSize(w, h int) bool` it introduces; state that signature in the follow-up text or drop that test.",
+   "auto_check_raw": {
+    "pr1_new_names": 18,
+    "pr1_tests_need_exported": [
+     "ProgramStateBlocked",
+     "ProgramStateDone",
+     "ProgramStateIdle",
+     "ProgramStateWorking",
+     "ProgramStatus",
+     "ProgramStatusKindQuestion",
+     "ProgramStatusSupportMsg",
+     "View.ProgramStatus"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [
+     "isPlausibleWindowSize"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 204,
+    "pr1_whole_nontest_files": 5,
+    "pr2_whole_nontest_lines": 19,
+    "pr2_whole_nontest_files": 2
+   },
+   "nontest_files_at_pr1_base": 33
+  },
+  {
+   "rank": 7,
+   "repo": "jesseduffield/lazygit",
+   "package": "pkg/config",
+   "package_import_path": "github.com/jesseduffield/lazygit/pkg/config",
+   "nontest_files_at_head": 15,
+   "namespaces_at_head": 13,
+   "boundary_findings_at_head": 18,
+   "pr1": {
+    "number": 6063,
+    "title": "Allow telling diff renderers whether the terminal is dark or light",
+    "merged_at": "2026-09-27T06:16:03Z",
+    "merge_commit": "5ed0345899ae6d47a4164d3709e0c3a9f81480c1",
+    "base_commit_merge_parent": "d2519cdf2671e3e01ff8cf6a17c9fac24b8c99c3",
+    "gh_base_ref_oid": "d2519cdf2671e3e01ff8cf6a17c9fac24b8c99c3",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 79,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 6,
+    "whole_pr_nontest_go_lines": 118,
+    "pkg_files_touched": [
+     "pkg/config/diff_renderer_config_manager.go",
+     "pkg/config/diff_renderer_config_manager_test.go",
+     "pkg/config/user_config_validation.go",
+     "pkg/config/user_config_validation_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "DiffRendererValues{DiffContext, LightBackground, Width}"
+   ],
+   "pr2": {
+    "number": 6065,
+    "title": "Add dark and light color themes",
+    "merged_at": "2026-09-27T06:20:08Z",
+    "merge_commit": "58fe972a14fd49c89bdc200fcfda56539f5e03b8",
+    "base_commit_merge_parent": "5ed0345899ae6d47a4164d3709e0c3a9f81480c1",
+    "gh_base_ref_oid": "5ed0345899ae6d47a4164d3709e0c3a9f81480c1",
+    "pkg_nontest_files": 4,
+    "pkg_nontest_lines": 274,
+    "pkg_test_files": 3,
+    "whole_pr_nontest_go_files": 21,
+    "whole_pr_nontest_go_lines": 606,
+    "pkg_files_touched": [
+     "pkg/config/app_config.go",
+     "pkg/config/app_config_test.go",
+     "pkg/config/color_patterns.go",
+     "pkg/config/color_patterns_test.go",
+     "pkg/config/theme_config.go",
+     "pkg/config/theme_config_test.go",
+     "pkg/config/user_config.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "ThemeConfig",
+    "ColorPattern",
+    "ColorPatterns",
+    "GuiConfig.DarkTheme/LightTheme/ThemeForBackground",
+    "themeDefaults (unexported)"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "pkg/config": "rc=0 ok  \tgithub.com/jesseduffield/lazygit/pkg/config\t0.340s"
+   },
+   "offline_go_test_pr2_base": {
+    "pkg/config": "rc=0 ok  \tgithub.com/jesseduffield/lazygit/pkg/config\t0.311s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Config feature in pkg/config with small whole-PR size (118 lines); PR2 builds dark/light themes on top of it",
+   "caveats": "PR2 is large across the repo (606 non-test lines in 21 files, 274 in pkg/config) and its tests call unexported `themeDefaults`. lazygit vendors dependencies.",
+   "auto_check_raw": {
+    "pr1_new_names": 6,
+    "pr1_tests_need_exported": [
+     "DiffRendererValues",
+     "DiffRendererValues.DiffContext",
+     "DiffRendererValues.LightBackground",
+     "DiffRendererValues.Width"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [
+     "ColorPattern.Color",
+     "ColorPattern.Pattern",
+     "ColorPatterns",
+     "GuiConfig.DarkTheme",
+     "GuiConfig.LightTheme",
+     "GuiConfig.ThemeForBackground",
+     "ThemeConfig.AuthorColors",
+     "ThemeConfig.BranchColorPatterns"
+    ],
+    "pr2_tests_need_own_new_unexported": [
+     "themeDefaults"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 118,
+    "pr1_whole_nontest_files": 6,
+    "pr2_whole_nontest_lines": 606,
+    "pr2_whole_nontest_files": 21
+   },
+   "nontest_files_at_pr1_base": 13
+  },
+  {
+   "rank": 8,
+   "repo": "slack-go/slack",
+   "package": ".",
+   "package_import_path": "github.com/slack-go/slack",
+   "nontest_files_at_head": 125,
+   "namespaces_at_head": 149,
+   "boundary_findings_at_head": 94,
+   "pr1": {
+    "number": 1574,
+    "title": "feat: add support for the container block",
+    "merged_at": "2026-08-15T15:26:42Z",
+    "merge_commit": "1bb5bb60637d2be3164af024f11b343ca427d89a",
+    "base_commit_merge_parent": "46b261db635904f61121613418912e1bc9812026",
+    "gh_base_ref_oid": "ab81038843d74ae5523ce2121344f312bd937052",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 185,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 3,
+    "whole_pr_nontest_go_lines": 185,
+    "pkg_files_touched": [
+     "block.go",
+     "block_container.go",
+     "block_container_test.go",
+     "block_conv.go",
+     "block_roundtrip_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "ContainerBlock and its With*/Add*/Validate methods (about 20 exported names)",
+    "MBTContainer"
+   ],
+   "pr2": {
+    "number": 1572,
+    "title": "feat: Expose full message object from chat.postMessage responses",
+    "merged_at": "2026-08-15T16:20:03Z",
+    "merge_commit": "72865e17d813d849710d0d240f3b185857f932f9",
+    "base_commit_merge_parent": "1bb5bb60637d2be3164af024f11b343ca427d89a",
+    "gh_base_ref_oid": "1bb5bb60637d2be3164af024f11b343ca427d89a",
+    "pkg_nontest_files": 1,
+    "pkg_nontest_lines": 67,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 1,
+    "whole_pr_nontest_go_lines": 67,
+    "pkg_files_touched": [
+     "chat.go",
+     "chat_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "Client.PostMessageWithResponse"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    ".": "rc=1 FAIL FAIL\tgithub.com/slack-go/slack\t19.780s FAIL"
+   },
+   "offline_go_test_pr2_base": {
+    ".": "rc=1 FAIL FAIL\tgithub.com/slack-go/slack\t18.892s FAIL"
+   },
+   "post_cutoff": true,
+   "test_note": "pass except 1 test that dials slack.com (TestRTMDisconnect), both bases",
+   "reason": "125-file flat package; feature touches block registry, conversion and a new file; all names exported and dictated by Slack's API",
+   "caveats": "Most new code lands in a new file, so few placement decisions. PR2 is in chat.go (unrelated area). One existing test (TestRTMDisconnect) dials slack.com and fails offline; skip it.",
+   "auto_check_raw": {
+    "pr1_new_names": 32,
+    "pr1_tests_need_exported": [
+     "ContainerBlock",
+     "ContainerBlock.AddChildBlock",
+     "ContainerBlock.BlockType",
+     "ContainerBlock.ChildBlocks",
+     "ContainerBlock.DefaultCollapsed",
+     "ContainerBlock.ID",
+     "ContainerBlock.IsCollapsible",
+     "ContainerBlock.Title",
+     "ContainerBlock.Type",
+     "ContainerBlock.Validate",
+     "ContainerBlock.Width",
+     "ContainerBlock.WithBlockID",
+     "ContainerBlock.WithCollapsible",
+     "ContainerBlock.WithHeaderDivider",
+     "ContainerBlock.WithIcon",
+     "ContainerBlock.WithRichTextTitle",
+     "ContainerBlock.WithSubtitle",
+     "ContainerBlock.WithTitle",
+     "ContainerBlock.WithWidth",
+     "ContainerWidthWide",
+     "MBTContainer",
+     "NewContainerBlock"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [
+     "Client.PostMessageWithResponse"
+    ],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 185,
+    "pr1_whole_nontest_files": 3,
+    "pr2_whole_nontest_lines": 67,
+    "pr2_whole_nontest_files": 1
+   },
+   "nontest_files_at_pr1_base": 108
+  },
+  {
+   "rank": 9,
+   "repo": "labstack/echo",
+   "package": ".",
+   "package_import_path": "github.com/labstack/echo/v5",
+   "nontest_files_at_head": 21,
+   "namespaces_at_head": 30,
+   "boundary_findings_at_head": 71,
+   "pr1": {
+    "number": 2949,
+    "title": "Router: auto HEAD to GET",
+    "merged_at": "2026-07-12T19:22:55Z",
+    "merge_commit": "222be90c0e074f62161e6c2076793ee892fc111d",
+    "base_commit_merge_parent": "030f1b31bd6ddb1cc0d5a74b9f4f6fb89e748dc1",
+    "gh_base_ref_oid": "030f1b31bd6ddb1cc0d5a74b9f4f6fb89e748dc1",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 180,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 2,
+    "whole_pr_nontest_go_lines": 180,
+    "pkg_files_touched": [
+     "echo_test.go",
+     "response.go",
+     "response_test.go",
+     "router.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "RouterConfig.AutoHandleHEAD"
+   ],
+   "pr2": {
+    "number": 2996,
+    "title": "Revert back to v4 behavior for group registering implicit 404 handler\u2026",
+    "merged_at": "2026-07-12T19:37:47Z",
+    "merge_commit": "2d9b2aa34ef4fd9de1fc2614a4bb79a414e194b4",
+    "base_commit_merge_parent": "222be90c0e074f62161e6c2076793ee892fc111d",
+    "gh_base_ref_oid": "222be90c0e074f62161e6c2076793ee892fc111d",
+    "pkg_nontest_files": 4,
+    "pkg_nontest_lines": 100,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 4,
+    "whole_pr_nontest_go_lines": 100,
+    "pkg_files_touched": [
+     "echo.go",
+     "echo_test.go",
+     "group.go",
+     "group_test.go",
+     "route.go",
+     "router.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "Config.NoGroupAutoRegister404Routes"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    ".": "rc=1 FAIL github.com/labstack/echo/v5 (only TestHandlerName_differentFuncSameName, Go-version dependent)"
+   },
+   "offline_go_test_pr2_base": {
+    ".": "rc=1 FAIL FAIL\tgithub.com/labstack/echo/v5\t1.110s FAIL"
+   },
+   "post_cutoff": true,
+   "test_note": "pass except 1 Go-version-dependent test (TestHandlerName_differentFuncSameName), both bases",
+   "reason": "Router feature across router.go and response.go; PR2 is another router/group behaviour change with tests",
+   "caveats": "response_test.go tests the new unexported `headResponseWriter` fields (rw, bodyBytes, wroteStatus); hide only echo_test.go or specify the type. TestHandlerName_differentFuncSameName fails at both bases with Go 1.27 (closure naming), not because of the network.",
+   "auto_check_raw": {
+    "pr1_new_names": 17,
+    "pr1_tests_need_exported": [
+     "RouterConfig.AutoHandleHEAD"
+    ],
+    "pr1_tests_need_unexported": [
+     "headResponseWriter",
+     "headResponseWriter.Flush",
+     "headResponseWriter.Header",
+     "headResponseWriter.Hijack",
+     "headResponseWriter.Unwrap",
+     "headResponseWriter.Write",
+     "headResponseWriter.WriteHeader",
+     "headResponseWriter.bodyBytes",
+     "headResponseWriter.commit",
+     "headResponseWriter.rw",
+     "headResponseWriter.status",
+     "headResponseWriter.wroteStatus",
+     "wrapHeadHandler"
+    ],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [
+     "headResponseWriter.status"
+    ],
+    "pr2_tests_need_own_new_exported": [
+     "Config.NoGroupAutoRegister404Routes"
+    ],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 180,
+    "pr1_whole_nontest_files": 2,
+    "pr2_whole_nontest_lines": 100,
+    "pr2_whole_nontest_files": 4
+   },
+   "nontest_files_at_pr1_base": 18
+  },
+  {
+   "rank": 10,
+   "repo": "mark3labs/mcp-go",
+   "package": "mcp",
+   "package_import_path": "github.com/mark3labs/mcp-go/mcp",
+   "nontest_files_at_head": 18,
+   "namespaces_at_head": 51,
+   "boundary_findings_at_head": 7,
+   "pr1": {
+    "number": 984,
+    "title": "feat(mcp): keep tool schema property order through decode and encode",
+    "merged_at": "2026-09-15T11:18:50Z",
+    "merge_commit": "d55a9a1925adada720281462cd5ee83645a5e951",
+    "base_commit_merge_parent": "65844e472b8862815d0f68f132f2cc099549fb6f",
+    "gh_base_ref_oid": "51930cffc30e4708c60e9763a23ad0ed6ad06387",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 121,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 2,
+    "whole_pr_nontest_go_lines": 121,
+    "pkg_files_touched": [
+     "mcp/schema_cache.go",
+     "mcp/tools.go",
+     "mcp/tools_property_order_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "ToolArgumentsSchema.PropertyOrder"
+   ],
+   "pr2": {
+    "number": 973,
+    "title": "fix(mcp): read the tasks/result payload from the top level",
+    "merged_at": "2026-09-23T10:53:07Z",
+    "merge_commit": "14ea23606b0fec03c981765c21ab7ee9299130dc",
+    "base_commit_merge_parent": "114ea5a76989c62e53ea451ccf517f31547b4029",
+    "gh_base_ref_oid": "51930cffc30e4708c60e9763a23ad0ed6ad06387",
+    "pkg_nontest_files": 1,
+    "pkg_nontest_lines": 44,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 1,
+    "whole_pr_nontest_go_lines": 44,
+    "pkg_files_touched": [
+     "mcp/utils.go",
+     "mcp/utils_task_result_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "mcp": "rc=0 ok  \tgithub.com/mark3labs/mcp-go/mcp\t0.207s"
+   },
+   "offline_go_test_pr2_base": {
+    "mcp": "rc=0 ok  \tgithub.com/mark3labs/mcp-go/mcp\t0.303s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Feature with a single exported field; tests are black-box JSON round trips; PR2 fixes result parsing in the same package with exported-API tests",
+   "caveats": "PR1 is mostly one file (tools.go +116, schema_cache.go +3), so only nominally 2 files.",
+   "auto_check_raw": {
+    "pr1_new_names": 3,
+    "pr1_tests_need_exported": [
+     "ToolArgumentsSchema.PropertyOrder"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 121,
+    "pr1_whole_nontest_files": 2,
+    "pr2_whole_nontest_lines": 44,
+    "pr2_whole_nontest_files": 1
+   },
+   "nontest_files_at_pr1_base": 17
+  },
+  {
+   "rank": 11,
+   "repo": "grafana/k6",
+   "package": "internal/cmd",
+   "package_import_path": "go.k6.io/k6/v2/internal/cmd",
+   "nontest_files_at_head": 38,
+   "namespaces_at_head": 38,
+   "boundary_findings_at_head": 151,
+   "pr1": {
+    "number": 6126,
+    "title": "Add extension usage telemetry",
+    "merged_at": "2026-07-30T14:03:11Z",
+    "merge_commit": "54072824c137e3c9e4bcdb24cb71f6eda0278490",
+    "base_commit_merge_parent": "7dbe86e3ea08373e41f75748d772dd594066cb90",
+    "gh_base_ref_oid": "29ac39cf0ee5553eaaa1be8696f00e72a9958083",
+    "pkg_nontest_files": 6,
+    "pkg_nontest_lines": 291,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 11,
+    "whole_pr_nontest_go_lines": 380,
+    "pkg_files_touched": [
+     "internal/cmd/outputs.go",
+     "internal/cmd/report.go",
+     "internal/cmd/report_test.go",
+     "internal/cmd/root.go",
+     "internal/cmd/run.go",
+     "internal/cmd/subcommand.go",
+     "internal/cmd/x_registry.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "state.UsageReportURL (env var K6_USAGE_REPORT_URL, in cmd/state)",
+    "report JSON field `extensions`"
+   ],
+   "pr2": {
+    "number": 6224,
+    "title": "Fix extension usage reporting gaps",
+    "merged_at": "2026-07-30T14:03:34Z",
+    "merge_commit": "e574be4ca7435ab4acb0c25a7fb9d6b87a546576",
+    "base_commit_merge_parent": "54072824c137e3c9e4bcdb24cb71f6eda0278490",
+    "gh_base_ref_oid": "54072824c137e3c9e4bcdb24cb71f6eda0278490",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 83,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 3,
+    "whole_pr_nontest_go_lines": 83,
+    "pkg_files_touched": [
+     "internal/cmd/report.go",
+     "internal/cmd/report_test.go",
+     "internal/cmd/run.go",
+     "internal/cmd/subcommand.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "internal/cmd": "rc=0 ok  \tgo.k6.io/k6/v2/internal/cmd\t0.634s  (CGO_ENABLED=0)",
+    "internal/cmd/tests": "rc=0 ok  \tgo.k6.io/k6/v2/internal/cmd/tests\t13.708s  (CGO_ENABLED=0)"
+   },
+   "offline_go_test_pr2_base": {
+    "internal/cmd": "rc=0 ok  \tgo.k6.io/k6/v2/internal/cmd\t0.670s  (CGO_ENABLED=0)",
+    "internal/cmd/tests": "rc=0 ok  \tgo.k6.io/k6/v2/internal/cmd/tests\t11.733s  (CGO_ENABLED=0)"
+   },
+   "post_cutoff": true,
+   "test_note": "pass / pass for internal/cmd and internal/cmd/tests (needs CGO_ENABLED=0 here: local clang/SDK link error)",
+   "reason": "Real stacked follow-up (PR2 fixes gaps in PR1's feature, merged 23 s later); internal/cmd has 38 files",
+   "caveats": "Hidden tests live in internal/cmd/tests (integration package) plus fixture packages testfork/testimport2; PR1 also edits cmd/state, internal/usage, js/modules. k6 vendors dependencies.",
+   "auto_check_raw": {
+    "pr1_new_names": 18,
+    "pr1_tests_need_exported": [],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 380,
+    "pr1_whole_nontest_files": 11,
+    "pr2_whole_nontest_lines": 83,
+    "pr2_whole_nontest_files": 3
+   },
+   "nontest_files_at_pr1_base": 36
+  },
+  {
+   "rank": 12,
+   "repo": "github/github-mcp-server",
+   "package": "pkg/github",
+   "package_import_path": "github.com/github/github-mcp-server/v2/pkg/github",
+   "nontest_files_at_head": 77,
+   "namespaces_at_head": 113,
+   "boundary_findings_at_head": 549,
+   "pr1": {
+    "number": 2999,
+    "title": "Support removing issue types",
+    "merged_at": "2026-08-07T00:25:59Z",
+    "merge_commit": "e7f7bb8b31bd98c3a65167905126e136aa8d85eb",
+    "base_commit_merge_parent": "f3cb662c25456f993115ad11fffafd0c5a5b9f97",
+    "gh_base_ref_oid": "f3cb662c25456f993115ad11fffafd0c5a5b9f97",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 114,
+    "pkg_test_files": 3,
+    "whole_pr_nontest_go_files": 4,
+    "whole_pr_nontest_go_lines": 162,
+    "pkg_files_touched": [
+     "pkg/github/granular_tools_test.go",
+     "pkg/github/issues.go",
+     "pkg/github/issues_granular.go",
+     "pkg/github/issues_test.go",
+     "pkg/github/params.go",
+     "pkg/github/params_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "OptionalNullableStringParam"
+   ],
+   "pr2": {
+    "number": 3020,
+    "title": "Add non-default find_duplicate tool gated by duplicate_detection flag",
+    "merged_at": "2026-08-07T08:45:50Z",
+    "merge_commit": "1b3f89a90af6cad490384b8fdbf7fd3f057670c1",
+    "base_commit_merge_parent": "e7f7bb8b31bd98c3a65167905126e136aa8d85eb",
+    "gh_base_ref_oid": "e7f7bb8b31bd98c3a65167905126e136aa8d85eb",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 189,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 3,
+    "whole_pr_nontest_go_lines": 189,
+    "pkg_files_touched": [
+     "pkg/github/feature_flags.go",
+     "pkg/github/find_duplicate.go",
+     "pkg/github/find_duplicate_test.go",
+     "pkg/github/tools.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "FindDuplicate",
+    "FeatureFlagDuplicateDetection",
+    "duplicateCandidate (unexported)"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "pkg/github": "rc=0 ok  \tgithub.com/github/github-mcp-server/pkg/github\t0.644s"
+   },
+   "offline_go_test_pr2_base": {
+    "pkg/github": "rc=0 ok  \tgithub.com/github/github-mcp-server/pkg/github\t0.700s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Two features in pkg/github; PR1 changes schema/param handling across 3 files",
+   "caveats": "PR2 tests use unexported `duplicateCandidate`/`rankedSimilarIssue` fields that PR2 invents; also touches cmd/ and UI (PR1). Snapshot tests as in #2.",
+   "auto_check_raw": {
+    "pr1_new_names": 6,
+    "pr1_tests_need_exported": [
+     "OptionalNullableStringParam"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [
+     "FeatureFlagDuplicateDetection",
+     "FindDuplicate"
+    ],
+    "pr2_tests_need_own_new_unexported": [
+     "duplicateCandidate",
+     "duplicateCandidate.Confidence",
+     "duplicateCandidate.Issue",
+     "duplicateCandidate.LikelyDuplicate",
+     "duplicateCandidate.Score",
+     "rankedSimilarIssue.Confidence",
+     "rankedSimilarIssue.Issue",
+     "rankedSimilarIssue.LikelyDuplicate",
+     "rankedSimilarIssue.Score"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 162,
+    "pr1_whole_nontest_files": 4,
+    "pr2_whole_nontest_lines": 189,
+    "pr2_whole_nontest_files": 3
+   },
+   "nontest_files_at_pr1_base": 50
+  },
+  {
+   "rank": 13,
+   "repo": "hashicorp/hcl",
+   "package": "hclwrite",
+   "package_import_path": "github.com/hashicorp/hcl/v2/hclwrite",
+   "nontest_files_at_head": 17,
+   "namespaces_at_head": 18,
+   "boundary_findings_at_head": 88,
+   "pr1": {
+    "number": 820,
+    "title": "hclwrite: parse function call and tuple-construct expressions",
+    "merged_at": "2026-10-14T20:45:57Z",
+    "merge_commit": "8b26c6768c674aba5d5547b1bd5abc8951719b6b",
+    "base_commit_merge_parent": "8ea3801be7bdcad48bf54c3e12c38c96692c5668",
+    "gh_base_ref_oid": "8ea3801be7bdcad48bf54c3e12c38c96692c5668",
+    "pkg_nontest_files": 4,
+    "pkg_nontest_lines": 221,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 4,
+    "whole_pr_nontest_go_lines": 221,
+    "pkg_files_touched": [
+     "hclwrite/ast_expression.go",
+     "hclwrite/ast_function_call_expr.go",
+     "hclwrite/ast_tuple_cons_expr.go",
+     "hclwrite/parser.go",
+     "hclwrite/parser_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [],
+   "pr2": {
+    "number": 835,
+    "title": "hclwrite: New function `NewExpression()` and `Body.SetAttribute()`",
+    "merged_at": "2026-10-19T17:16:37Z",
+    "merge_commit": "4a347c448ee961e556dde0fad522a996e04c00c0",
+    "base_commit_merge_parent": "8b26c6768c674aba5d5547b1bd5abc8951719b6b",
+    "gh_base_ref_oid": "8b26c6768c674aba5d5547b1bd5abc8951719b6b",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 90,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 3,
+    "whole_pr_nontest_go_lines": 90,
+    "pkg_files_touched": [
+     "hclwrite/ast_body.go",
+     "hclwrite/parser.go",
+     "hclwrite/parser_test.go",
+     "hclwrite/public.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "NewExpression",
+    "Body.SetAttribute",
+    "parseExpr (unexported)"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "hclwrite": "rc=0 ok  \tgithub.com/hashicorp/hcl/v2/hclwrite\t0.451s"
+   },
+   "offline_go_test_pr2_base": {
+    "hclwrite": "rc=0 ok  \tgithub.com/hashicorp/hcl/v2/hclwrite\t0.370s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Parser feature over 4 files; PR2 adds exported construction API on top",
+   "caveats": "Overlaps #1. PR2 test calls unexported `parseExpr`, which PR2 adds.",
+   "auto_check_raw": {
+    "pr1_new_names": 17,
+    "pr1_tests_need_exported": [],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [
+     "parseExpr"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 221,
+    "pr1_whole_nontest_files": 4,
+    "pr2_whole_nontest_lines": 90,
+    "pr2_whole_nontest_files": 3
+   },
+   "nontest_files_at_pr1_base": 15
+  },
+  {
+   "rank": 14,
+   "repo": "gofiber/fiber",
+   "package": ".",
+   "package_import_path": "github.com/gofiber/fiber/v3",
+   "nontest_files_at_head": 37,
+   "namespaces_at_head": 38,
+   "boundary_findings_at_head": 481,
+   "pr1": {
+    "number": 4486,
+    "title": "\ud83d\udd25 feat: add SkipUnmatchedRoutes with two-tier 404/405 fast path",
+    "merged_at": "2026-07-03T08:29:06Z",
+    "merge_commit": "adef0e856c225d979d2816fd564cebc6d6c62d11",
+    "base_commit_merge_parent": "0b57242a172ae5d75d58b50edc13da45428fd8e0",
+    "gh_base_ref_oid": "0b57242a172ae5d75d58b50edc13da45428fd8e0",
+    "pkg_nontest_files": 8,
+    "pkg_nontest_lines": 407,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 8,
+    "whole_pr_nontest_go_lines": 407,
+    "pkg_files_touched": [
+     "app.go",
+     "ctx.go",
+     "ctx_interface.go",
+     "ctx_interface_gen.go",
+     "path.go",
+     "req.go",
+     "router.go",
+     "router_skip.go",
+     "router_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "Config.SkipUnmatchedRoutes"
+   ],
+   "pr2": {
+    "number": 4494,
+    "title": "fix: improve RFC 9110 compliance across req/res/ctx, helpers, and middleware",
+    "merged_at": "2026-07-05T18:28:46Z",
+    "merge_commit": "19fd3a0b6c75789b5ee98048b0c186d2bf9c312c",
+    "base_commit_merge_parent": "adef0e856c225d979d2816fd564cebc6d6c62d11",
+    "gh_base_ref_oid": "adef0e856c225d979d2816fd564cebc6d6c62d11",
+    "pkg_nontest_files": 9,
+    "pkg_nontest_lines": 707,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 11,
+    "whole_pr_nontest_go_lines": 768,
+    "pkg_files_touched": [
+     "app.go",
+     "ctx.go",
+     "ctx_interface_gen.go",
+     "ctx_test.go",
+     "error.go",
+     "helpers.go",
+     "helpers_test.go",
+     "req.go",
+     "req_interface_gen.go",
+     "res.go",
+     "res_interface_gen.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "ErrRangeUnsupported"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    ".": "rc=0 ok  \tgithub.com/gofiber/fiber/v3\t28.850s"
+   },
+   "offline_go_test_pr2_base": {
+    ".": "rc=0 ok  \tgithub.com/gofiber/fiber/v3\t28.854s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Router feature across 8 files of a 37-file package; tests use the public App API",
+   "caveats": "PR2 is a broad RFC 9110 compliance change (707 lines in the package, 768 whole), heavy for a follow-up.",
+   "auto_check_raw": {
+    "pr1_new_names": 36,
+    "pr1_tests_need_exported": [
+     "Config.SkipUnmatchedRoutes"
+    ],
+    "pr1_tests_need_unexported": [
+     "App.skip"
+    ],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [
+     "ErrRangeUnsupported"
+    ],
+    "pr2_tests_need_own_new_unexported": [
+     "joinedHeaderValue.multi"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 407,
+    "pr1_whole_nontest_files": 8,
+    "pr2_whole_nontest_lines": 768,
+    "pr2_whole_nontest_files": 11
+   },
+   "nontest_files_at_pr1_base": 34
+  },
+  {
+   "rank": 15,
+   "repo": "jesseduffield/lazygit",
+   "package": "pkg/gocui",
+   "package_import_path": "github.com/jesseduffield/lazygit/pkg/gocui",
+   "nontest_files_at_head": 16,
+   "namespaces_at_head": 26,
+   "boundary_findings_at_head": 128,
+   "pr1": {
+    "number": 6026,
+    "title": "Work out which file and line a row of a diff belongs to",
+    "merged_at": "2026-10-05T07:54:53Z",
+    "merge_commit": "61da2345ad037d6d4ec8c5f738ce4e44b638ce07",
+    "base_commit_merge_parent": "576d21868adc58ba6d949a8be3230e658a07600b",
+    "gh_base_ref_oid": "576d21868adc58ba6d949a8be3230e658a07600b",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 293,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 10,
+    "whole_pr_nontest_go_lines": 823,
+    "pkg_files_touched": [
+     "pkg/gocui/gui.go",
+     "pkg/gocui/view.go",
+     "pkg/gocui/view_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "View.BufferLineForViewLine",
+    "View.ViewLineForBufferLine",
+    "View.LastViewLineForBufferLine",
+    "View.LinesAsWritten"
+   ],
+   "pr2": {
+    "number": 6029,
+    "title": "Support diff renderers that emit OSC 1717 diff line metadata",
+    "merged_at": "2026-10-05T08:03:27Z",
+    "merge_commit": "9d4424b8ac22bea09a7336f1a1e88e7da9749b04",
+    "base_commit_merge_parent": "61da2345ad037d6d4ec8c5f738ce4e44b638ce07",
+    "gh_base_ref_oid": "61da2345ad037d6d4ec8c5f738ce4e44b638ce07",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 204,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 7,
+    "whole_pr_nontest_go_lines": 418,
+    "pkg_files_touched": [
+     "pkg/gocui/escape.go",
+     "pkg/gocui/escape_test.go",
+     "pkg/gocui/view.go",
+     "pkg/gocui/view_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "DiffLineContent{Text, Metadata}",
+    "View.DiffLineContents"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "pkg/gocui": "rc=0 ok  \tgithub.com/jesseduffield/lazygit/pkg/gocui\t2.748s"
+   },
+   "offline_go_test_pr2_base": {
+    "pkg/gocui": "rc=0 ok  \tgithub.com/jesseduffield/lazygit/pkg/gocui\t2.685s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "pkg/gocui feature with exported View methods; PR2 uses PR1's exported method and adds more",
+   "caveats": "Whole PR1 is 823 non-test lines over 10 files (293 in gocui); task would need scoping to gocui.",
+   "auto_check_raw": {
+    "pr1_new_names": 20,
+    "pr1_tests_need_exported": [
+     "View.BufferLineForViewLine",
+     "View.LastViewLineForBufferLine",
+     "View.LinesAsWritten",
+     "View.ViewLineForBufferLine"
+    ],
+    "pr1_tests_need_unexported": [
+     "contentPos.ok"
+    ],
+    "pr2_tests_use_pr1_new_exported": [
+     "View.BufferLineForViewLine"
+    ],
+    "pr2_tests_use_pr1_new_unexported": [
+     "contentPos.ok"
+    ],
+    "pr2_tests_need_own_new_exported": [
+     "DiffLineContent",
+     "DiffLineContent.Metadata",
+     "DiffLineContent.Text",
+     "View.DiffLineContents"
+    ],
+    "pr2_tests_need_own_new_unexported": [],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 823,
+    "pr1_whole_nontest_files": 10,
+    "pr2_whole_nontest_lines": 418,
+    "pr2_whole_nontest_files": 7
+   },
+   "nontest_files_at_pr1_base": 16
+  },
+  {
+   "rank": 16,
+   "repo": "modelcontextprotocol/go-sdk",
+   "package": "mcp",
+   "package_import_path": "github.com/modelcontextprotocol/go-sdk/mcp",
+   "nontest_files_at_head": 25,
+   "namespaces_at_head": 34,
+   "boundary_findings_at_head": 285,
+   "pr1": {
+    "number": 1203,
+    "title": "mcp: allow per request Cacheable customization",
+    "merged_at": "2026-09-01T18:57:52Z",
+    "merge_commit": "0d3036f785b6c122323a24e39399f9abd3641a7c",
+    "base_commit_merge_parent": "cb0de6413682bfbefb300a6c1e4d8046e2627b33",
+    "gh_base_ref_oid": "cb0de6413682bfbefb300a6c1e4d8046e2627b33",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 59,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 2,
+    "whole_pr_nontest_go_lines": 59,
+    "pkg_files_touched": [
+     "mcp/protocol.go",
+     "mcp/server.go",
+     "mcp/server_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "ServerOptions.SetCacheable"
+   ],
+   "pr2": {
+    "number": 1205,
+    "title": "mcp: add an sse event size cap",
+    "merged_at": "2026-09-02T09:35:24Z",
+    "merge_commit": "363296740467cb60316e45f2f9a9e958cd998356",
+    "base_commit_merge_parent": "0d3036f785b6c122323a24e39399f9abd3641a7c",
+    "gh_base_ref_oid": "0d3036f785b6c122323a24e39399f9abd3641a7c",
+    "pkg_nontest_files": 4,
+    "pkg_nontest_lines": 155,
+    "pkg_test_files": 3,
+    "whole_pr_nontest_go_files": 4,
+    "whole_pr_nontest_go_lines": 155,
+    "pkg_files_touched": [
+     "mcp/event.go",
+     "mcp/event_test.go",
+     "mcp/sse.go",
+     "mcp/streamable.go",
+     "mcp/streamable_test.go",
+     "mcp/transport.go",
+     "mcp/transport_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "DefaultMaxEventSize",
+    "newIOConnLimited, scanEventsLimited, frameLimitReader (unexported)"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "mcp": "rc=0 ok  \tgithub.com/modelcontextprotocol/go-sdk/mcp\t27.625s"
+   },
+   "offline_go_test_pr2_base": {
+    "mcp": "rc=0 ok  \tgithub.com/modelcontextprotocol/go-sdk/mcp\t27.319s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Clean PR1 (one exported option, black-box test) in a 25-file package",
+   "caveats": "PR2's tests are white-box and use several unexported names PR2 invents; usable only if PR2's hidden tests are restricted to the streamable/exported ones.",
+   "auto_check_raw": {
+    "pr1_new_names": 3,
+    "pr1_tests_need_exported": [
+     "ServerOptions.SetCacheable"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [
+     "DefaultMaxEventSize"
+    ],
+    "pr2_tests_need_own_new_unexported": [
+     "errFrameTooLarge",
+     "frameLimitReader.Read",
+     "frameLimitReader.limit",
+     "frameLimitReader.r",
+     "newIOConnLimited",
+     "scanEventsLimited",
+     "streamableClientConn.maxEventSize"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 59,
+    "pr1_whole_nontest_files": 2,
+    "pr2_whole_nontest_lines": 155,
+    "pr2_whole_nontest_files": 4
+   },
+   "nontest_files_at_pr1_base": 25
+  },
+  {
+   "rank": 17,
+   "repo": "urfave/cli",
+   "package": ".",
+   "package_import_path": "github.com/urfave/cli/v3",
+   "nontest_files_at_head": 41,
+   "namespaces_at_head": 48,
+   "boundary_findings_at_head": 156,
+   "pr1": {
+    "number": 2353,
+    "title": "feat: add Command.Walk() and Command.Path() convenience methods",
+    "merged_at": "2026-06-13T20:40:52Z",
+    "merge_commit": "84d0da5c2dea82f19c9bce4bdf255ee1091231fa",
+    "base_commit_merge_parent": "c66ca03b1c2a66068c9c5a9fd63df0757ff5feb0",
+    "gh_base_ref_oid": "c66ca03b1c2a66068c9c5a9fd63df0757ff5feb0",
+    "pkg_nontest_files": 2,
+    "pkg_nontest_lines": 58,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 2,
+    "whole_pr_nontest_go_lines": 58,
+    "pkg_files_touched": [
+     "command.go",
+     "command_setup.go",
+     "command_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "Command.Walk(func(*Command) error) error",
+    "Command.Path() []string"
+   ],
+   "pr2": {
+    "number": 2368,
+    "title": "feat: Add SchemaType and SchemaItemsType for Flag",
+    "merged_at": "2026-06-14T01:00:00Z",
+    "merge_commit": "024fc6f75352d12483eda69e40ee565b822e281c",
+    "base_commit_merge_parent": "84d0da5c2dea82f19c9bce4bdf255ee1091231fa",
+    "gh_base_ref_oid": "84d0da5c2dea82f19c9bce4bdf255ee1091231fa",
+    "pkg_nontest_files": 4,
+    "pkg_nontest_lines": 99,
+    "pkg_test_files": 2,
+    "whole_pr_nontest_go_files": 4,
+    "whole_pr_nontest_go_lines": 99,
+    "pkg_files_touched": [
+     "flag.go",
+     "flag_bool_with_inverse.go",
+     "flag_ext.go",
+     "flag_impl.go",
+     "flag_schema_type_test.go",
+     "flag_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "SchemaTyper",
+    "SchemaItemsTyper",
+    "FlagBase.SchemaType/SchemaItemsType"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    ".": "rc=0 ok  \tgithub.com/urfave/cli/v3\t0.327s"
+   },
+   "offline_go_test_pr2_base": {
+    ".": "rc=0 ok  \tgithub.com/urfave/cli/v3\t0.313s"
+   },
+   "post_cutoff": false,
+   "test_note": "",
+   "reason": "Both PRs are features with exported-only tests in a 41-file package",
+   "caveats": "Merged 2026-06-13/14, before the cutoff. PR1 is small (58 lines).",
+   "auto_check_raw": {
+    "pr1_new_names": 2,
+    "pr1_tests_need_exported": [
+     "Command.Path",
+     "Command.Walk"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [
+     "BoolWithInverseFlag.SchemaItemsType",
+     "BoolWithInverseFlag.SchemaType",
+     "FlagBase.SchemaItemsType",
+     "FlagBase.SchemaType",
+     "SchemaItemsTyper",
+     "SchemaItemsTyper.SchemaItemsType",
+     "SchemaTyper",
+     "SchemaTyper.SchemaType"
+    ],
+    "pr2_tests_need_own_new_unexported": [
+     "extFlag.SchemaItemsType",
+     "extFlag.SchemaType"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 58,
+    "pr1_whole_nontest_files": 2,
+    "pr2_whole_nontest_lines": 99,
+    "pr2_whole_nontest_files": 4
+   },
+   "nontest_files_at_pr1_base": 38
+  },
+  {
+   "rank": 18,
+   "repo": "autobrr/autobrr",
+   "package": "internal/notification",
+   "package_import_path": "github.com/autobrr/autobrr/internal/notification",
+   "nontest_files_at_head": 14,
+   "namespaces_at_head": 14,
+   "boundary_findings_at_head": 15,
+   "pr1": {
+    "number": 2737,
+    "title": "feat(notifications): add list refresh events",
+    "merged_at": "2026-10-04T20:02:20Z",
+    "merge_commit": "4a09de73313e699567173bc1efbd1fd8f8e85774",
+    "base_commit_merge_parent": "e75e9d00ee2888fa591f400387bf60adadca1357",
+    "gh_base_ref_oid": "e75e9d00ee2888fa591f400387bf60adadca1357",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 114,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 9,
+    "whole_pr_nontest_go_lines": 223,
+    "pkg_files_touched": [
+     "internal/notification/message_builder.go",
+     "internal/notification/sender_discord.go",
+     "internal/notification/service.go",
+     "internal/notification/service_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "events.ListRefreshEvent",
+    "EventBus.EmitListRefresh / OnListRefresh",
+    "domain LIST_REFRESH_SUCCESS / LIST_REFRESH_ERROR"
+   ],
+   "pr2": {
+    "number": 2738,
+    "title": "feat(notifications): add feed refresh events",
+    "merged_at": "2026-10-04T20:45:28Z",
+    "merge_commit": "25fc2ca26fcbb1318f58edc34b206babf5bda48a",
+    "base_commit_merge_parent": "4a09de73313e699567173bc1efbd1fd8f8e85774",
+    "gh_base_ref_oid": "4a09de73313e699567173bc1efbd1fd8f8e85774",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 77,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 7,
+    "whole_pr_nontest_go_lines": 156,
+    "pkg_files_touched": [
+     "internal/notification/message_builder.go",
+     "internal/notification/sender_discord.go",
+     "internal/notification/service.go",
+     "internal/notification/service_test.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "feed refresh analogues"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "internal/notification": "rc=0 ok  \tgithub.com/autobrr/autobrr/internal/notification\t0.368s"
+   },
+   "offline_go_test_pr2_base": {
+    "internal/notification": "rc=0 ok  \tgithub.com/autobrr/autobrr/internal/notification\t0.389s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "PR2 is an explicit follow-up of PR1 (same pattern for feeds)",
+   "caveats": "Both PRs span domain/, events/, list/ or feed/, notification/ and the web UI; the tests' fake event bus must match the new interface methods. Feels like copy-the-pattern rather than placement.",
+   "auto_check_raw": {
+    "pr1_new_names": 1,
+    "pr1_tests_need_exported": [],
+    "pr1_tests_need_unexported": [
+     "eventBus.OnListRefresh"
+    ],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [
+     "eventBus.OnFeedRefresh"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 223,
+    "pr1_whole_nontest_files": 9,
+    "pr2_whole_nontest_lines": 156,
+    "pr2_whole_nontest_files": 7
+   },
+   "nontest_files_at_pr1_base": 13
+  },
+  {
+   "rank": 19,
+   "repo": "jesseduffield/lazygit",
+   "package": "pkg/commands/git_commands",
+   "package_import_path": "github.com/jesseduffield/lazygit/pkg/commands/git_commands",
+   "nontest_files_at_head": 40,
+   "namespaces_at_head": 41,
+   "boundary_findings_at_head": 69,
+   "pr1": {
+    "number": 6129,
+    "title": "Exit gracefully when a repo or worktree gets deleted from under lazygit",
+    "merged_at": "2026-10-15T07:06:13Z",
+    "merge_commit": "a0fa1becdb18edf438867aa21e052f26bcb6e7bc",
+    "base_commit_merge_parent": "88c339a9074287da17f9d3b3692acf3122cee039",
+    "gh_base_ref_oid": "88c339a9074287da17f9d3b3692acf3122cee039",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 61,
+    "pkg_test_files": 3,
+    "whole_pr_nontest_go_files": 8,
+    "whole_pr_nontest_go_lines": 127,
+    "pkg_files_touched": [
+     "pkg/commands/git_commands/branch_loader.go",
+     "pkg/commands/git_commands/branch_loader_test.go",
+     "pkg/commands/git_commands/repo_paths.go",
+     "pkg/commands/git_commands/repo_paths_test.go",
+     "pkg/commands/git_commands/worktree_loader.go",
+     "pkg/commands/git_commands/worktree_loader_test.go"
+    ]
+   },
+   "pr1_tests_need_new_names": [
+    "RepoPaths.MissingDir"
+   ],
+   "pr2": {
+    "number": 6134,
+    "title": "Improve display and handling of deleted submodules and nested repos/worktrees",
+    "merged_at": "2026-10-15T19:29:34Z",
+    "merge_commit": "4c2ce238a925c41b6caee6dcf722984ff081774b",
+    "base_commit_merge_parent": "a0fa1becdb18edf438867aa21e052f26bcb6e7bc",
+    "gh_base_ref_oid": "a0fa1becdb18edf438867aa21e052f26bcb6e7bc",
+    "pkg_nontest_files": 3,
+    "pkg_nontest_lines": 130,
+    "pkg_test_files": 1,
+    "whole_pr_nontest_go_files": 23,
+    "whole_pr_nontest_go_lines": 1088,
+    "pkg_files_touched": [
+     "pkg/commands/git_commands/file_loader.go",
+     "pkg/commands/git_commands/file_loader_test.go",
+     "pkg/commands/git_commands/repo_paths.go",
+     "pkg/commands/git_commands/working_tree.go"
+    ]
+   },
+   "pr2_tests_need_new_names": [
+    "FileLoader.getDirectoryKind, directoryKind (unexported)"
+   ],
+   "pr2_uses_pr1_unexported_new_names": [],
+   "no_commit_between": "yes (consecutive in first-parent history of the package's own .go files)",
+   "offline_go_test_pr1_base": {
+    "pkg/commands/git_commands": "rc=0 ok  \tgithub.com/jesseduffield/lazygit/pkg/commands/git_commands\t0.891s"
+   },
+   "offline_go_test_pr2_base": {
+    "pkg/commands/git_commands": "rc=0 ok  \tgithub.com/jesseduffield/lazygit/pkg/commands/git_commands\t0.646s"
+   },
+   "post_cutoff": true,
+   "test_note": "",
+   "reason": "Small feature in git_commands (40 files)",
+   "caveats": "PR2 is 1088 non-test lines over 23 files and its tests use unexported hooks it invents.",
+   "auto_check_raw": {
+    "pr1_new_names": 2,
+    "pr1_tests_need_exported": [
+     "RepoPaths.MissingDir"
+    ],
+    "pr1_tests_need_unexported": [],
+    "pr2_tests_use_pr1_new_exported": [],
+    "pr2_tests_use_pr1_new_unexported": [],
+    "pr2_tests_need_own_new_exported": [],
+    "pr2_tests_need_own_new_unexported": [
+     "FileLoader.getDirectoryKind",
+     "directoryKind"
+    ],
+    "between_commits_touching_dir_tree": [],
+    "pr1_whole_nontest_lines": 127,
+    "pr1_whole_nontest_files": 8,
+    "pr2_whole_nontest_lines": 1088,
+    "pr2_whole_nontest_files": 23
+   },
+   "nontest_files_at_pr1_base": 40
+  }
+ ],
+ "rejected": [
+  {
+   "repo": "go-git/go-git",
+   "package": ".",
+   "pair": "#2309 \u2192 #2312 (2026-08)",
+   "why": "Offline go test fails: root package tests clone https://github.com/git-fixtures/*. Also PR1's code lands mostly in plumbing/format/gitignore"
+  },
+  {
+   "repo": "go-git/go-git",
+   "package": ".",
+   "pair": "#2276 \u2192 #2309 (2026-07/08)",
+   "why": "Offline test fails (as above); PR1 is a security fix"
+  },
+  {
+   "repo": "caddyserver/caddy",
+   "package": "modules/caddyhttp",
+   "pair": "#8107 \u2192 #8119 (2026-10)",
+   "why": "PR1 and PR2 are bug fixes (#8101/#8103, #8118), not features"
+  },
+  {
+   "repo": "caddyserver/caddy",
+   "package": "modules/caddyhttp",
+   "pair": "#8121 \u2192 #7649 (2026-10)",
+   "why": "PR1 tests call new unexported IdleDeadline.override/restore and idleOverride.at"
+  },
+  {
+   "repo": "caddyserver/caddy",
+   "package": "modules/caddyhttp/reverseproxy",
+   "pair": "#7569 \u2192 #7662 (2026-04)",
+   "why": "PR2 has no tests"
+  },
+  {
+   "repo": "go-task/task",
+   "package": ".",
+   "pair": "#2897 \u2192 #3070 (2026-09/11)",
+   "why": "PR1's code goes into a new package internal/complete; only 122 lines in the root package (745 whole)"
+  },
+  {
+   "repo": "go-task/task",
+   "package": "taskfile",
+   "pair": "#2976 \u2192 #3037 (2026-09)",
+   "why": "PR2 is a refactor without tests; PR1 tests need unexported headersTransport/resolveHeaders"
+  },
+  {
+   "repo": "go-task/task",
+   "package": "taskfile/ast",
+   "pair": "#2898 \u2192 #2916 (2026-08/11)",
+   "why": "PR2 is a 5-line fix without tests"
+  },
+  {
+   "repo": "docker/compose",
+   "package": "pkg/compose",
+   "pair": "#14196 \u2192 #14119 (2026-09)",
+   "why": "PR2 is a 3-line fix without tests"
+  },
+  {
+   "repo": "urfave/cli",
+   "package": ".",
+   "pair": "#2393 \u2192 #2416 (2026-08)",
+   "why": "PR2 is a dependabot bump"
+  },
+  {
+   "repo": "urfave/cli",
+   "package": ".",
+   "pair": "#2429 \u2192 #2434 (2026-09)",
+   "why": "PR1 is 51 lines with mostly field additions; PR2 is a 6-line fix"
+  },
+  {
+   "repo": "modelcontextprotocol/go-sdk",
+   "package": "mcp",
+   "pair": "#1283 \u2192 #1355, #1434 \u2192 #1462 (2026-10)",
+   "why": "PR1 is a fix and its tests use new unexported names (clearResourceSubIfGen, resourceSub; *SessionUpdated)"
+  },
+  {
+   "repo": "modelcontextprotocol/go-sdk",
+   "package": "mcp",
+   "pair": "#1226 \u2192 #1255, #1228 \u2192 #1274 (2026-09)",
+   "why": "PR1 is a fix, not a feature"
+  },
+  {
+   "repo": "quic-go/quic-go",
+   "package": "http3",
+   "pair": "#5783 \u2192 #5789 (2026-08)",
+   "why": "PR1 tests use new unexported RawServerConn.priorityAware/requestPriority, and PR2 tests use them too"
+  },
+  {
+   "repo": "quic-go/quic-go",
+   "package": ".",
+   "pair": "#5770 \u2192 #5774, #5704 \u2192 #5693, #5970 \u2192 #5976 (2026)",
+   "why": "White-box tests on unexported names invented by PR1 (popRetransmissionFrame, flow-controller methods, framer methods)"
+  },
+  {
+   "repo": "ollama/ollama",
+   "package": "cmd/launch",
+   "pair": "#19223 \u2192 #19193 \u2192 #19310 (2026-10)",
+   "why": "PR2 tests use unexported names PR1 invented (serverModelMetadata, OpenCode.runContent ...)"
+  },
+  {
+   "repo": "ollama/ollama",
+   "package": "server",
+   "pair": "#17752 \u2192 #17883 (2026-08)",
+   "why": "PR2 tests use PR1's unexported inferenceModelCache* names"
+  },
+  {
+   "repo": "ollama/ollama",
+   "package": "create, mlx, model/renderers",
+   "pair": "many (2026-10)",
+   "why": "Model-support PRs: tests use unexported transforms; whole PRs up to 7k lines"
+  },
+  {
+   "repo": "github/github-mcp-server",
+   "package": "pkg/github",
+   "pair": "#3047 \u2192 #3055, #2961 \u2192 #2988 (2026-08)",
+   "why": "PR2 tests use unexported helpers PR1 invented (convertToMinimalWorkflowRun, projectV2ViewRESTResponse)"
+  },
+  {
+   "repo": "github/github-mcp-server",
+   "package": "pkg/github",
+   "pair": "#3389 \u2192 #3391, #2952 \u2192 #2903 (2026)",
+   "why": "PR2 too large (904 to 1233 non-test lines)"
+  },
+  {
+   "repo": "jesseduffield/lazygit",
+   "package": "pkg/commands/git_commands",
+   "pair": "#6045 \u2192 #6067 (2026-09)",
+   "why": "PR1 is 49 lines in the package but 650 whole; PR2 1137 lines and tests on unexported loader hooks"
+  },
+  {
+   "repo": "jesseduffield/lazygit",
+   "package": "pkg/gui/controllers/helpers",
+   "pair": "#6029 \u2192 #6031 \u2192 #6032 (2026-10)",
+   "why": "Tests use unexported parse helpers; whole PRs 1.9k to 3.4k lines"
+  },
+  {
+   "repo": "grafana/k6",
+   "package": "internal/js/modules/k6/browser/*",
+   "pair": "#6165 \u2192 #6325, #6414 \u2192 #6345 (2026)",
+   "why": "PR2 is a 1.4k-line refactor or a 1.8k-line cross-package change"
+  },
+  {
+   "repo": "gofiber/fiber",
+   "package": ".",
+   "pair": "#4655 \u2192 #4652 (2026-09)",
+   "why": "PR2 is 2350 lines across 17 files; PR1 tests need unexported names"
+  },
+  {
+   "repo": "nats-io/nats-server",
+   "package": "server",
+   "pair": "#8408 \u2192 #8427, #8384 \u2192 #8432 ... (2026)",
+   "why": "Not pursued: 69-file package with very slow, cluster-style tests; PR2 either a small fix or 3.3k lines"
+  },
+  {
+   "repo": "junegunn/fzf",
+   "package": "src",
+   "pair": "several (2026)",
+   "why": "Changes are direct commits, not merged pull requests"
+  },
+  {
+   "repo": "autobrr/autobrr",
+   "package": "internal/irc",
+   "pair": "#2739 \u2192 #2741 (2026-10)",
+   "why": "PR2 tests use PR1's unexported checkNetworkHealth/unhealthyGracePeriod"
+  },
+  {
+   "repo": "temporalio/sdk-go",
+   "package": "internal",
+   "pair": "#2521 \u2192 #2543, #2721 \u2192 #2738, #2675 \u2192 #2693 (2026)",
+   "why": "Tests are white-box: PR1 tests use unexported names PR1 invents (getRandomStream, workflowRandomStream, systemNexusDataConverter, testPluginRegistry.*)"
+  },
+  {
+   "repo": "grpc/grpc-go",
+   "package": "internal/transport, internal/xds/...",
+   "pair": "#9431 \u2192 #9433, #9563 \u2192 #9490 (2026)",
+   "why": "PR1 is a fix or hardening, not a feature"
+  },
+  {
+   "repo": "cockroachdb/pebble, helm/helm, open-telemetry/opentelemetry-go, mvdan/sh, mikefarah/yq, pion/webrtc, cloudflare/cloudflared, mautrix/go, gitleaks/gitleaks",
+   "package": "-",
+   "pair": "-",
+   "why": "Surveyed and mined, but pairs were not screened by hand (time)"
+  },
+  {
+   "repo": "prometheus/prometheus, traefik/traefik, open-policy-agent/opa, gohugoio/hugo, rclone/rclone, jaegertracing/jaeger, juicedata/juicefs, kubernetes-sigs/controller-runtime, sqlc-dev/sqlc, syncthing/syncthing, restic/restic, goreleaser/goreleaser, open-telemetry/opentelemetry-collector",
+   "package": "-",
+   "pair": "-",
+   "why": "Not screened: survey failed (module download race under parallel runs) or was stopped to free CPU"
+  }
+ ]
+}
