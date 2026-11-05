@@ -230,6 +230,51 @@ def run_agent(prompt, ws, env, out_dir, model, label):
     return summarize(r.stdout, elapsed, r.returncode)
 
 
+LIMIT = re.compile(r"usage limit|rate limit|rate_limit|overloaded|429|5-hour limit|weekly limit|try again later", re.I)
+
+
+def limited(sdir):
+    """Whether the last agent run stopped on a usage or rate limit."""
+    try:
+        with gzip.open(sdir / "agent.jsonl.gz", "rt") as f:
+            tail = f.read()[-4000:]
+    except OSError:
+        tail = ""
+    err = (sdir / "agent.stderr.txt").read_text()[-4000:] if (sdir / "agent.stderr.txt").exists() else ""
+    return bool(LIMIT.search(tail + err))
+
+
+def run_agent_retrying(prompt, ws, before, cwd, env, sdir, model, wait=900, tries=40):
+    """Run the agent; on a usage or rate limit, undo its work, wait, and run again."""
+    for i in range(tries):
+        summary = run_agent(prompt, cwd, env, sdir, model, "agent")
+        if not (summary["is_error"] or summary["exit_code"]) or not limited(sdir):
+            summary["limit_retries"] = i
+            return summary
+        print(json.dumps({"limit": True, "retry_in_s": wait, "attempt": i + 1}), flush=True)
+        git(ws, "reset", "-q", "--hard", before)
+        git(ws, "clean", "-qfdx")
+        time.sleep(wait)
+    raise RuntimeError("the agent kept hitting the usage limit")
+
+
+def run_agent_waiting(prompt, cwd, env, out_dir, model, label, wait=900, tries=40):
+    """run_agent for helpers that change nothing: on a limit, wait and ask again."""
+    for i in range(tries):
+        summary = run_agent(prompt, cwd, env, out_dir, model, label)
+        text = ""
+        try:
+            with gzip.open(out_dir / f"{label}.jsonl.gz", "rt") as f:
+                text = f.read()[-4000:]
+        except OSError:
+            pass
+        if not (summary["is_error"] or summary["exit_code"]) or not LIMIT.search(text):
+            return summary
+        print(json.dumps({"limit": True, "label": label, "retry_in_s": wait}), flush=True)
+        time.sleep(wait)
+    raise RuntimeError("the helper kept hitting the usage limit")
+
+
 def summarize(stream, elapsed, code):
     result = {}
     for line in stream.splitlines():
@@ -490,7 +535,7 @@ def rename(task, ws, md, pkg, compile_cmd, out_dir, model, n):
     prompt = RENAMER_PROMPT.format(
         files="\n".join(f"- {rpkg.relative_to(rws) / f}" for f in files), compile_cmd=compile_cmd)
     env = agent_env(task, "A")
-    summary = run_agent(prompt, rws / md.relative_to(ws), env, out_dir, model, f"rename")
+    summary = run_agent_waiting(prompt, rws / md.relative_to(ws), env, out_dir, model, "rename")
     removed = []
     nc = rws / md.relative_to(ws) / "NO_COUNTERPART.txt"
     if nc.exists():
@@ -623,7 +668,7 @@ def main():
             shutil.copyfile(src, ws / g)
         before = commit_all(ws, f"before step {n}")
         prompt = prompt_for(task_dir, step, arm, task)
-        summary = run_agent(prompt, module_dir(task, ws), agent_env(task, arm, ws=ws), sdir, args.model, "agent")
+        summary = run_agent_retrying(prompt, ws, before, module_dir(task, ws), agent_env(task, arm, ws=ws), sdir, args.model)
         after = commit_all(ws, f"step {n}")
         diff = git(ws, "diff", before, after).stdout
         (sdir / "diff.patch").write_text(diff)

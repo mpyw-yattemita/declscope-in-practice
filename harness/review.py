@@ -117,13 +117,13 @@ def review_one(root, task, arm, rep, model):
         env = run.agent_env({"go": None}, "A", ws=ws)
         out_dir = d / "review"
         prompt = REVIEW.format(map=judge.render_map("pkg", c["files"], c["new"], c["changed"]), texts=texts)
-        s1 = run.run_agent(prompt, ws, env, out_dir, model, "reviewer")
+        s1 = run.run_agent_waiting(prompt, ws, env, out_dir, model, "reviewer")
         found = (result_text(out_dir / "reviewer.jsonl.gz") or {}).get("findings", [])
         listing = "\n".join(f"{i}. {f.get('file')}:{f.get('line')}: {f.get('problem')} Fix: {f.get('fix')}"
                             for i, f in enumerate(found)) or "(none)"
         verdicts = []
         if found:
-            run.run_agent(CHECK.format(findings=listing), ws, env, out_dir, model, "checker")
+            run.run_agent_waiting(CHECK.format(findings=listing), ws, env, out_dir, model, "checker")
             verdicts = (result_text(out_dir / "checker.jsonl.gz") or {}).get("verdicts", [])
         audits = [run.audit(out_dir / f"{n}.jsonl.gz", ws, "A", start=ws)
                   for n in ("reviewer", "checker") if (out_dir / f"{n}.jsonl.gz").exists()]

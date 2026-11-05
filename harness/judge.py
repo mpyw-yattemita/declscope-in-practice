@@ -104,7 +104,7 @@ def ask(c1, c2, model, out_dir, label):
                     texts.append(f"#### {n}/{f}\n\n```go\n{p.read_text()}\n```")
         prompt = PROMPT.format(maps=maps, texts="\n\n".join(texts))
         env = run.agent_env({"go": None}, "A", ws=ws)
-        summary = run.run_agent(prompt, ws, env, out_dir, model, label)
+        summary = run.run_agent_waiting(prompt, ws, env, out_dir, model, label)
         text = ""
         import gzip
         with gzip.open(out_dir / f"{label}.jsonl.gz", "rt") as f:
