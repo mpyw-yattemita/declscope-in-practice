@@ -17,3 +17,12 @@
 - レビューの評価基準に、namespace、private、shared、boundary のような declscope の用語を使わない。レビューの前に、ディレクティブと declscope のファイルを取り除く。
 - `runs/` の結果は生データなので、手で編集しない。作り直す。
 - design.md の判定ルールは、実験を始める前に固定した。結果を見てから変えない。
+
+## 第三者のコードを実行するとき
+
+> [!CAUTION]
+> ollama のテストが外部ツールをダウンロードし、Microsoft Defender にマシンを隔離された事故があった。[harness/SAFETY.md](harness/SAFETY.md) を必ず読むこと。
+
+- 第三者のコードを実行するコマンドは、`~/.claude/hooks/nonet.sb` の sandbox の中でだけ実行する。ネットワークありで実行してよいのは `go mod download`、`go list`、`git` だけ。`go test -run '^$'` もコードを実行する。
+- テストを実行する前に `harness/prescreen.py` で事前チェックする。外部ツールのダウンロードがあれば除外し、許可しない。`needs-review` は親エージェントが中身を読んでから判断する。
+- 第三者のコードのテストを、サブエージェントに任せない。

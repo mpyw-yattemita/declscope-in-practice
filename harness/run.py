@@ -32,6 +32,15 @@ DECLSCOPE_SKILLS = Path(
     os.environ.get("DECLSCOPE_SKILLS", Path.home() / "github.com/mpyw/declscope/skills")
 )
 CLAUDE = os.environ.get("CLAUDE_BIN", shutil.which("claude") or "claude")
+# Every command that runs third-party code goes through this profile, which
+# denies outbound network except localhost. See harness/SAFETY.md.
+NONET = Path(os.environ.get("NONET_PROFILE", Path.home() / ".claude" / "hooks" / "nonet.sb"))
+
+
+def sandboxed(cmd):
+    if not NONET.is_file():
+        raise RuntimeError(f"{NONET} is missing; refusing to run third-party code")
+    return ["sandbox-exec", "-f", str(NONET), *cmd]
 AGENT_TIMEOUT = int(os.environ.get("AGENT_TIMEOUT", 3600))
 
 
@@ -129,10 +138,17 @@ def module_dir(task, ws):
 
 
 def warm(task, ws):
+    """Fetch modules with the network on, without running any code.
+
+    `go test -run '^$'` must never be used here: it still starts the test
+    binary, so TestMain and init run with the network on. That is how a
+    third-party test once downloaded software that Microsoft Defender flagged.
+    `go mod download` and `go list` only fetch and read.
+    """
     env = agent_env(task, "A", offline=False)
     md = module_dir(task, ws)
     sh(["go", "mod", "download"], cwd=md, env=env)
-    sh(["go", "test", "-count=1", "-run", "^$", "./..."], cwd=md, env=env, check=False)
+    sh(["go", "list", "-deps", "-test", "./" + task["package"]], cwd=md, env=env)
 
 
 def setup_guardrail(task, ws):
@@ -347,7 +363,8 @@ def score(task, task_dir, step, n, ws, out_dir, model):
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dst)
     rel_pkg = "./" + task["package"]
-    compile_cmd = f"go test -count=1 -run '^$' {rel_pkg}"
+    # -c compiles the test binary without running it.
+    compile_cmd = f"go test -c -o /dev/null {rel_pkg}"
     result = {"renamed": False, "no_counterpart": [], "rename_problems": []}
     try:
         c = sh(compile_cmd, cwd=md, env=env, check=False)
@@ -355,7 +372,7 @@ def score(task, task_dir, step, n, ws, out_dir, model):
         if c.returncode != 0:
             result.update(rename(task, ws, md, pkg, compile_cmd, out_dir, model, n))
         skip = "|".join(f"^{k['test']}$" for k in step.get("known_failing") or [])
-        cmd = ["go", "test", "-count=1", "-json", rel_pkg] + (["-skip", skip] if skip else [])
+        cmd = sandboxed(["go", "test", "-count=1", "-json", rel_pkg] + (["-skip", skip] if skip else []))
         t = sh(cmd, cwd=md, env=env, check=False, timeout=1800)
         (out_dir / "test.jsonl").write_text(t.stdout)
         result.update(test_summary(t.stdout, t.returncode))
@@ -425,6 +442,22 @@ def test_summary(stream, code):
     }
 
 
+def require_prescreen(task_dir):
+    """Refuse a task whose tests were not checked for external downloads."""
+    p = task_dir / "prescreen.json"
+    if not p.is_file():
+        raise SystemExit(f"{p} is missing. Run harness/prescreen.py and review it first.")
+    r = json.loads(p.read_text())
+    if r.get("verdict") == "clean":
+        return
+    review = r.get("review") or {}
+    # A reviewer may clear needs-review hits, and only the hits they saw.
+    if (r.get("verdict") == "needs-review" and review.get("decision") == "clean"
+            and review.get("hit_count") == len(r.get("hits", []))):
+        return
+    raise SystemExit(f"{task_dir.name}: prescreen verdict is {r.get('verdict')!r}; the task is excluded.")
+
+
 # ---- main --------------------------------------------------------------
 
 def main():
@@ -446,6 +479,7 @@ def main():
     out = REPO / "runs" / task["id"] / args.arm / str(args.rep)
     out.mkdir(parents=True, exist_ok=True)
 
+    require_prescreen(task_dir)
     ensure_ws_root()
     ws = new_dir(WS_ROOT)
     meta = {
