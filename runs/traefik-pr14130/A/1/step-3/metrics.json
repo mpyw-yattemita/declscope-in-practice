@@ -1,0 +1,183 @@
+{
+  "step": 3,
+  "pr": 14127,
+  "stage": 1,
+  "arm_setup": "A",
+  "agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 32,
+    "tokens": 1914613,
+    "usage": {
+      "input_tokens": 62,
+      "cache_creation_input_tokens": 69029,
+      "cache_read_input_tokens": 1830517,
+      "output_tokens": 15005,
+      "output_tokens_details": {
+        "thinking_tokens": 3215
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 69029,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 942,
+          "cache_read_input_tokens": 81944,
+          "cache_creation_input_tokens": 366,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 366
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 1.2186833999999998,
+    "duration_s": 264.1,
+    "limit_retries": 0
+  },
+  "files_touched": 6,
+  "lines_touched": 459,
+  "directives": 0,
+  "score": {
+    "renamed": true,
+    "no_counterpart": [],
+    "rename_problems": [],
+    "compiled_as_is": false,
+    "rename_agent": {
+      "exit_code": 0,
+      "is_error": false,
+      "num_turns": 7,
+      "tokens": 236372,
+      "usage": {
+        "input_tokens": 14,
+        "cache_creation_input_tokens": 25975,
+        "cache_read_input_tokens": 207592,
+        "output_tokens": 2791,
+        "output_tokens_details": {
+          "thinking_tokens": 806
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 25975,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 758,
+            "cache_read_input_tokens": 37008,
+            "cache_creation_input_tokens": 724,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 724
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "cost_usd": 0.3051944,
+      "duration_s": 50.1
+    },
+    "test_exit": 1,
+    "build_failed": false,
+    "passed": 63,
+    "failed": [
+      "TestLoadTLSRoutes"
+    ],
+    "skipped": 0,
+    "success": false,
+    "first_failed": [
+      "TestLoadTLSRoutes"
+    ],
+    "retry": {
+      "test_exit": 1,
+      "build_failed": false,
+      "passed": 0,
+      "failed": [
+        "TestLoadTLSRoutes"
+      ],
+      "skipped": 0,
+      "success": false
+    }
+  },
+  "audit": {
+    "ok": false,
+    "issues": [
+      {
+        "kind": "parent-ref",
+        "tool": "Bash",
+        "path": "/"
+      },
+      {
+        "kind": "parent-ref",
+        "tool": "Bash",
+        "path": "/pkg/provider/kubernetes/gateway"
+      },
+      {
+        "kind": "parent-ref",
+        "tool": "Bash",
+        "path": "/pkg/middlewares/retry/retry.go"
+      },
+      {
+        "kind": "parent-ref",
+        "tool": "Bash",
+        "path": "/pkg/provider/kubernetes/gateway/fixtures/httproute"
+      }
+    ],
+    "warnings": [
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/x"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/x/head.yml"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/x/dump.log"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/x/cases.go.txt"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/x/t.log"
+      },
+      {
+        "kind": "shared-tmp",
+        "tool": "Bash",
+        "path": "/tmp/x/vet.log"
+      }
+    ]
+  },
+  "audit_rename": {
+    "ok": true,
+    "issues": [],
+    "warnings": []
+  }
+}
