@@ -40,7 +40,7 @@ A task is usable when all of these hold:
 | Criterion | Why |
 | --- | --- |
 | The package has 8 or more non-test files and 3 or more namespaces, by `declscope survey` | Below that, declscope has little to say |
-| The pull request was merged in 2026 or later | Older ones may be in the model's training data |
+| The pull request was merged after the training cutoff of the model under measurement. For Claude Opus 5.5, that means July 2026 or later | Earlier ones may be in the model's training data |
 | It adds a feature, touches 2 or more files of the package, and changes 50 to 500 lines | It needs placement decisions, and it fits one agent run |
 | Its tests call exported API or observable behaviour | Tests that name unexported identifiers break when the agent names things differently |
 | `go test` passes without network or external services | The tests must run in the workspace |
@@ -55,12 +55,15 @@ A task is usable when all of these hold:
 
 Stage 2 is the main measure. Its agent has no declscope, so any difference comes from the structure stage 1 left.
 
-| Stage 2 metric | Meaning |
-| --- | --- |
-| Follow-up hidden tests passed | The change succeeded |
-| Existing tests still passing | The change broke nothing |
-| Files and lines touched | The change stayed local |
-| Tokens and turns | The code was easy to understand |
+| Stage 2 metric | Role | Meaning |
+| --- | --- | --- |
+| Follow-up hidden tests passed | Main | The change succeeded |
+| Existing tests still passing | Main | The change broke nothing |
+| Tokens and turns | Main | The code was easy to understand |
+| Files and lines touched | Reference only | How far the change spread |
+
+> [!NOTE]
+> Files touched has no good direction. declscope tends to split code by job into more files. A change may then touch more files and still be easier. So it is recorded, not used to judge.
 
 ## Structural review
 
@@ -69,21 +72,26 @@ A blind reviewer reads each stage 1 result for refactoring that should be done n
 | Rule | Why |
 | --- | --- |
 | Directives, the baseline and declscope files are stripped first | The reviewer must not know the arm |
-| The rubric never uses declscope's terms | Teaching the reviewer declscope's idea would make the measure circular |
-| Each finding has a file, a line, a category and a concrete fix | Vague findings cannot be counted |
+| The rubric never uses declscope's terms or its criterion | Teaching the reviewer declscope's idea would make the measure circular |
+| The reviewer writes findings freely. Each has a file, a line and a concrete fix | Vague findings cannot be counted. A fixed list of categories would steer the reviewer |
 | A second agent verifies each finding | It removes padding |
+| A third agent sorts the verified findings into the categories below | The reviewer never sees the categories |
 | Only findings on changed lines, or absent from the seed's review, count | The seed's own problems are the same in both arms |
 | Counts are per 1,000 changed lines | The arms write different amounts of code |
 
 | Category | Example |
 | --- | --- |
-| `misplaced` | A definition lives far from its only user, or in a file with another job |
-| `leaky` | A helper meant for one place is called from elsewhere |
 | `naming` | A name does not match its role, or one idea has two names |
-| `over-dry` | A shared helper couples callers that are not related |
-| `redundant` | A definition is unused or duplicated |
+| `duplication` | The same logic is written twice |
+| `over-abstraction` | A shared helper couples callers that are not related |
+| `mixed-job` | One function or type does two unrelated jobs |
+| `dead` | A definition is unused |
+| `other` | None of the above |
 
-declscope may plausibly help `misplaced` and `leaky`. It has no clear reason to help `naming` and `over-dry`. The per-category result says where the tool helps and where it does not.
+> [!IMPORTANT]
+> No category may restate declscope's rule. "A helper meant for one file is used from another" is that rule in other words. A category like that favours arm B by construction, so it is not one of the categories. A finding of that kind goes to `other` and is reported separately.
+
+The per-category result says where the tool helps and where it does not.
 
 ## Isolation
 
