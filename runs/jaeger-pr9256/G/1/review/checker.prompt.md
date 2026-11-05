@@ -1,0 +1,20 @@
+This directory holds one Go package, `pkg/`. A reviewer listed the findings
+below. Check each one against the code.
+
+0. pkg/search_capabilities.go:30: `Filter *FilterCapabilities` gives "declares nothing" two forms, nil and empty, and the docs on both types have to explain this. The receivers are also mixed: `IsEmpty` is nil-safe on a pointer receiver, but `SupportsLevel` and `SupportsOperator` use value receivers. So a caller that writes `caps.Filter.SupportsOperator(op)` on a zero `SearchCapabilities` dereferences nil and panics, even though the type documents the zero value as safe. Fix: Change the field to a value, `Filter FilterCapabilities`. Then the zero value is the single form of "none". Give `IsEmpty` a value receiver (`return len(c.Levels) == 0 && len(c.Operators) == 0`) and remove the nil wording from the docs of `IsEmpty`, `FilterCapabilities` and `SearchCapabilities.Filter`. In `filter_test.go`, drop the "nil" case, change the table to `FilterCapabilities` values, and add a test that calls `SupportsOperator` and `SupportsLevel` on `SearchCapabilities{}.Filter`. If the pointer has to stay, make all three methods pointer receivers that are nil-safe and test them on a nil `*FilterCapabilities`.
+1. pkg/reader.go:48: The `FindTraces` doc still says it is "implementation-dependent" whether all filters must match the same span. `SearchCapabilities.SameSpanConjunction` now declares exactly this per reader, so the comment is out of date and points readers away from the new contract. Fix: Replace that paragraph with: "Whether a conjunction of filters must be satisfied by a single span is declared by SearchCapabilities.SameSpanConjunction." Add the same sentence to the `FindTraceIDs` and `FindTraceSummaries` docs, or say there that they follow FindTraces.
+2. pkg/reader.go:91: Adding `SearchCapabilities` to `Reader` makes every existing backend write the method by hand. The doc defines a standard answer for backends that cannot be asked (an error that wraps `errors.ErrUnsupported`). The package already ships an embeddable default for this kind of method, `UnsupportedTraceSummaries` in `summary.go`, but none exists here. Backends will copy the error text, and the wrapping can drift between them. Fix: In `search_capabilities.go`, add `type UnsupportedSearchCapabilities struct{}` with `func (UnsupportedSearchCapabilities) SearchCapabilities(context.Context) (SearchCapabilities, error) { return SearchCapabilities{}, fmt.Errorf("this storage backend cannot report its search capabilities: %w", errors.ErrUnsupported) }`. Mention it in the Reader doc the same way `UnsupportedTraceSummaries` is mentioned, and add a test like `TestUnsupportedTraceSummaries_FindTraceSummaries`.
+3. pkg/reader.go:124: The docs say `TraceQueryParams.Filter` cannot be combined with ServiceName, OperationName, Attributes or the duration bounds, but nothing checks this. Every reader that accepts Filter has to write its own check, and readers will disagree on what counts as "set": for example, an empty `pcommon.Map` versus a zero one, or a zero duration. Fix: Add one exported check next to the type, for example `func (p TraceQueryParams) ValidateFilter() error`. It returns an error wrapping `ErrFilterInvalid` when `p.Filter != nil` and any of `ServiceName`, `OperationName`, `Attributes.Len() > 0` (only when the map is initialized), `DurationMin` or `DurationMax` is set. Reference it from the field doc and unit-test each conflicting field.
+
+For each finding, decide whether it is real and worth fixing now. For each
+kept finding, give one category:
+
+- naming: a name does not match its role, or one idea has two names
+- duplication: the same logic is written twice
+- over-abstraction: a shared helper couples callers that are not related
+- mixed-job: one function or type does two unrelated jobs
+- dead: a definition is unused
+- other: none of the above
+
+Answer with one JSON object and nothing else:
+{"verdicts": [{"index": 0, "keep": true, "category": "naming", "why": "..."}]}

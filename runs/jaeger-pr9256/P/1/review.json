@@ -1,0 +1,113 @@
+{
+  "arm": "P",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 28,
+      "problem": "Filter is a *FilterCapabilities, so the type has two ways to say 'no filter support' (nil and empty). The comment has to tell callers to use IsEmpty instead of comparing against nil. The pointer also gains nothing, because the zero value of FilterCapabilities already means 'none', which matches the struct's own rule that the zero value is least capable.",
+      "fix": "Change the field to `Filter FilterCapabilities` (a value, not a pointer). Remove the sentences about nil from the field comment and from the FilterCapabilities type comment."
+    },
+    {
+      "file": "pkg/filter.go",
+      "line": 42,
+      "problem": "The receivers are mixed: IsEmpty has a pointer receiver and handles nil, but SupportsLevel (line 48) and SupportsOperator (line 54) have value receivers. While SearchCapabilities.Filter is a pointer, `caps.Filter.SupportsOperator(op)` panics when a reader leaves Filter nil, which is the zero value the package recommends. The nil check in IsEmpty exists only because of that pointer.",
+      "fix": "After making Filter a value, give IsEmpty a value receiver: `func (c FilterCapabilities) IsEmpty() bool { return len(c.Levels) == 0 && len(c.Operators) == 0 }`. Remove the 'nil pointer' case from the comment and from TestFilterCapabilities_IsEmpty in filter_test.go. If the pointer has to stay, use pointer receivers on all three methods and return false for nil in SupportsLevel and SupportsOperator."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 48,
+      "problem": "The FindTraces comment still says it is implementation-dependent whether all query filters must match the same span. That is out of date: SearchCapabilities.SameSpanConjunction now states this for each reader. The comment also covers only FindTraces, while the capability covers FindTraceIDs and FindTraceSummaries too.",
+      "fix": "Replace the 'There's currently an implementation-dependent ambiguity…' paragraph with: 'Whether a conjunction must be satisfied within a single span is reported by SearchCapabilities().SameSpanConjunction.'"
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 89,
+      "problem": "Adding SearchCapabilities to the Reader interface forces every backend and test fake to write the same 'I can't tell' method. FindTraceSummaries handles this case with an embeddable helper (UnsupportedTraceSummaries in summary.go), but nothing like it exists for this method, so every implementation will repeat the same fmt.Errorf wrapping of errors.ErrUnsupported.",
+      "fix": "Add `type UnsupportedSearchCapabilities struct{}` with `func (UnsupportedSearchCapabilities) SearchCapabilities(context.Context) (SearchCapabilities, error)`. It should return the zero value and an error that wraps errors.ErrUnsupported with %w. Put it in search_capabilities.go next to SearchCapabilities, test it the same way summary_test.go tests UnsupportedTraceSummaries, and mention it in the method comment."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 28,
+      "problem": "Filter is a *FilterCapabilities, so the type has two ways to say 'no filter support' (nil and empty). The comment has to tell callers to use IsEmpty instead of comparing against nil. The pointer also gains nothing, because the zero value of FilterCapabilities already means 'none', which matches the struct's own rule that the zero value is least capable.",
+      "fix": "Change the field to `Filter FilterCapabilities` (a value, not a pointer). Remove the sentences about nil from the field comment and from the FilterCapabilities type comment.",
+      "category": "naming",
+      "why": "Confirmed. SearchCapabilities.Filter is a *FilterCapabilities, so 'no filter support' can be written two ways: nil and an empty struct. The comments at search_capabilities.go:25-27 and filter.go:26-28 both have to tell callers to call IsEmpty instead of checking for nil. The type comment says the zero value is the least capable reader, and the zero value of FilterCapabilities already means 'none', so the pointer adds nothing. The only code outside these files that touches the struct is the metrics decorator, which forwards it whole, so changing the field to a value is cheap.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/filter.go",
+      "line": 42,
+      "problem": "The receivers are mixed: IsEmpty has a pointer receiver and handles nil, but SupportsLevel (line 48) and SupportsOperator (line 54) have value receivers. While SearchCapabilities.Filter is a pointer, `caps.Filter.SupportsOperator(op)` panics when a reader leaves Filter nil, which is the zero value the package recommends. The nil check in IsEmpty exists only because of that pointer.",
+      "fix": "After making Filter a value, give IsEmpty a value receiver: `func (c FilterCapabilities) IsEmpty() bool { return len(c.Levels) == 0 && len(c.Operators) == 0 }`. Remove the 'nil pointer' case from the comment and from TestFilterCapabilities_IsEmpty in filter_test.go. If the pointer has to stay, use pointer receivers on all three methods and return false for nil in SupportsLevel and SupportsOperator.",
+      "category": "other",
+      "why": "Confirmed. IsEmpty (filter.go:42) has a pointer receiver and checks for nil, but SupportsLevel and SupportsOperator have value receivers. If a reader returns the zero SearchCapabilities, Filter is nil and caps.Filter.SupportsOperator(op) dereferences it and panics. This follows from finding 0: once Filter is a value, IsEmpty can take a value receiver, and the 'nil pointer' case comes out of its comment and out of TestFilterCapabilities_IsEmpty (filter_test.go:19).",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 48,
+      "problem": "The FindTraces comment still says it is implementation-dependent whether all query filters must match the same span. That is out of date: SearchCapabilities.SameSpanConjunction now states this for each reader. The comment also covers only FindTraces, while the capability covers FindTraceIDs and FindTraceSummaries too.",
+      "fix": "Replace the 'There's currently an implementation-dependent ambiguity…' paragraph with: 'Whether a conjunction must be satisfied within a single span is reported by SearchCapabilities().SameSpanConjunction.'",
+      "category": "other",
+      "why": "Confirmed. The FindTraces comment (reader.go:48-50) still says it is implementation-dependent whether all filters must match the same span. SearchCapabilities.SameSpanConjunction now reports exactly that for each reader, and it covers FindTraceIDs and FindTraceSummaries too. The comment is out of date and should point to the capability.",
+      "on_changed_lines": false
+    }
+  ],
+  "counted": 2,
+  "changed_lines": 190,
+  "per_kloc": 10.53,
+  "by_category": {
+    "naming": 1,
+    "duplication": 0,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 1
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 3,
+    "tokens": 95541,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 21092,
+      "cache_read_input_tokens": 71740,
+      "output_tokens": 2703,
+      "output_tokens_details": {
+        "thinking_tokens": 1300
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 21092,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1095,
+          "cache_read_input_tokens": 31402,
+          "cache_creation_input_tokens": 1447,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1447
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.237168,
+    "duration_s": 31.7
+  }
+}

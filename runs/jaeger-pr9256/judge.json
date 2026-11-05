@@ -1,0 +1,359 @@
+{
+  "task": "jaeger-pr9256",
+  "comparisons": [
+    {
+      "x": "A/1",
+      "y": "P/1",
+      "winner": "P",
+      "first": {
+        "better": "y",
+        "reasons": [
+          "The package already gave a separate feature its own file: summary.go holds TraceSummary and UnsupportedTraceSummaries, away from the Reader interface. y does the same for the new features with filter.go and search_capabilities.go. x puts all the new code into reader.go.",
+          "In x, reader.go has two jobs. It holds the Reader contract and its query parameter types, and also the filter-capability logic: ErrFilterUnsupported, ErrFilterInvalid, and the FilterCapabilities methods IsEmpty, SupportsLevel and SupportsOperator. y/reader.go keeps only the interface and its parameter types, and it no longer imports errors or slices.",
+          "y keeps the filter errors next to the type that defines what a reader can filter. ErrFilterUnsupported, ErrFilterInvalid and FilterCapabilities are all in y/filter.go, and its tests are in y/filter_test.go. In x, those errors sit at the top of reader.go, far from where they matter.",
+          "y's test files match its source files: search_capabilities_test.go holds the field-count guard, and filter_test.go holds the FilterCapabilities tests. x/reader_test.go mixes the SearchCapabilities guard with FilterCapabilities tests, and has no tests for reader.go's own job.",
+          "Small weaknesses in y: it leaves reader_test.go as a 4-line file with no tests in it. It also puts SearchCapabilities in its own 29-line file, even though the type is tightly linked to FilterCapabilities and could share filter.go with it. Neither changes the overall verdict."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 35389,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 22942,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 688,
+            "output_tokens_details": {
+              "thinking_tokens": 142
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 22942,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 688,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 22942,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 22942
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 0.1996554,
+          "duration_s": 9.6
+        }
+      },
+      "second": {
+        "better": "x",
+        "reasons": [
+          "The package already gives each Reader-adjacent feature its own file: summary.go holds TraceSummary and UnsupportedTraceSummaries, which FindTraceSummaries uses. x follows that pattern with search_capabilities.go and filter.go. y puts SearchCapabilities, FilterCapabilities and its methods, and the filter errors into reader.go, which grows from about 147 to 226 lines.",
+          "In x, filter.go holds one feature: ErrFilterUnsupported and ErrFilterInvalid, FilterCapabilities and its IsEmpty, SupportsLevel and SupportsOperator methods. These all belong with TraceQueryParams.Filter. In y the same code sits between the Reader interface and the query-param types, so reader.go no longer has one job.",
+          "x's test files match its source files: filter_test.go and search_capabilities_test.go. y's reader_test.go was empty before; it now holds only FilterCapabilities tests and the SearchCapabilities field-count test, and nothing that tests the Reader interface or its param types.",
+          "x draws one line from the Reader interface method to SearchCapabilities (search_capabilities.go), and a second line to the filter types (filter.go). This lets a decorator author, or someone adding a field, find each piece separately. y has no file boundary between these features."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 35352,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 22942,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 651,
+            "output_tokens_details": {
+              "thinking_tokens": 196
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 22942,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 651,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 22942,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 22942
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 0.1989154,
+          "duration_s": 9.9
+        }
+      }
+    },
+    {
+      "x": "P/1",
+      "y": "G/1",
+      "winner": "tie",
+      "first": {
+        "better": "tie",
+        "reasons": [
+          "Both packages split the new code the same way. filter.go holds the structured-filter vocabulary (ErrFilterUnsupported, ErrFilterInvalid, FilterCapabilities and its three methods), and search_capabilities.go holds only the SearchCapabilities struct, which points to FilterCapabilities through its Filter field. Each file has one clear job, and the file boundary matches the feature boundary in both x and y.",
+          "Both extend reader.go in the same way, which fits the existing layout. The Reader interface gains SearchCapabilities, and TraceQueryParams gains Filter, next to the existing params types. The new value types go into their own files, just as summary.go already holds TraceSummary and UnsupportedTraceSummaries for FindTraceSummaries.",
+          "Each new type has a test file of its own in both versions: filter_test.go and search_capabilities_test.go. This follows the existing summary.go and summary_test.go pairing.",
+          "The differences are small and do not change the structure. y moves the 'nesting is not declared' contract from the Operators field onto the SupportsOperator method. y's search_capabilities_test.go also checks the zero-value contract and the field names, where x only counts the fields. Neither change affects how the files or types are divided."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 35535,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 23146,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 630,
+            "output_tokens_details": {
+              "thinking_tokens": 202
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 23146,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 630,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 23146,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 23146
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 0.2001274,
+          "duration_s": 9.3
+        }
+      },
+      "second": {
+        "better": "tie",
+        "reasons": [
+          "Both packages split the new code the same way. filter.go holds FilterCapabilities and the two filter errors, search_capabilities.go holds SearchCapabilities, and reader.go only gains the Reader.SearchCapabilities method and the TraceQueryParams.Filter field. File boundaries follow feature boundaries equally well in x/ and y/.",
+          "Both follow the package's existing pattern of one type family per file, as in summary.go and writer.go. Each new type gets a matching test file (filter_test.go, search_capabilities_test.go) beside it, so the new code fits the old structure equally in both.",
+          "FilterCapabilities has the same single job in both: declaring levels and operators, with IsEmpty, SupportsLevel and SupportsOperator. SearchCapabilities composes it through a *FilterCapabilities field in both, so the types relate to each other the same way.",
+          "The differences are small and do not change how the code is divided. y/filter.go puts the note about OpAnd and nesting on the Operators field, while x/filter.go puts it on SupportsOperator. x/search_capabilities_test.go checks the field names, while y/search_capabilities_test.go checks only the field count. Neither changes where responsibilities sit."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 35425,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 23144,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 522,
+            "output_tokens_details": {
+              "thinking_tokens": 101
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 23144,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 522,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 23144,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 23144
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 0.1979514,
+          "duration_s": 8.3
+        }
+      }
+    },
+    {
+      "x": "A/1",
+      "y": "G/1",
+      "winner": "G",
+      "first": {
+        "better": "y",
+        "reasons": [
+          "The package already gives each feature its own file: summary.go holds TraceSummary and UnsupportedTraceSummaries apart from the Reader interface. y does the same by moving the new types into filter.go and search_capabilities.go. x puts them all into reader.go, which grows to 226 lines.",
+          "In y, filter.go holds everything about the structured filter in one place: ErrFilterUnsupported, ErrFilterInvalid, FilterCapabilities and its methods. In x, the filter errors sit at the top of reader.go, ahead of the Reader interface, and FilterCapabilities sits between the interface and the query-parameter types, so reader.go no longer has one job.",
+          "y keeps reader.go to what it had before: the Reader interface and its parameter and result types. The file boundary follows the feature boundary, because the capability-declaration feature lives outside it.",
+          "y's test files match its source files: filter_test.go goes with filter.go, and search_capabilities_test.go goes with search_capabilities.go. x puts the FilterCapabilities and SearchCapabilities tests into reader_test.go, even though nothing else in that file tests Reader.",
+          "One small flaw in y: it leaves reader_test.go as an empty 4-line file. Some would also put SearchCapabilities in filter.go, since its Filter field points to FilterCapabilities. Even so, y's division is clearer overall."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 35617,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 23243,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 615,
+            "output_tokens_details": {
+              "thinking_tokens": 143
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 23243,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 615,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 23243,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 23243
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 0.2006034,
+          "duration_s": 9.4
+        }
+      },
+      "second": {
+        "better": "x",
+        "reasons": [
+          "x follows the structure the package already had, where summary.go holds TraceSummary and its helper and writer.go holds Writer. x does the same for the new features: filter.go holds FilterCapabilities and the filter errors, and search_capabilities.go holds SearchCapabilities.",
+          "y puts everything into reader.go, which grows to 226 lines and now covers several jobs: the Reader interface, the query parameter types, SearchCapabilities, FilterCapabilities with its methods, and the ErrFilter* variables. The file no longer has one clear job.",
+          "In x the tests are split the same way as the code: filter_test.go and search_capabilities_test.go each sit next to the file they test. y puts the FilterCapabilities tests and the SearchCapabilities field-count test into reader_test.go, which used to be empty, so that test file mixes two features that reader.go does not implement.",
+          "x keeps related code together: ErrFilterUnsupported and ErrFilterInvalid live in filter.go beside FilterCapabilities. In y those errors sit at the top of reader.go, away from the Reader interface they appear next to.",
+          "In both versions the Reader interface gains only one method, SearchCapabilities, so the real difference is where the new types live. x puts them in feature files; y piles them onto the interface file."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 35448,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 23249,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 440,
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 23249,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 440,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 23249,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 23249
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 0.19715139999999998,
+          "duration_s": 7.8
+        }
+      }
+    }
+  ]
+}
