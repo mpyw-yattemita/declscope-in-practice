@@ -6,22 +6,54 @@
 
 > When an AI agent adds new code to an existing package, does running declscope make the result easier to change and harder to criticise?
 
+Models now follow written rules well. So the experiment also asks a second question:
+
+> Does a deterministic check add anything over stating the same rule in the prompt?
+
 ## Conditions
 
-| | Arm A | Arm B |
-| --- | --- | --- |
-| Seed | The same commit, without history | The same commit, without history |
-| declscope | Absent | On `PATH`, with a baseline of the seed's existing findings |
-| Lint loop | `go vet` and `go test` | `go vet`, `go test`, `declscope ./...` and `declscope shrink ./...` |
-| Skill | None | `declscope-authoring`, as a project skill in the workspace |
-| Model, prompt, tools | Same | Same |
+Three arms are nested. Each adds one thing to the arm before it.
 
-The baseline absorbs what the seed already has. Arm B is reported only for what the agent adds.
+| Arm | Adds | The difference from the previous arm shows |
+| --- | --- | --- |
+| **A**: none | The task and the shared self-review step | Nothing. This is the control |
+| **P**: prompt | The rule of `declscope-authoring`, rewritten in plain words without the tool | What stating the rule does |
+| **G**: guardrail | declscope itself, with a baseline, the lint loop and directives | What a deterministic check adds to the stated rule |
+
+| | A | P | G |
+| --- | --- | --- | --- |
+| Seed | The same commit, without history | Same | Same |
+| Self-review step | Yes | Yes | Yes |
+| Placement rule in the prompt | No | Yes | Yes |
+| declscope on `PATH`, with a baseline of the seed's findings | No | No | Yes |
+| Checks run before finishing | `go vet`, `go test` | `go vet`, `go test` | `go vet`, `go test`, `declscope ./...`, `declscope shrink ./...` |
+| `declscope-authoring` as a project skill | No | No | Yes |
+| Model and tools | Same | Same | Same |
+
+Every arm gets the same self-review step before its checks:
+
+```text
+Before you finish, review the structure of your change and fix anything
+you would flag in code review. Then run the checks below until they pass.
+```
+
+> [!IMPORTANT]
+> The step gives every arm the same chance to look again. Without it, arm G alone would revise its code after a report. Its result would then mix declscope's effect with the effect of one more revision.
+
+Arm P's rule is the content of `declscope-authoring` with the tool removed. It says the same thing as the tool enforces. It names no command, directive or config. P and G must differ only in whether a machine checks the rule.
+
+The baseline absorbs what the seed already has. Arm G is reported only for what the agent adds.
 
 > [!NOTE]
-> A baseline key names the declaration and its own namespace, not the user. A new use of a declaration the baseline already records is not reported. Arm B therefore misses some new crossings. This biases the result against declscope, so the measured effect is a lower bound.
+> A baseline key names the declaration and its own namespace, not the user. A new use of a declaration the baseline already records is not reported. Arm G therefore misses some new crossings. This biases the result against declscope, so the measured effect is a lower bound.
 
-Arm B may write `//declscope:` directives, since that is how the tool is meant to be used. It may not regenerate the baseline. Both arms are told not to change existing code beyond what the task needs.
+Arm G may write `//declscope:` directives, since that is how the tool is meant to be used. It may not regenerate the baseline. Every arm is told not to change existing code beyond what the task needs.
+
+| Outcome | Reading |
+| --- | --- |
+| A < P, and P ≈ G | Stating the rule is enough for the model under measurement |
+| A < P < G | The check catches what the stated rule misses |
+| A ≈ P ≈ G | Neither the rule nor the check helps on these tasks |
 
 ## Tasks
 
@@ -51,7 +83,7 @@ A task is usable when all of these hold:
 | Stage | What runs | What it measures |
 | --- | --- | --- |
 | 1. Implement | Each arm implements the task | Hidden tests passed, tokens, turns, directives written |
-| 2. Change | A fresh agent implements the follow-up task on stage 1's result. declscope, its baseline and its directives are removed first, in both arms | How easy the code is to change |
+| 2. Change | A fresh agent implements the follow-up task on stage 1's result. declscope, its baseline and its directives are removed first, in every arm. The agent gets arm A's setup in every case | How easy the code is to change |
 
 Stage 2 is the main measure. Its agent has no declscope, so any difference comes from the structure stage 1 left.
 
@@ -76,7 +108,7 @@ A blind reviewer reads each stage 1 result for refactoring that should be done n
 | The reviewer writes findings freely. Each has a file, a line and a concrete fix | Vague findings cannot be counted. A fixed list of categories would steer the reviewer |
 | A second agent verifies each finding | It removes padding |
 | A third agent sorts the verified findings into the categories below | The reviewer never sees the categories |
-| Only findings on changed lines, or absent from the seed's review, count | The seed's own problems are the same in both arms |
+| Only findings on changed lines, or absent from the seed's review, count | The seed's own problems are the same in every arm |
 | Counts are per 1,000 changed lines | The arms write different amounts of code |
 
 | Category | Example |
@@ -89,7 +121,7 @@ A blind reviewer reads each stage 1 result for refactoring that should be done n
 | `other` | None of the above |
 
 > [!IMPORTANT]
-> No category may restate declscope's rule. "A helper meant for one file is used from another" is that rule in other words. A category like that favours arm B by construction, so it is not one of the categories. A finding of that kind goes to `other` and is reported separately.
+> No category may restate declscope's rule. "A helper meant for one file is used from another" is that rule in other words. A category like that favours arms P and G by construction, so it is not one of the categories. A finding of that kind goes to `other` and is reported separately.
 
 The per-category result says where the tool helps and where it does not.
 
@@ -109,11 +141,11 @@ The agents under measurement must not see this repository, the other arm, or the
 The instructions are not enforced by a sandbox. Every transcript is audited instead. A run that touched a path outside its workspace or ran `gh`, `curl`, `wget`, `git fetch` or `git clone` is discarded and run again.
 
 > [!IMPORTANT]
-> Nothing an agent under measurement can read may mention declscope, the arms, or this experiment. That covers the workspace path, the workspace `AGENTS.md`, the task text, and arm A's system prompt.
+> Nothing an agent under measurement can read may mention declscope, the arms, or this experiment. That covers the workspace path, the workspace `AGENTS.md`, the task text, and the prompts of arms A and P. Arm G alone sees declscope.
 
 ## Scale
 
-The first round uses 4 or 5 repositories and 2 or 3 pull requests each, about 10 tasks. Each arm runs 5 times per task. That is about 100 stage 1 runs and 100 stage 2 runs.
+The first round uses 4 or 5 repositories and 2 or 3 pull requests each, about 10 tasks. Each arm runs 5 times per task. That is about 150 stage 1 runs and 150 stage 2 runs. If usage limits make that too slow, the number of runs or tasks is cut once the candidates are known.
 
 ## Layout
 
