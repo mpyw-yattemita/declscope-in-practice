@@ -1,0 +1,164 @@
+{
+  "arm": "P",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/httproute.go",
+      "line": 662,
+      "problem": "The BackendTLSPolicy resolution block (sort policies, match targetRef, record conflict status, load the transport, record Accepted/NoValidCACertificate, return a RefNotPermitted condition) is copied almost line for line in httproute.go loadHTTPServers, grpcroute.go loadGRPCServers (line 373) and tlsroute.go loadTLSServers (line 361). The new backend client certificate feature had to add the same `serversTransport.Certificates = listener.BackendClientCertificates` line to all three copies (httproute.go:759, grpcroute.go:470, tlsroute.go:458), so each later feature will again need three edits.",
+      "fix": "Pull out one helper, for example `p.resolveBackendTLSPolicy(gatewayName, gatewayNamespace string, listener gatewayListener, namespace string, backendName gatev1.ObjectName, svcPort corev1.ServicePort, route metav1.Object, statusReport) (*gatev1.BackendTLSPolicy, *metav1.Condition)`. It returns the winning policy after recording all PolicyAncestorStatus entries. Each caller then only builds its own HTTP or TCP transport from that policy and attaches listener.BackendClientCertificates."
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 483,
+      "problem": "loadTCPServersTransport duplicates loadServersTransport (httproute.go:790): the same SAN mapping, WellKnownCACertificates shortcut, CACertificateRef kind and group checks, ConfigMap/Secret lookup and the same ResolvedRefs conditions. The only difference is the output struct (dynamic.TLSClientConfig nested in TCPServersTransport, or fields on ServersTransport).",
+      "fix": "Add a shared `p.resolveBackendTLSValidation(namespace, policy) (serverName string, insecureSkipVerify bool, sans []tls.SAN, rootCAs []types.FileOrContent, metav1.Condition)`. Keep loadServersTransport and loadTCPServersTransport as thin adapters that copy these values into their own struct."
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 488,
+      "problem": "The backend client certificate belongs to the Gateway, but it is copied into every gatewayListener (BackendClientCertificates, line 184) by a separate loop after the listeners are loaded. Its matching condition is stored on gatewayWithListeners instead. One Gateway-level fact is therefore kept in two places, and any listener built somewhere else silently gets no certificate.",
+      "fix": "Store the certificates next to the condition on gatewayWithListeners, either as a struct `backendClientCertificate struct{ certs tls.Certificates; condition *metav1.Condition }` or as two fields. Carry them through gatewayListenersForParentRef, since matchingGatewayListenersForParentRef already knows the Gateway. Pass them to the route loaders from there and remove the per-listener field and the copy loop."
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 1198,
+      "problem": "makeGatewayStatus now takes gwl.gateway, gwl.listeners and gwl.backendClientCertificateCondition as three separate arguments that all come from the same gatewayWithListeners value. Every new Gateway-level input makes the parameter list longer.",
+      "fix": "Change the signature to `makeGatewayStatus(gwl gatewayWithListeners, addresses []gatev1.GatewayStatusAddress, accepted bool)` and update the call at line 530 and Test_makeGatewayStatus to build a gatewayWithListeners."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 843,
+      "problem": "withoutForeignConditions and mergeGatewayStatus (line 860) each repeat the ownership predicates `slices.Contains(gatewayConditionTypes, t)` and `slices.Contains(listenerConditionTypes, t)` (lines 846, 851, 863, 877). That gives four copies of the ownership rule that this change extended with ResolvedRefs.",
+      "fix": "Add `func isOwnedGatewayCondition(c metav1.Condition) bool` and `func isOwnedListenerCondition(c metav1.Condition) bool`. Use them in both functions, for example `slices.DeleteFunc(conds, not(isOwnedGatewayCondition))` and `if !isOwnedGatewayCondition(c)`."
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 29,
+      "problem": "loadHTTPRoute and loadGRPCRoute (grpcroute.go:23) are the same ~100-line loop over parentRefs and listeners: Accepted and ResolvedRefs bookkeeping, hostname conflict check, AttachedRoutes++, servedRules registration and the status record. They differ only in the route kind, the configuration loader and the Record*Status call, so any change to attachment rules has to be made twice.",
+      "fix": "Extract a generic `p.attachHTTPLikeRoute(ctx, gateways, route metav1.Object, kind string, parentRefs []gatev1.ParentReference, hostnames []gatev1.Hostname, load func(match gatewayListenersForParentRef, listener gatewayListener, hostnames []gatev1.Hostname) ([]httpRouteRouter, metav1.Condition), record func(gatev1.RouteParentStatus), conf, attached, served)`. Merge the identical httpRouteRouter and grpcRouteRouter types into one type."
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 475,
+      "problem": "The scheme is hard-coded as the literal \"https\", here and in httproute.go:767, even though the package defines schemeHTTPS and the protocol helpers use it.",
+      "fix": "Replace `protocol := \"https\"` with `protocol := schemeHTTPS` in both files."
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 181,
+      "problem": "The comments \"It is read by httproute.go, grpcroute.go and tlsroute.go.\" (line 183) and \"RetryMaxRequestBodyBytes is read by httproute.go...\" (line 102) list callers. This is not documentation and will go stale as soon as a reader moves.",
+      "fix": "Delete the caller-listing sentences and keep only the description of what each field holds."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/httproute.go",
+      "line": 662,
+      "problem": "The BackendTLSPolicy resolution block (sort policies, match targetRef, record conflict status, load the transport, record Accepted/NoValidCACertificate, return a RefNotPermitted condition) is copied almost line for line in httproute.go loadHTTPServers, grpcroute.go loadGRPCServers (line 373) and tlsroute.go loadTLSServers (line 361). The new backend client certificate feature had to add the same `serversTransport.Certificates = listener.BackendClientCertificates` line to all three copies (httproute.go:759, grpcroute.go:470, tlsroute.go:458), so each later feature will again need three edits.",
+      "fix": "Pull out one helper, for example `p.resolveBackendTLSPolicy(gatewayName, gatewayNamespace string, listener gatewayListener, namespace string, backendName gatev1.ObjectName, svcPort corev1.ServicePort, route metav1.Object, statusReport) (*gatev1.BackendTLSPolicy, *metav1.Condition)`. It returns the winning policy after recording all PolicyAncestorStatus entries. Each caller then only builds its own HTTP or TCP transport from that policy and attaches listener.BackendClientCertificates.",
+      "category": "duplication",
+      "why": "Confirmed. httproute.go, grpcroute.go and tlsroute.go each contain the same block: sort the policies, filter by targetRef and sectionName, record the conflict status, set Accepted or NoValidCACertificate, and return RefNotPermitted. Only the transport type differs. The new feature had to add the same certificate line to all three copies (httproute.go:759, grpcroute.go:470, tlsroute.go:458).",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 483,
+      "problem": "loadTCPServersTransport duplicates loadServersTransport (httproute.go:790): the same SAN mapping, WellKnownCACertificates shortcut, CACertificateRef kind and group checks, ConfigMap/Secret lookup and the same ResolvedRefs conditions. The only difference is the output struct (dynamic.TLSClientConfig nested in TCPServersTransport, or fields on ServersTransport).",
+      "fix": "Add a shared `p.resolveBackendTLSValidation(namespace, policy) (serverName string, insecureSkipVerify bool, sans []tls.SAN, rootCAs []types.FileOrContent, metav1.Condition)`. Keep loadServersTransport and loadTCPServersTransport as thin adapters that copy these values into their own struct.",
+      "category": "duplication",
+      "why": "Confirmed. loadTCPServersTransport (tlsroute.go:483) matches loadServersTransport (httproute.go:790) line for line: SAN mapping, the WellKnownCACertificates shortcut, kind and group checks, the ConfigMap/Secret ca.crt lookup and every ResolvedRefs condition. Only the output struct differs (st.TLS.X vs st.X).",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 488,
+      "problem": "The backend client certificate belongs to the Gateway, but it is copied into every gatewayListener (BackendClientCertificates, line 184) by a separate loop after the listeners are loaded. Its matching condition is stored on gatewayWithListeners instead. One Gateway-level fact is therefore kept in two places, and any listener built somewhere else silently gets no certificate.",
+      "fix": "Store the certificates next to the condition on gatewayWithListeners, either as a struct `backendClientCertificate struct{ certs tls.Certificates; condition *metav1.Condition }` or as two fields. Carry them through gatewayListenersForParentRef, since matchingGatewayListenersForParentRef already knows the Gateway. Pass them to the route loaders from there and remove the per-listener field and the copy loop.",
+      "category": "other",
+      "why": "Confirmed. kubernetes.go:488-491 loads the certificate once per Gateway, then a separate loop copies it into every listener. Its condition is stored on gatewayWithListeners instead (line 192). One Gateway-level fact is split across two structs, and the listener field only works because the copy loop runs after both listener sources are loaded. Storing it on the Gateway and passing it through gatewayListenersForParentRef keeps the fact in one place.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 29,
+      "problem": "loadHTTPRoute and loadGRPCRoute (grpcroute.go:23) are the same ~100-line loop over parentRefs and listeners: Accepted and ResolvedRefs bookkeeping, hostname conflict check, AttachedRoutes++, servedRules registration and the status record. They differ only in the route kind, the configuration loader and the Record*Status call, so any change to attachment rules has to be made twice.",
+      "fix": "Extract a generic `p.attachHTTPLikeRoute(ctx, gateways, route metav1.Object, kind string, parentRefs []gatev1.ParentReference, hostnames []gatev1.Hostname, load func(match gatewayListenersForParentRef, listener gatewayListener, hostnames []gatev1.Hostname) ([]httpRouteRouter, metav1.Condition), record func(gatev1.RouteParentStatus), conf, attached, served)`. Merge the identical httpRouteRouter and grpcRouteRouter types into one type.",
+      "category": "duplication",
+      "why": "Confirmed with a diff. loadHTTPRoute (httproute.go:29-124) and loadGRPCRoute (grpcroute.go:23-118) are the same ~95 lines. They differ only in the kind constant, the log key, the configuration loader and the Record*Status call. httpRouteRouter and grpcRouteRouter are also identical {Name, Conf} structs.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 475,
+      "problem": "The scheme is hard-coded as the literal \"https\", here and in httproute.go:767, even though the package defines schemeHTTPS and the protocol helpers use it.",
+      "fix": "Replace `protocol := \"https\"` with `protocol := schemeHTTPS` in both files.",
+      "category": "naming",
+      "why": "Confirmed. httproute.go:767 and grpcroute.go:475 use the literal \"https\", while kubernetes.go:66 defines schemeHTTPS and the protocol helpers at httproute.go:1215 and grpcroute.go:575 return it. The same idea is spelled two ways, and the fix is trivial.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 181,
+      "problem": "The comments \"It is read by httproute.go, grpcroute.go and tlsroute.go.\" (line 183) and \"RetryMaxRequestBodyBytes is read by httproute.go...\" (line 102) list callers. This is not documentation and will go stale as soon as a reader moves.",
+      "fix": "Delete the caller-listing sentences and keep only the description of what each field holds.",
+      "category": "other",
+      "why": "Confirmed. kubernetes.go:102 and :183 list which files read each field. That does not describe the field and goes stale when code moves. The rest of each comment already says what the field holds.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 2,
+  "changed_lines": 1447,
+  "per_kloc": 1.38,
+  "by_category": {
+    "naming": 0,
+    "duplication": 0,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 2
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 3,
+    "tokens": 1237412,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 400642,
+      "cache_read_input_tokens": 832896,
+      "output_tokens": 3868,
+      "output_tokens_details": {
+        "thinking_tokens": 1264
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 400642,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2187,
+          "cache_read_input_tokens": 412132,
+          "cache_creation_input_tokens": 267,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 267
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 3.4490992,
+    "duration_s": 47.0
+  }
+}
