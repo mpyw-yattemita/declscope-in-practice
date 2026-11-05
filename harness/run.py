@@ -467,6 +467,9 @@ def main():
         stage = step.get("stage", 1)
         arm = args.arm if stage == 1 else "A"
         if stage == 2:
+            # The structure stage 1 left is what the judge compares.
+            meta["stage1_end"] = git(ws, "rev-parse", "HEAD").stdout.strip()
+            (out / "stage1.patch").write_text(git(ws, "diff", base, "HEAD").stdout)
             strip_tool(ws)
             commit_all(ws, "strip")
         if step.get("outside"):
