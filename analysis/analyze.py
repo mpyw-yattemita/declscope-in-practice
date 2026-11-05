@@ -28,6 +28,26 @@ def bootstrap_ci(values, stat=lambda v: sum(v) / len(v)):
     return point, samples[int(0.025 * B)], samples[int(0.975 * B) - 1]
 
 
+def white_box(tid):
+    """Tests each step's task.yaml marked, before any run, as pinning internal representation."""
+    import subprocess
+    ty = REPO / "tasks" / tid / "task.yaml"
+    if not ty.exists():
+        return {}
+    t = json.loads(subprocess.run(["ruby", "-ryaml", "-rjson", "-e", "puts JSON.dump(YAML.load_file(ARGV[0]))", str(ty)],
+                                  capture_output=True, text=True, check=True).stdout)
+    return {s.get("n", i + 1): {w["test"] for w in s.get("white_box_tests") or []} for i, s in enumerate(t["steps"])}
+
+
+def ok_without_white_box(step, wb):
+    sc = step["score"]
+    if sc.get("success"):
+        return True
+    if sc.get("build_failed"):
+        return False
+    return bool(sc.get("failed")) and set(sc["failed"]) <= wb.get(step["step"], set())
+
+
 def load_runs(root):
     tasks = {}
     for tdir in sorted(p for p in root.iterdir() if p.is_dir()):
@@ -40,12 +60,14 @@ def load_runs(root):
                 steps = r["steps"]
                 s1 = [s for s in steps if s["stage"] == 1]
                 s2 = [s for s in steps if s["stage"] == 2]
+                wb = white_box(tdir.name)
                 rev = rdir / "review.json"
                 comp = rdir / "compliance.json"
                 tasks.setdefault(tdir.name, {}).setdefault(arm, []).append({
                     "rep": rdir.name,
                     "stage1_last_success": bool(s1 and s1[-1]["score"].get("success")),
                     "stage1_successes": [bool(s["score"].get("success")) for s in s1],
+                    "stage1_last_success_without_white_box": bool(s1 and ok_without_white_box(s1[-1], wb)),
                     "stage1_tokens": sum(s["agent"]["tokens"] or 0 for s in s1),
                     "stage2_success": bool(s2 and s2[-1]["score"].get("success")),
                     "stage2_tokens": s2[-1]["agent"]["tokens"] if s2 else None,
@@ -144,7 +166,13 @@ def main():
                   f"| {fmt(c['win_share'])}（{fmt(c['ci'][0])}〜{fmt(c['ci'][1])}） | {c['tasks_with_a_decision']} / {len(judges)} "
                   f"| **{c['result']}** | {fmt(c['stage2_token_ratio'])}（{fmt(c['stage2_token_ratio_ci'][0])}〜{fmt(c['stage2_token_ratio_ci'][1])}） |")
     md += ["", "勝率は、引き分けを除いた見比べのうち、左の群が勝った割合。トークン比は、左の群の段階2のトークン数を右の群で割ったもの。1 より小さいと左の群が少ない。", ""]
-    md += ["## 課題ごとの見比べ", "", "| 課題 | " + " | ".join(f"{ARM[x]} 対 {ARM[y]}" for x, y in PAIRS) + " |", "| --- | --- | --- | --- |"]
+    md += ["参考: 内部の表現を固定するテスト（実験の前に task.yaml の `white_box_tests` に書いたもの）を除くと、段階1の最後の段の失敗は次のとおり。", "",
+           "| 群 | 失敗（全テスト） | 失敗（内部の表現を固定するテストを除く） |", "| --- | --- | --- |"]
+    for a in ("A", "P", "G"):
+        f1 = sum(1 for t in tasks.values() for r in t.get(a, []) if not r["stage1_last_success"])
+        f2 = sum(1 for t in tasks.values() for r in t.get(a, []) if not r["stage1_last_success_without_white_box"])
+        md.append(f"| {ARM[a]} | {f1} | {f2} |")
+    md += ["", "## 課題ごとの見比べ", "", "| 課題 | " + " | ".join(f"{ARM[x]} 対 {ARM[y]}" for x, y in PAIRS) + " |", "| --- | --- | --- | --- |"]
     for t in sorted(judges):
         cells = []
         for c in comps:
