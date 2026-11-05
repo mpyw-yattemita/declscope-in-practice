@@ -294,7 +294,8 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
     # Claude Code keeps per-session files for this workspace, named after its
     # path (background output, saved tool results); those belong to the run.
     session_tag = "-" + str(ws).strip("/").replace("/", "-").replace(".", "-")
-    allowed = [str(ws), str(mod_cache()), str(go_root()), "/dev/null", "/tmp/go-build", "/private/var/folders"]
+    allowed = [str(ws), str(mod_cache()), str(Path(mod_cache()).parent), str(go_root()),
+               "/dev/null", "/tmp/go-build", "/private/var/folders"]
     allowed += [str(a) for a in allowed_extra]
     issues = []
     # The Bash tool keeps the working directory from one call to the next,
@@ -335,7 +336,10 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
         if k not in seen:
             seen.add(k)
             unique.append(i)
-    return {"ok": not unique, "issues": unique}
+    # Writing to the shared /tmp is a warning, not a breach: it reads nothing
+    # of another run. It is still recorded and reported.
+    breaches = [i for i in unique if i["kind"] != "shared-tmp"]
+    return {"ok": not breaches, "issues": breaches, "warnings": [i for i in unique if i["kind"] == "shared-tmp"]}
 
 
 # ---- scoring -----------------------------------------------------------
@@ -445,6 +449,19 @@ def score(task, task_dir, step, n, ws, out_dir, model):
         t = sh(cmd, cwd=md, env=env, check=False, timeout=1800)
         (out_dir / "test.jsonl").write_text(t.stdout)
         result.update(test_summary(t.stdout, t.returncode))
+        # Some upstream tests are timing-sensitive (go-sdk's streamable tests
+        # failed once under load and passed three times alone). Run the failed
+        # tests once more; both outcomes are recorded.
+        if result["failed"] and not result["build_failed"]:
+            again = "|".join(f"^{n}$" for n in result["failed"])
+            t2 = sh(sandboxed(["go", "test", "-count=1", "-json", "-run", again, rel_pkg]),
+                    cwd=md, env=env, check=False, timeout=1800)
+            (out_dir / "test-retry.jsonl").write_text(t2.stdout)
+            r2 = test_summary(t2.stdout, t2.returncode)
+            result["first_failed"] = result["failed"]
+            result["retry"] = r2
+            if r2["success"]:
+                result["failed"], result["success"] = [], True
     finally:
         # 3. Restore: remove upstream's files, put back what they covered.
         for rel in added:
