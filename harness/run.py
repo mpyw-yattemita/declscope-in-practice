@@ -148,7 +148,7 @@ def warm(task, ws):
     env = agent_env(task, "A", offline=False)
     md = module_dir(task, ws)
     sh(["go", "mod", "download"], cwd=md, env=env)
-    sh(["go", "list", "-deps", "-test", "./" + task["package"]], cwd=md, env=env)
+    sh(["go", "list", "-e", "-deps", "-test", "./" + task["package"]], cwd=md, env=env)
 
 
 def setup_guardrail(task, ws):
@@ -468,6 +468,7 @@ def main():
     ap.add_argument("--clones", required=True, help="directory holding upstream clones")
     ap.add_argument("--steps", help="comma-separated step numbers to run (default: all)")
     ap.add_argument("--model", default="claude-opus-5-5")
+    ap.add_argument("--out", default="runs", help="output root inside this repository (smoke tests use smoke)")
     args = ap.parse_args()
 
     task_dir = (REPO / args.task).resolve()
@@ -476,7 +477,7 @@ def main():
     task.setdefault("clone", "__".join(task["repo"].rstrip("/").removesuffix(".git").split("/")[-2:]))
     steps = task["steps"]
     wanted = {int(s) for s in args.steps.split(",")} if args.steps else set(range(1, len(steps) + 1))
-    out = REPO / "runs" / task["id"] / args.arm / str(args.rep)
+    out = REPO / args.out / task["id"] / args.arm / str(args.rep)
     out.mkdir(parents=True, exist_ok=True)
 
     require_prescreen(task_dir)
@@ -506,10 +507,16 @@ def main():
             (out / "stage1.patch").write_text(git(ws, "diff", base, "HEAD").stdout)
             strip_tool(ws)
             commit_all(ws, "strip")
-        if step.get("outside"):
-            patch = task_dir / f"step-{n}" / "outside.patch"
+        # Upstream's changes outside the package, which the task text says are
+        # already done: first what landed between steps, then this step's own.
+        applied = False
+        for name in ("intermediate.patch", "outside.patch"):
+            patch = task_dir / f"step-{n}" / name
             if patch.exists():
-                git(ws, "apply", str(patch))
+                git(ws, "apply", "--whitespace=nowarn", str(patch))
+                applied = True
+        if applied:
+            warm(task, ws)  # a patch may change go.mod; fetching runs no code
         for g in step.get("given") or []:
             src = task_dir / f"step-{n}" / "given" / g
             (ws / g).parent.mkdir(parents=True, exist_ok=True)
