@@ -305,7 +305,15 @@ ABS = re.compile(r"(?<![\w.-])(/(?:Users|private|tmp|var|opt|etc|home|Volumes)/[
 
 
 REL = re.compile(r"(?<![\w/.-])((?:\.\./)+[^\s'\"`;|&)]*|\.\.(?=$|[\s;|&)]))")
-CD = re.compile(r"(?:^|[;&|(]\s*|&&\s*)cd\s+([^\s;&|)]+)")
+CD = re.compile(r"(?:^|[;&|(\n]\s*|&&\s*)cd\s+([^\s;&|)]+)", re.M)
+
+
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?^\s*\2\s*$", re.S | re.M)
+
+
+def strip_heredocs(cmd):
+    """Drop here-document bodies: they are file contents or code, not shell."""
+    return HEREDOC.sub("<<heredoc", cmd)
 
 
 def escapes(cmd, ws, start, carry=None):
@@ -315,8 +323,9 @@ def escapes(cmd, ws, start, carry=None):
     ../../../../.declscope-baseline.yaml from inside the package stays in the
     workspace and is fine.
     """
+    cmd = strip_heredocs(cmd)
     cwd, out = Path(start), []
-    for part in re.split(r"(?=(?:^|[;&|(]\s*|&&\s*)cd\s)", cmd):
+    for part in re.split(r"(?=(?:^|[;&|(\n]\s*|&&\s*)cd\s)", cmd, flags=re.M):
         m = CD.search(part)
         if m:
             target = os.path.expanduser(m.group(1).strip("'\""))
@@ -346,12 +355,18 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
     # The Bash tool keeps the working directory from one call to the next,
     # so follow it through the transcript in order.
     carry = {"cwd": Path(start or ws)}
+    pending, wrapped = {}, set()
     with gzip.open(transcript_gz, "rt") as f:
         for line in f:
             try:
                 ev = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            # A command the sandbox hook wrapped runs in a child shell, so a cd
+            # inside it does not carry to the next call.
+            for meta in ev.get("tool_result_meta") or []:
+                if isinstance(meta, dict) and (meta.get("permission_decision") or {}).get("source") == "hook":
+                    wrapped.add(meta.get("id"))
             msg = ev.get("message")
             # Some events carry a plain string as their message; only a
             # message with a list of blocks holds tool calls and results.
@@ -363,7 +378,7 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
                 if block.get("type") == "tool_use":
                     inp = json.dumps(block.get("input"), ensure_ascii=False)
                     name = block.get("name")
-                    if name == "Bash" and NET.search(block["input"].get("command", "")):
+                    if name == "Bash" and NET.search(strip_heredocs(block["input"].get("command", ""))):
                         issues.append({"kind": "network", "tool": name, "input": inp[:300]})
                     for p in ABS.findall(inp):
                         if any(p.startswith(a) for a in allowed) or session_tag in p:
@@ -373,9 +388,24 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
                         kind = "shared-tmp" if re.match(r"/(private/)?tmp/", p) else "outside-path"
                         issues.append({"kind": kind, "tool": name, "path": p})
                     if name == "Bash":
+                        prev = carry["cwd"]
                         for p in escapes(block["input"].get("command", ""), ws, carry["cwd"], carry):
                             if not any(p.startswith(a) for a in allowed):
                                 issues.append({"kind": "parent-ref", "tool": name, "path": p})
+                        pending[block.get("id")] = prev
+                if block.get("type") == "tool_result" and block.get("tool_use_id") in pending:
+                    # The Bash tool keeps a cd only when the command succeeds and
+                    # says so when it does not: "Shell cwd was reset to <dir>".
+                    prev = pending.pop(block["tool_use_id"])
+                    if block["tool_use_id"] in wrapped:
+                        carry["cwd"] = prev
+                        continue
+                    text = json.dumps(block.get("content"), ensure_ascii=False)
+                    m = re.search(r"Shell cwd was reset to ([^\\\"\n]+)", text)
+                    if m:
+                        carry["cwd"] = Path(m.group(1).strip())
+                    elif block.get("is_error"):
+                        carry["cwd"] = prev
                 if arm in ("A", "P"):
                     text = json.dumps(block, ensure_ascii=False)
                     if "declscope" in text.lower():
