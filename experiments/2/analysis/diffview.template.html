@@ -1,0 +1,195 @@
+<title>群ごとの差分</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a review console. Controls on top, then one column per run, side by side, scrolling sideways inside their own track. */
+:root {
+  --bg: #f3f5f7; --panel: #ffffff; --ink: #18212b; --muted: #5d6b79; --line: #d7dde3;
+  --accent: #1f5f8b; --accent-soft: #e3eef6;
+  --add-bg: #e6f4ea; --add-fg: #14532d; --del-bg: #fbe9e9; --del-fg: #7f1d1d; --hunk: #eef1f5;
+  --ok: #1c7c44; --bad: #b3261e; --warn: #8a5a00;
+  --ui: "Atkinson Hyperlegible", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11161c; --panel: #171e26; --ink: #e2e8ee; --muted: #93a1b0; --line: #2a3542;
+  --accent: #7fb6dd; --accent-soft: #1d2f3e;
+  --add-bg: #12301f; --add-fg: #9be3b4; --del-bg: #3a1717; --del-fg: #f5a9a3; --hunk: #1d2631;
+  --ok: #5fd08f; --bad: #ff8a80; --warn: #f0c060; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11161c; --panel: #171e26; --ink: #e2e8ee; --muted: #93a1b0; --line: #2a3542;
+  --accent: #7fb6dd; --accent-soft: #1d2f3e;
+  --add-bg: #12301f; --add-fg: #9be3b4; --del-bg: #3a1717; --del-fg: #f5a9a3; --hunk: #1d2631;
+  --ok: #5fd08f; --bad: #ff8a80; --warn: #f0c060; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); font-size: 14px; line-height: 1.5; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; display: grid; gap: 16px; }
+h1 { font-size: 20px; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+select { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.steps button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+.steps button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.steptitle { margin: 0; font-size: 15px; }
+.steptitle .tag { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 8px; letter-spacing: .02em; }
+.track { overflow-x: auto; }
+.cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(420px, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 520px) { .cols { grid-auto-flow: row; grid-auto-columns: auto; } }
+.col { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.colhead { padding: 10px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.name { font-weight: 700; font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--hunk); color: var(--ink); font-variant-numeric: tabular-nums; }
+.chip.ok { background: var(--add-bg); color: var(--ok); font-weight: 700; }
+.chip.bad { background: var(--del-bg); color: var(--bad); font-weight: 700; }
+.chip.warn { color: var(--warn); }
+details.file { border-top: 1px solid var(--line); }
+details.file:first-of-type { border-top: 0; }
+summary { cursor: pointer; padding: 6px 12px; font-family: var(--mono); font-size: 12px; display: flex; gap: 8px; align-items: baseline; }
+summary .path { overflow-wrap: anywhere; }
+summary .n { margin-left: auto; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+summary .plus { color: var(--ok); } summary .minus { color: var(--bad); }
+.diff { overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.45; }
+.diff div { white-space: pre; padding: 0 12px; min-width: max-content; }
+.diff .a { background: var(--add-bg); color: var(--add-fg); }
+.diff .d { background: var(--del-bg); color: var(--del-fg); }
+.diff .h { background: var(--hunk); color: var(--muted); }
+.diff .ln { display: inline-block; width: 4.5em; margin-left: -12px; padding-right: 10px; text-align: right; color: var(--muted); user-select: none; opacity: .7; }
+.empty, .note { color: var(--muted); padding: 10px 12px; margin: 0; }
+.note { font-size: 12px; border-top: 1px solid var(--line); }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>群ごとの差分</h1>
+    <p class="sub">同じ課題の同じ段を、群ごとに並べる。各列の上に、その段の成否と手間を出す。</p>
+  </header>
+  <div class="controls">
+    <label for="task">課題 <select id="task"></select></label>
+    <label for="blind"><input type="checkbox" id="blind"> ブラインド表示（群名を伏せ、並びを入れ替え、<code>//declscope:</code> の行と declscope のファイルを隠す）</label>
+    <label for="pkgonly"><input type="checkbox" id="pkgonly" checked> package の中のファイルだけ</label>
+    <label for="whole"><input type="checkbox" id="whole" checked> ファイル全体を表示（外すと変更の前後3行だけ）</label>
+  </div>
+  <div class="steps" id="steps" role="group" aria-label="段"></div>
+  <h2 class="steptitle" id="steptitle"></h2>
+  <div class="track"><div class="cols" id="cols"></div></div>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ARM = { N: "N: 指示なし", M: "M: 最小限＋declscope", R: "R: リファクタリング＋declscope" };
+const state = { task: 0, step: 0 };
+
+function parseDiff(text) {
+  const files = [];
+  let cur = null;
+  for (const line of text.split("\n")) {
+    const m = /^diff --git a\/(.*?) b\/(.*)$/.exec(line);
+    if (m) { cur = { path: m[2], lines: [], plus: 0, minus: 0 }; files.push(cur); continue; }
+    if (!cur || /^(index |--- |\+\+\+ |new file mode|deleted file mode|similarity |rename )/.test(line)) continue;
+    cur.lines.push(line);
+    if (line.startsWith("+")) cur.plus++; else if (line.startsWith("-")) cur.minus++;
+  }
+  return files;
+}
+
+// Keep each change with `ctx` lines around it; mark the gaps with a hunk line.
+function aroundChanges(lines, ctx) {
+  const keep = new Array(lines.length).fill(false);
+  lines.forEach((l, i) => {
+    if (l.startsWith("+") || l.startsWith("-")) for (let j = Math.max(0, i - ctx); j <= Math.min(lines.length - 1, i + ctx); j++) keep[j] = true;
+    if (l.startsWith("@@")) keep[i] = false;
+  });
+  const out = [];
+  let skipped = 0;
+  lines.forEach((l, i) => {
+    if (l.startsWith("@@")) return;
+    if (keep[i]) { if (skipped) { out.push(`@@ ${skipped} 行省略 @@`); skipped = 0; } out.push(l); } else skipped++;
+  });
+  if (skipped) out.push(`@@ ${skipped} 行省略 @@`);
+  return out;
+}
+
+// Render lines with the line number in the new file, taken from each hunk header.
+function numbered(lines) {
+  let n = 0;
+  return lines.map((l) => {
+    const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
+    if (h) { n = +h[1] - 1; return `<div class="h"><span class="ln"></span>${esc(l)}</div>`; }
+    if (l.startsWith("@@")) return `<div class="h"><span class="ln"></span>${esc(l)}</div>`;
+    const cls = l.startsWith("+") ? "a" : l.startsWith("-") ? "d" : "";
+    const ln = l.startsWith("-") ? "" : String(++n);
+    return `<div class="${cls}"><span class="ln">${ln}</span>${esc(l) || " "}</div>`;
+  }).join("");
+}
+
+function isTool(path) { return /(^|\/)\.declscope-baseline\.yaml$/.test(path) || path.startsWith(".claude/"); }
+
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+function render() {
+  const t = DATA.tasks[state.task];
+  const step = t.steps[state.step];
+  const blind = $("blind").checked, pkgonly = $("pkgonly").checked;
+  $("steps").innerHTML = t.steps.map((s, i) =>
+    `<button type="button" data-i="${i}" aria-pressed="${i === state.step}">段 ${s.n}${s.pr ? ` · #${s.pr}` : ""}${s.stage === 2 ? " · 段階2" : ""}</button>`).join("");
+  $("steptitle").innerHTML = `${esc(step.title || `段 ${step.n}`)}<span class="tag">${step.stage === 2 ? "段階2（どの群も A と同じ条件）" : "段階1（各群の条件）"}</span>`;
+  let runs = step.runs.slice();
+  if (blind) runs.sort((a, b) => hash(t.id + step.n + a.arm + a.rep) - hash(t.id + step.n + b.arm + b.rep));
+  $("cols").innerHTML = runs.map((r, i) => column(r, i, blind, pkgonly, t.package)).join("") ||
+    `<p class="empty">この段の結果はまだない。</p>`;
+}
+
+function column(r, i, blind, pkgonly, pkg) {
+  const name = blind ? `コード ${i + 1}` : `${ARM[r.arm] || r.arm} · ${r.rep}回目`;
+  let files = parseDiff(r.diff);
+  if (!$("whole").checked) files = files.map((f) => ({ ...f, lines: aroundChanges(f.lines, 3) }));
+  if (blind) {
+    files = files.filter((f) => !isTool(f.path)).map((f) => {
+      const lines = f.lines.filter((l) => !/^[+\- ]\s*\/\/declscope:/.test(l));
+      return { ...f, lines: lines.map((l) => l.replace(/\s*\/\/declscope:\S+(?:\s\/\/.*)?$/, "")) };
+    });
+  }
+  const inPkg = (p) => !pkg || p === pkg || p.startsWith(pkg + "/");
+  const shown = pkgonly ? files.filter((f) => inPkg(f.path)) : files;
+  const hidden = files.length - shown.length;
+  const chips = [];
+  if (r.success === true) chips.push(`<span class="chip ok">成功</span>`);
+  else if (r.success === false) chips.push(`<span class="chip bad">失敗${r.failed && r.failed.length ? `（${r.failed.length}件）` : ""}</span>`);
+  if (r.tokens != null) chips.push(`<span class="chip">${(r.tokens / 1000).toFixed(0)}k トークン</span>`);
+  if (r.turns != null) chips.push(`<span class="chip">${r.turns} ターン</span>`);
+  if (r.files != null) chips.push(`<span class="chip">${r.files} ファイル · ${r.lines} 行</span>`);
+  if (!blind && r.directives) chips.push(`<span class="chip">ディレクティブ ${r.directives}</span>`);
+  if (r.renamed) chips.push(`<span class="chip warn">名前合わせあり${r.no_counterpart.length ? `・対応なし ${r.no_counterpart.length}` : ""}</span>`);
+  if (r.audit_ok === false) chips.push(`<span class="chip bad">監査で違反</span>`);
+  const body = shown.map((f) => `
+    <details class="file" open>
+      <summary><span class="path">${esc(f.path)}</span><span class="n"><span class="plus">+${f.plus}</span> <span class="minus">−${f.minus}</span></span></summary>
+      <div class="diff">${numbered(f.lines)}</div>
+    </details>`).join("") || `<p class="empty">差分なし</p>`;
+  const notes = [];
+  if (hidden) notes.push(`package の外の ${hidden} ファイルを隠している。`);
+  if (r.cut) notes.push("差分が長いので途中で切った。");
+  return `<section class="col" aria-label="${esc(name)}">
+    <div class="colhead"><div class="name">${esc(name)}</div><div class="chips">${chips.join("")}</div></div>
+    ${body}${notes.length ? `<p class="note">${notes.join(" ")}</p>` : ""}
+  </section>`;
+}
+
+function init() {
+  if (!DATA || !DATA.tasks.length) { $("cols").innerHTML = `<p class="empty">結果はまだない。</p>`; return; }
+  $("task").innerHTML = DATA.tasks.map((t, i) => `<option value="${i}">${esc(t.id)}</option>`).join("");
+  $("task").addEventListener("change", (e) => { state.task = +e.target.value; state.step = 0; render(); });
+  $("steps").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.step = +b.dataset.i; render(); } });
+  $("blind").addEventListener("change", render);
+  $("pkgonly").addEventListener("change", render);
+  $("whole").addEventListener("change", render);
+  render();
+}
+init();
+</script>
