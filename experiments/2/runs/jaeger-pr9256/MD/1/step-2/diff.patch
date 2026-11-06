@@ -1,0 +1,210 @@
+diff --git a/internal/storage/v2/api/tracestore/filter.go b/internal/storage/v2/api/tracestore/filter.go
+new file mode 100644
+index 0000000..57a7d4b
+--- /dev/null
++++ b/internal/storage/v2/api/tracestore/filter.go
+@@ -0,0 +1,60 @@
++// Copyright (c) 2026 The Jaeger Authors.
++// SPDX-License-Identifier: Apache-2.0
++
++//declscope:ignore overexported // API for RFC 0005 query filters; the query service reads it in a later change
++
++package tracestore
++
++import (
++	"errors"
++	"slices"
++
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
++)
++
++var (
++	// ErrFilterUnsupported is returned for a well-formed query filter that the
++	// storage cannot serve: a level it does not index, an operator it has not
++	// implemented, or a boolean structure a flat index cannot evaluate. The query
++	// is refused rather than approximated.
++	ErrFilterUnsupported = errors.New("this storage backend cannot serve this query filter")
++
++	// ErrFilterInvalid is returned for a query filter whose value does not fit the
++	// field it compares.
++	ErrFilterInvalid = errors.New("invalid query filter")
++)
++
++// FilterCapabilities declares how much of a structured filter a Reader
++// evaluates, by naming the levels and operators it serves.
++//
++// Nothing is implicit: a Reader opts in only by naming something, so an empty
++// FilterCapabilities says the same as none. Callers ask IsEmpty rather than
++// comparing against nil.
++type FilterCapabilities struct {
++	// Levels are the levels a reference may name. Empty means the Reader can
++	// serve only unqualified references.
++	Levels []expression.Level
++	// Operators are the operators the Reader evaluates, including the boolean
++	// combinators OpAnd, OpOr and OpNot.
++	Operators []expression.Operator
++}
++
++// IsEmpty reports whether c names no level and no operator. It is true for a
++// nil c.
++func (c *FilterCapabilities) IsEmpty() bool {
++	return c == nil || (len(c.Levels) == 0 && len(c.Operators) == 0)
++}
++
++// SupportsLevel reports whether a reference may name level. The empty level,
++// an unqualified reference, is always supported.
++func (c FilterCapabilities) SupportsLevel(level expression.Level) bool {
++	return level == "" || slices.Contains(c.Levels, level)
++}
++
++// SupportsOperator reports whether op is listed in Operators. The boolean
++// combinators are declared like any other operator, so the zero value
++// supports none of them, not even OpAnd. Nesting is not declared: and is
++// associative, so a caller flattens it before asking.
++func (c FilterCapabilities) SupportsOperator(op expression.Operator) bool {
++	return slices.Contains(c.Operators, op)
++}
+diff --git a/internal/storage/v2/api/tracestore/filter_test.go b/internal/storage/v2/api/tracestore/filter_test.go
+new file mode 100644
+index 0000000..078f4a5
+--- /dev/null
++++ b/internal/storage/v2/api/tracestore/filter_test.go
+@@ -0,0 +1,67 @@
++// Copyright (c) 2026 The Jaeger Authors.
++// SPDX-License-Identifier: Apache-2.0
++
++package tracestore
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/assert"
++
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
++)
++
++func TestFilterCapabilitiesIsEmpty(t *testing.T) {
++	tests := []struct {
++		name string
++		caps *FilterCapabilities
++		want bool
++	}{
++		{name: "nil", caps: nil, want: true},
++		{name: "zero value", caps: &FilterCapabilities{}, want: true},
++		{
++			name: "empty non-nil slices",
++			caps: &FilterCapabilities{Levels: []expression.Level{}, Operators: []expression.Operator{}},
++			want: true,
++		},
++		{
++			name: "one level",
++			caps: &FilterCapabilities{Levels: []expression.Level{expression.LevelSpan}},
++			want: false,
++		},
++		{
++			name: "one operator",
++			caps: &FilterCapabilities{Operators: []expression.Operator{expression.OpEq}},
++			want: false,
++		},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			assert.Equal(t, tt.want, tt.caps.IsEmpty())
++		})
++	}
++}
++
++func TestFilterCapabilitiesSupportsLevel(t *testing.T) {
++	caps := FilterCapabilities{Levels: []expression.Level{expression.LevelSpan, expression.LevelResource}}
++	assert.True(t, caps.SupportsLevel(""), "unqualified reference")
++	assert.True(t, caps.SupportsLevel(expression.LevelSpan))
++	assert.True(t, caps.SupportsLevel(expression.LevelResource))
++	assert.False(t, caps.SupportsLevel(expression.LevelEvent))
++
++	var zero FilterCapabilities
++	assert.True(t, zero.SupportsLevel(""), "unqualified reference reaches any reader")
++	assert.False(t, zero.SupportsLevel(expression.LevelSpan))
++}
++
++func TestFilterCapabilitiesSupportsOperator(t *testing.T) {
++	conjunctive := FilterCapabilities{Operators: []expression.Operator{expression.OpAnd, expression.OpEq}}
++	assert.True(t, conjunctive.SupportsOperator(expression.OpAnd))
++	assert.True(t, conjunctive.SupportsOperator(expression.OpEq))
++	assert.False(t, conjunctive.SupportsOperator(expression.OpOr))
++	assert.False(t, conjunctive.SupportsOperator(expression.OpNot))
++	assert.False(t, conjunctive.SupportsOperator(""))
++
++	var zero FilterCapabilities
++	assert.False(t, zero.SupportsOperator(expression.OpAnd), "zero value supports no operator, not even and")
++}
+diff --git a/internal/storage/v2/api/tracestore/reader.go b/internal/storage/v2/api/tracestore/reader.go
+index 89417b0..5970ad3 100644
+--- a/internal/storage/v2/api/tracestore/reader.go
++++ b/internal/storage/v2/api/tracestore/reader.go
+@@ -10,6 +10,8 @@ import (
+ 
+ 	"go.opentelemetry.io/collector/pdata/pcommon"
+ 	"go.opentelemetry.io/collector/pdata/ptrace"
++
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
+ )
+ 
+ // Reader finds and loads traces and other data from storage.
+@@ -111,6 +113,13 @@ type TraceQueryParams struct {
+ 	DurationMin  time.Duration
+ 	DurationMax  time.Duration
+ 	SearchDepth  int
++
++	// Filter is the structured query filter. It is mutually exclusive with the
++	// predicate fields ServiceName, OperationName, Attributes and the duration
++	// bounds, so a reader sees one filtering model, not a mix of the two.
++	//
++	//declscope:ignore overexported // the query service sets it in a later change
++	Filter *expression.Call
+ }
+ 
+ // FoundTraceID is a wrapper around trace ID returned from FindTraceIDs
+diff --git a/internal/storage/v2/api/tracestore/search_capabilities.go b/internal/storage/v2/api/tracestore/search_capabilities.go
+index ee09f46..7a4d9ea 100644
+--- a/internal/storage/v2/api/tracestore/search_capabilities.go
++++ b/internal/storage/v2/api/tracestore/search_capabilities.go
+@@ -14,4 +14,21 @@ type SearchCapabilities struct {
+ 	// FindTraceSummaries accept a TraceQueryParams whose ServiceName is empty
+ 	// and read it as "any service", rather than as an error or an empty result.
+ 	WithoutServiceName bool
++
++	// SameSpanConjunction is true when a conjunction (several entries in the
++	// Attributes map, or an OpAnd in Filter) is satisfied within a single span.
++	// False means the backend may satisfy different conjuncts from different
++	// spans of the same trace, as a flat inverted index does. Callers report
++	// this looser scoping rather than refusing the query.
++	//
++	//declscope:ignore overexported // the query service reads it in a later change
++	SameSpanConjunction bool
++
++	// Filter is how much of TraceQueryParams.Filter the reader evaluates. A nil
++	// Filter means none of it: the reader serves only the legacy fields. An
++	// empty Filter means the same; ask Filter.IsEmpty rather than comparing
++	// against nil.
++	//
++	//declscope:ignore overexported // the query service reads it in a later change
++	Filter *FilterCapabilities
+ }
+diff --git a/internal/storage/v2/api/tracestore/search_capabilities_test.go b/internal/storage/v2/api/tracestore/search_capabilities_test.go
+index 65dcb15..2e46422 100644
+--- a/internal/storage/v2/api/tracestore/search_capabilities_test.go
++++ b/internal/storage/v2/api/tracestore/search_capabilities_test.go
+@@ -20,10 +20,12 @@ func TestSearchCapabilitiesFields(t *testing.T) {
+ 	for i := range fields {
+ 		fields[i] = typ.Field(i).Name
+ 	}
+-	assert.Equal(t, []string{"WithoutServiceName"}, fields,
++	assert.Equal(t, []string{"WithoutServiceName", "SameSpanConjunction", "Filter"}, fields,
+ 		"SearchCapabilities changed: extend the Reader decorators' forwarding tests to cover every field")
+ }
+ 
+ func TestSearchCapabilitiesZeroValue(t *testing.T) {
+ 	assert.False(t, SearchCapabilities{}.WithoutServiceName)
++	assert.False(t, SearchCapabilities{}.SameSpanConjunction)
++	assert.True(t, SearchCapabilities{}.Filter.IsEmpty())
+ }
