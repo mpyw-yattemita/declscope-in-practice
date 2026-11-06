@@ -1,0 +1,60 @@
+diff --git a/internal/storage/v2/api/tracestore/reader.go b/internal/storage/v2/api/tracestore/reader.go
+index 125c1de..592a592 100644
+--- a/internal/storage/v2/api/tracestore/reader.go
++++ b/internal/storage/v2/api/tracestore/reader.go
+@@ -75,6 +75,30 @@ type Reader interface {
+ 	// summaries, and implementations may yield incrementally rather than buffering all
+ 	// results first.
+ 	FindTraceSummaries(ctx context.Context, query TraceQueryParams) iter.Seq2[[]TraceSummary, error]
++
++	// SearchCapabilities reports how this reader's search methods behave.
++	//
++	// A reader that cannot determine its capabilities (e.g. because its backend sits
++	// behind an API that cannot be asked) must return an error that wraps
++	// errors.ErrUnsupported rather than a value a caller might trust. The context is
++	// provided because the answer may require a network call.
++	//
++	// A Reader that wraps another Reader (a decorator) must forward this call to the
++	// wrapped Reader rather than answer for itself.
++	SearchCapabilities(ctx context.Context) (SearchCapabilities, error)
++}
++
++// SearchCapabilities describes how a Reader's search methods behave where
++// backends differ.
++//
++// Every field defaults to false, so the zero value describes the least capable
++// reader. A new capability is added as a new field, which every existing
++// implementation then reports as false until it opts in.
++type SearchCapabilities struct {
++	// WithoutServiceName is true when FindTraces, FindTraceIDs and
++	// FindTraceSummaries accept a TraceQueryParams whose ServiceName is empty
++	// and read it as "any service", rather than as an error or an empty result.
++	WithoutServiceName bool
+ }
+ 
+ // GetTraceParams contains single-trace parameters for a GetTraces request.
+diff --git a/internal/storage/v2/api/tracestore/reader_test.go b/internal/storage/v2/api/tracestore/reader_test.go
+index 04fd0ae..a3d48cc 100644
+--- a/internal/storage/v2/api/tracestore/reader_test.go
++++ b/internal/storage/v2/api/tracestore/reader_test.go
+@@ -2,3 +2,20 @@
+ // SPDX-License-Identifier: Apache-2.0
+ 
+ package tracestore
++
++import (
++	"reflect"
++	"testing"
++
++	"github.com/stretchr/testify/assert"
++)
++
++// TestSearchCapabilities_FieldCount fails when a field is added to SearchCapabilities.
++// The decorators' forwarding tests enumerate every field, so when this fails, extend
++// those tests to cover the new field and then update the count here:
++//   - tracestoremetrics.TestReadMetricsDecorator_SearchCapabilities
++//   - queryinterceptor.TestReader_SearchCapabilities_ForwardsBackendDeclaration
++func TestSearchCapabilities_FieldCount(t *testing.T) {
++	assert.Equal(t, 1, reflect.TypeFor[SearchCapabilities]().NumField(),
++		"SearchCapabilities changed: extend the decorators' forwarding tests to cover every field")
++}

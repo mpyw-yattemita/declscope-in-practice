@@ -1,0 +1,185 @@
+diff --git a/internal/storage/v2/api/tracestore/reader.go b/internal/storage/v2/api/tracestore/reader.go
+index 592a592..51d1601 100644
+--- a/internal/storage/v2/api/tracestore/reader.go
++++ b/internal/storage/v2/api/tracestore/reader.go
+@@ -5,13 +5,26 @@ package tracestore
+ 
+ import (
+ 	"context"
++	"errors"
+ 	"iter"
++	"slices"
+ 	"time"
+ 
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
+ 	"go.opentelemetry.io/collector/pdata/pcommon"
+ 	"go.opentelemetry.io/collector/pdata/ptrace"
+ )
+ 
++// ErrFilterUnsupported is returned for a well-formed query filter that the
++// storage cannot serve: a level it does not index, an operator it has not
++// implemented, or a boolean structure a flat index cannot evaluate. The query
++// is refused rather than approximated.
++var ErrFilterUnsupported = errors.New("this storage backend cannot serve this query filter")
++
++// ErrFilterInvalid is returned for a query filter whose value does not fit the
++// field it compares.
++var ErrFilterInvalid = errors.New("invalid query filter")
++
+ // Reader finds and loads traces and other data from storage.
+ type Reader interface {
+ 	// GetTraces returns an iterator that retrieves all traces with given IDs.
+@@ -99,6 +112,54 @@ type SearchCapabilities struct {
+ 	// FindTraceSummaries accept a TraceQueryParams whose ServiceName is empty
+ 	// and read it as "any service", rather than as an error or an empty result.
+ 	WithoutServiceName bool
++
++	// SameSpanConjunction is true when a conjunction (several entries in the
++	// Attributes map, or an OpAnd in Filter) is satisfied within a single span.
++	// False means the backend may satisfy different conjuncts from different
++	// spans of the same trace, as a flat inverted index does. Callers report
++	// this looser scoping rather than refusing the query.
++	SameSpanConjunction bool
++
++	// Filter is how much of TraceQueryParams.Filter the reader evaluates. A nil
++	// Filter means none of it: the reader serves only the legacy fields.
++	Filter *FilterCapabilities
++}
++
++// FilterCapabilities declares how much of a structured filter a Reader
++// evaluates, by naming the levels and operators it serves.
++//
++// Nothing is implicit: a Reader opts in only by naming something, so an empty
++// FilterCapabilities says the same as no FilterCapabilities. Callers ask
++// IsEmpty rather than comparing against nil.
++type FilterCapabilities struct {
++	// Levels are the levels a reference may name. Empty means the Reader can
++	// serve only unqualified references.
++	Levels []expression.Level
++	// Operators are the operators the Reader evaluates, including the boolean
++	// combinators OpAnd, OpOr and OpNot.
++	Operators []expression.Operator
++}
++
++// IsEmpty reports whether c names no level and no operator, which is the same
++// as the Reader evaluating no structured filter at all. It is true for a nil
++// pointer.
++func (c *FilterCapabilities) IsEmpty() bool {
++	return c == nil || (len(c.Levels) == 0 && len(c.Operators) == 0)
++}
++
++// SupportsLevel reports whether a reference may name level. The empty level
++// is always supported, because an unqualified reference always reaches the
++// Reader.
++func (c FilterCapabilities) SupportsLevel(level expression.Level) bool {
++	return level == "" || slices.Contains(c.Levels, level)
++}
++
++// SupportsOperator reports whether the Reader evaluates op. The boolean
++// combinators are declared like any other operator: a Reader confined to
++// conjunctive search lists OpAnd and omits OpOr and OpNot. Nesting is not
++// declared, because and is associative and a caller flattens it before asking.
++func (c FilterCapabilities) SupportsOperator(op expression.Operator) bool {
++	return slices.Contains(c.Operators, op)
+ }
+ 
+ // GetTraceParams contains single-trace parameters for a GetTraces request.
+@@ -126,6 +187,11 @@ type TraceQueryParams struct {
+ 	DurationMin  time.Duration
+ 	DurationMax  time.Duration
+ 	SearchDepth  int
++
++	// Filter is the structured query filter. It is mutually exclusive with the
++	// predicate fields ServiceName, OperationName, Attributes and the duration
++	// bounds, so a reader sees one filtering model, not a mix of the two.
++	Filter *expression.Call
+ }
+ 
+ // FoundTraceID is a wrapper around trace ID returned from FindTraceIDs
+diff --git a/internal/storage/v2/api/tracestore/reader_test.go b/internal/storage/v2/api/tracestore/reader_test.go
+index a3d48cc..3fa0d06 100644
+--- a/internal/storage/v2/api/tracestore/reader_test.go
++++ b/internal/storage/v2/api/tracestore/reader_test.go
+@@ -7,6 +7,7 @@ import (
+ 	"reflect"
+ 	"testing"
+ 
++	expression "github.com/jaegertracing/jaeger-idl/query/expression/v1"
+ 	"github.com/stretchr/testify/assert"
+ )
+ 
+@@ -16,6 +17,73 @@ import (
+ //   - tracestoremetrics.TestReadMetricsDecorator_SearchCapabilities
+ //   - queryinterceptor.TestReader_SearchCapabilities_ForwardsBackendDeclaration
+ func TestSearchCapabilities_FieldCount(t *testing.T) {
+-	assert.Equal(t, 1, reflect.TypeFor[SearchCapabilities]().NumField(),
++	assert.Equal(t, 3, reflect.TypeFor[SearchCapabilities]().NumField(),
+ 		"SearchCapabilities changed: extend the decorators' forwarding tests to cover every field")
+ }
++
++func TestFilterCapabilities_IsEmpty(t *testing.T) {
++	tests := []struct {
++		name string
++		caps *FilterCapabilities
++		want bool
++	}{
++		{name: "nil pointer", caps: nil, want: true},
++		{name: "zero value", caps: &FilterCapabilities{}, want: true},
++		{
++			name: "empty non-nil slices",
++			caps: &FilterCapabilities{Levels: []expression.Level{}, Operators: []expression.Operator{}},
++			want: true,
++		},
++		{name: "one level", caps: &FilterCapabilities{Levels: []expression.Level{expression.LevelSpan}}, want: false},
++		{name: "one operator", caps: &FilterCapabilities{Operators: []expression.Operator{expression.OpEq}}, want: false},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			assert.Equal(t, tt.want, tt.caps.IsEmpty())
++		})
++	}
++}
++
++func TestFilterCapabilities_SupportsLevel(t *testing.T) {
++	caps := FilterCapabilities{Levels: []expression.Level{expression.LevelSpan, expression.LevelResource}}
++	tests := []struct {
++		name  string
++		caps  FilterCapabilities
++		level expression.Level
++		want  bool
++	}{
++		{name: "unqualified on zero value", caps: FilterCapabilities{}, level: "", want: true},
++		{name: "qualified on zero value", caps: FilterCapabilities{}, level: expression.LevelSpan, want: false},
++		{name: "unqualified with levels", caps: caps, level: "", want: true},
++		{name: "listed level", caps: caps, level: expression.LevelResource, want: true},
++		{name: "unlisted level", caps: caps, level: expression.LevelEvent, want: false},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			assert.Equal(t, tt.want, tt.caps.SupportsLevel(tt.level))
++		})
++	}
++}
++
++func TestFilterCapabilities_SupportsOperator(t *testing.T) {
++	conjunctive := FilterCapabilities{Operators: []expression.Operator{expression.OpAnd, expression.OpEq}}
++	tests := []struct {
++		name string
++		caps FilterCapabilities
++		op   expression.Operator
++		want bool
++	}{
++		{name: "zero value lacks and", caps: FilterCapabilities{}, op: expression.OpAnd, want: false},
++		{name: "zero value lacks eq", caps: FilterCapabilities{}, op: expression.OpEq, want: false},
++		{name: "listed combinator", caps: conjunctive, op: expression.OpAnd, want: true},
++		{name: "listed comparison", caps: conjunctive, op: expression.OpEq, want: true},
++		{name: "unlisted or", caps: conjunctive, op: expression.OpOr, want: false},
++		{name: "unlisted not", caps: conjunctive, op: expression.OpNot, want: false},
++		{name: "unlisted comparison", caps: conjunctive, op: expression.OpRegex, want: false},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			assert.Equal(t, tt.want, tt.caps.SupportsOperator(tt.op))
++		})
++	}
++}
