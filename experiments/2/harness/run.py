@@ -2,7 +2,7 @@
 """Run one chain of one task for one arm, and collect the results.
 
 Usage:
-  python3 -I harness/run.py --task tasks/<id> --arm N|M|R --rep N --clones DIR
+  python3 -I harness/run.py --task tasks/<id> --arm M|MD|R|RD --rep N --clones DIR
                             [--steps 1,2] [--model claude-opus-5-5]
 
 See harness/README.md for what each phase does.
@@ -36,12 +36,17 @@ TOOLS_DIR = DECLSCOPE_HOME / "bin"
 DECLSCOPE_SKILLS = DECLSCOPE_HOME / "skills"
 DECLSCOPE_VERSION = "0.24.2"
 
-# The arms. N gets the task and the self-review only. M and R also get
-# declscope, its baseline and skills, and a statement of the change's scope:
-# M keeps to the task, R is asked to refactor the package as well.
-ARMS = ("N", "M", "R")
-GUARDED = ("M", "R")
-SCOPE = {"M": "scope-minimal.md", "R": "scope-refactor.md"}
+# The arms, two by two. M keeps the change to what the task needs, and R is
+# asked to refactor the task's package as well. A D (M' and R' in the docs)
+# adds declscope, its baseline, its skills and the guardrail prompt. The
+# scope paragraph is the same with and without declscope, so the tool reaches
+# the agent only through the guardrail and the skills.
+#
+# N is no arm. It is the setup of stage 2, which every arm runs the same way:
+# the task and the self-review only, without declscope or a scope paragraph.
+ARMS = ("M", "MD", "R", "RD")
+GUARDED = ("MD", "RD")
+SCOPE = {"M": "scope-minimal.md", "MD": "scope-minimal.md", "R": "scope-refactor.md", "RD": "scope-refactor.md"}
 CLAUDE = os.environ.get("CLAUDE_BIN", shutil.which("claude") or "claude")
 # Every command that runs third-party code goes through this profile, which
 # denies outbound network except localhost. See SAFETY.md at the top.
@@ -74,8 +79,23 @@ def sh(cmd, cwd=None, env=None, check=True, capture=True, timeout=None, input=No
     return r
 
 
-def go_root():
-    return Path(sh(["go", "env", "GOROOT"]).stdout.strip())
+def go_root(version=None):
+    """The Go installation a command runs under.
+
+    With a version, it is that release's toolchain from the module cache, put
+    first on PATH with GOTOOLCHAIN=local. Asking for it with
+    GOTOOLCHAIN=go<version> instead makes the go command switch toolchains,
+    and a switch verifies the toolchain against the checksum database, which
+    GOSUMDB=off refuses. That stopped every run once the host Go moved past
+    the task's version.
+    """
+    if not version:
+        return Path(sh(["go", "env", "GOROOT"]).stdout.strip())
+    goos, goarch = sh(["go", "env", "GOOS", "GOARCH"]).stdout.split()
+    root = mod_cache() / "golang.org" / f"toolchain@v0.0.1-go{version}.{goos}-{goarch}"
+    if not (root / "bin" / "go").is_file():
+        raise RuntimeError(f"Go {version} is not in the module cache. Fetch it once with: GOTOOLCHAIN=go{version} go version")
+    return root
 
 
 def mod_cache():
@@ -95,7 +115,7 @@ def agent_env(task, arm, offline=True, ws=None):
     PATH is minimal on purpose. The user's shell profile activates mise
     only when mise is on PATH, and mise would put declscope there.
     """
-    path = [str(go_root() / "bin"), "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+    path = [str(go_root(task.get("go")) / "bin"), "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
     if arm in GUARDED:
         path.insert(0, str(TOOLS_DIR))
     env = {
@@ -106,7 +126,7 @@ def agent_env(task, arm, offline=True, ws=None):
         "TERM": "dumb",
         "LANG": "en_US.UTF-8",
         "PATH": ":".join(path),
-        "GOTOOLCHAIN": "go" + task["go"] if task.get("go") else "local",
+        "GOTOOLCHAIN": "local",
         "GOSUMDB": "off",
     }
     if offline:
@@ -176,7 +196,7 @@ def warm(task, ws):
         raise RuntimeError("warming changed " + ", ".join(f for f in before if before[f] != after[f]))
 
 
-# The configuration arms M and R run under. The naming rule is on, for exported
+# The configuration arms MD and RD run under. The naming rule is on, for exported
 # names too, so the stated rule in rule.md covers names as well.
 DECLSCOPE_CONFIG = """\
 rules:
@@ -187,7 +207,7 @@ rules:
 
 
 def setup_guardrail(task, ws):
-    env = agent_env(task, "M")
+    env = agent_env(task, "MD")
     # The skills changed between releases, so a run under another declscope
     # would measure another treatment.
     got = sh(["declscope", "-V=full"], cwd=ws, env=env).stdout
@@ -212,8 +232,8 @@ def prompt_for(task_dir, step, arm, task):
             + "\n".join(f"- {g}" for g in step["given"])
         )
     if arm in GUARDED:
-        # The guardrail introduces the skill, which R's scope then names.
         parts.append((PROMPTS / "guardrail.md").read_text().strip())
+    if arm in SCOPE:
         parts.append((PROMPTS / SCOPE[arm]).read_text().strip().replace("{package}", pkg))
     checks = ["go vet ./...", f"go test ./{pkg}"]
     if arm in GUARDED:

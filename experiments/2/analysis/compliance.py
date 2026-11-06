@@ -3,10 +3,10 @@
 
   python3 -I analysis/compliance.py --root runs --clones DIR [--tasks a,b]
 
-For each task, the seed is exported and a baseline is recorded under arms M and R's
+For each task, the seed is exported and a baseline is recorded under arms MD and RD's
 config. Each run's stage 1 end is then read from its archived history, given
 the same config and that baseline, and checked with `declscope` and
-`declscope shrink` on the package. Arms M and R should report nothing. Arm N
+`declscope shrink` on the package. Arms MD and RD should report nothing. Arms M and R
 shows how far the code gets without the check.
 
 declscope only loads and type-checks packages; it runs no code of the
@@ -51,7 +51,7 @@ def export_git_dir(git_dir, sha, dest):
 
 
 def declscope(args, cwd, task):
-    env = run.agent_env(task, "M")
+    env = run.agent_env(task, "MD")
     r = subprocess.run(run.sandboxed([str(DECLSCOPE), *args]), cwd=cwd, env=env, capture_output=True, text=True)
     return r.returncode, r.stdout + r.stderr
 
@@ -97,7 +97,7 @@ def main():
         (seed_dir / ".declscope.yaml").write_text(run.DECLSCOPE_CONFIG)
         code, out = declscope(["baseline", "./..."], seed_dir, task)
         baseline = (seed_dir / ".declscope-baseline.yaml").read_text() if (seed_dir / ".declscope-baseline.yaml").exists() else None
-        for arm in ("N", "M", "R"):
+        for arm in ("M", "MD", "R", "RD"):
             for rdir in sorted((root / tid / arm).glob("*")) if (root / tid / arm).is_dir() else []:
                 rj = rdir / "run.json"
                 if not rj.exists():

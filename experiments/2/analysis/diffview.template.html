@@ -82,7 +82,7 @@ summary .plus { color: var(--ok); } summary .minus { color: var(--bad); }
 const DATA = /*__DATA__*/null;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const ARM = { N: "N: 指示なし", M: "M: 最小限＋declscope", R: "R: リファクタリング＋declscope" };
+const ARM = { M: "M: 最小限", MD: "M′: 最小限＋declscope", R: "R: リファクタリング", RD: "R′: リファクタリング＋declscope" };
 const state = { task: 0, step: 0 };
 
 function parseDiff(text) {

@@ -159,7 +159,7 @@ def main():
     root = (run.REPO / args.root).resolve()
     task = run.load_yaml(run.ROOT / "tasks" / args.task / "task.yaml")
     task["id"] = args.task
-    for arm in ("N", "M", "R"):
+    for arm in ("M", "MD", "R", "RD"):
         adir = root / args.task / arm
         if not adir.is_dir():
             continue

@@ -51,7 +51,7 @@ def main():
     args = ap.parse_args()
     py = sys.executable
     for t in args.tasks.split(","):
-        for arm in ("N", "M", "R"):
+        for arm in ("M", "MD", "R", "RD"):
             out = REPO / "runs" / t / arm / "1"
             if (out / "run.json").exists():
                 log(f"{t} {arm}: done already")
@@ -65,11 +65,12 @@ def main():
                 log(f"{t} {arm}: failed with {r.returncode}")
             commit([f"runs/{t}/{arm}"], f"runs: {t}, arm {arm}")
             log(f"{t} {arm}: committed")
-        if all((REPO / "runs" / t / a / "1" / "run.json").exists() for a in ("N", "M", "R")):
+        if all((REPO / "runs" / t / a / "1" / "run.json").exists() for a in ("M", "MD", "R", "RD")):
             log(f"{t}: judge")
             sh([py, "-I", "harness/judge.py", "--root", "runs", "--task", t], check=False)
             log(f"{t}: review")
             sh([py, "-I", "harness/review.py", "--root", "runs", "--task", t], check=False)
+            sh([py, "-I", "analysis/guardrail_use.py", "--root", "runs"], check=False)
             sh([py, "-I", "analysis/diffview.py", "--root", "runs", "--out", "analysis/diffview/runs.html"], check=False)
             commit([f"runs/{t}", "analysis/diffview/runs.html"], f"runs: judge and review {t}")
             log(f"{t}: evaluated and committed")

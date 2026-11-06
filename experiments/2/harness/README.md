@@ -3,14 +3,14 @@
 1つの課題（連続した PR）を、1つの群で1回実行し、結果を `runs/` に回収する。コマンドは `experiments/2/` で実行する。
 
 ```bash
-python3 -I harness/run.py --task tasks/<id> --arm N|M|R --rep <n> --clones <upstream の clone を置いたディレクトリ>
+python3 -I harness/run.py --task tasks/<id> --arm M|MD|R|RD --rep <n> --clones <upstream の clone を置いたディレクトリ>
 ```
 
 `--steps 1,2` を付けると、指定した段だけを実行する。
 
 ## 準備
 
-M 群と R 群が使う declscope と skill を、実験2のために固定して置く。場所は環境変数 `DECLSCOPE_HOME` で変えられる。
+M′ 群と R′ 群（コードでは `MD` と `RD`）が使う declscope と skill を、実験2のために固定して置く。場所は環境変数 `DECLSCOPE_HOME` で変えられる。
 
 ```bash
 D=~/ws-tools/declscope-0.24.2
@@ -32,20 +32,20 @@ python3 -I harness/run_all.py --clones <upstream の clone を置いたディレ
 | --- | --- |
 | 準備 | `~/ws/<ランダム>/` を作り、seed を `git archive` で書き出して、新しいリポジトリに commit する。`~/ws/AGENTS.md` に `workspace-AGENTS.md` を置く |
 | モジュールの取得 | ネットワークありで `go mod download` を実行し、キャッシュを温める。以降は `GOPROXY=off` |
-| M 群と R 群だけ | declscope が 0.24.2 であることを確かめ、`declscope baseline ./...` で seed の指摘を記録し、`declscope-authoring` と `declscope-adoption` を `.claude/skills/` に置く |
+| M′ 群と R′ 群だけ | declscope が 0.24.2 であることを確かめ、`declscope baseline ./...` で seed の指摘を記録し、`declscope-authoring` と `declscope-adoption` を `.claude/skills/` に置く |
 | 段の前 | upstream の段のあいだの変更を当てる。package の中の変更（`intermediate-pkg.patch`）は 3-way merge で当て、当たらなければその説明（`intermediate-pkg.md`）を課題文の先頭に足す。どちらにしたかは `metrics.json` の `intermediate_pkg` に残る。続けて package の外の変更（`intermediate.patch`、`outside.patch`）を当てる |
 | 各段 | 課題文と各群のプロンプトをつないで `claude -p` に渡す。終わったら commit し、差分を保存する |
 | 採点 | 下の「採点」のとおり |
-| 監査 | トランスクリプトを読み、ワークスペースの外のパス、ネットワーク操作、N 群での declscope の語を探す |
-| 段階2 | 最後の段の前に、baseline、skill、`//declscope:` の行を取り除く。N 群と同じ設定で実行する |
+| 監査 | トランスクリプトを読み、ワークスペースの外のパス、ネットワーク操作、declscope を使わない群（M、R）での declscope の語を探す |
+| 段階2 | 最後の段の前に、baseline、skill、`//declscope:` の行を取り除く。どの群も、課題文と自己レビュー手順だけで実行する |
 
 ## 測られるエージェントの環境
 
 | 項目 | 値 | 理由 |
 | --- | --- | --- |
-| `PATH` | Go の `bin`、`/usr/bin`、`/bin`、`/usr/sbin`、`/sbin`。M 群と R 群だけ `~/ws-tools/declscope-0.24.2/bin` を先頭に足す。このディレクトリには declscope しかない | シェルの設定ファイルは、mise が `PATH` にあるときだけ mise を有効にする。mise は declscope を `PATH` に入れるので、mise を外す |
+| `PATH` | Go の `bin`、`/usr/bin`、`/bin`、`/usr/sbin`、`/sbin`。M′ 群と R′ 群だけ `~/ws-tools/declscope-0.24.2/bin` を先頭に足す。このディレクトリには declscope しかない | シェルの設定ファイルは、mise が `PATH` にあるときだけ mise を有効にする。mise は declscope を `PATH` に入れるので、mise を外す |
 | `GOPROXY` | `off` | upstream の答えを取りに行けないようにする |
-| `GOTOOLCHAIN` | 課題の `go` | opa は Go 1.25.5 でしかテストが通らない |
+| `GOTOOLCHAIN` | `local`。課題の `go` の版の Go を、モジュールキャッシュ（`golang.org/toolchain`）から `PATH` の先頭に置く | 課題ごとに Go の版を固定する。`GOTOOLCHAIN=go<版>` で切り替えると、`GOSUMDB=off` のせいで検証に失敗する |
 | ツール | `WebFetch` と `WebSearch` を禁止。MCP サーバーは読み込まない（`--strict-mcp-config`） | ネットワークと外部サービスを使わせない |
 
 最小限の環境で、認証が通り、declscope が見えず、`~/ws/AGENTS.md` が読み込まれることを、試しの実行で確かめた。

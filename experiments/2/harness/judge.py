@@ -27,7 +27,10 @@ sys.path.insert(0, str(HERE))
 import run  # noqa: E402
 
 PKGMAP = Path.home() / "ws-tools" / "pkgmap"
-PAIRS = [("N", "M"), ("M", "R"), ("N", "R")]
+# The four comparisons of the two-by-two design, the treatment first: what
+# declscope adds under each scope, and what the scope changes with and
+# without declscope. The diagonals change two things at once and are not judged.
+PAIRS = [("RD", "R"), ("MD", "M"), ("R", "M"), ("RD", "MD")]
 
 PROMPT = """\
 Two versions of the same Go package are in this directory, as `x/` and `y/`.
@@ -134,7 +137,7 @@ def main():
     task = run.load_yaml(run.ROOT / "tasks" / args.task / "task.yaml")
     task["id"] = args.task
     reps = {a: sorted(p.name for p in (root / args.task / a).iterdir() if (p / "stage1-package").is_dir())
-            for a in ("N", "M", "R") if (root / args.task / a).is_dir()}
+            for a in ("M", "MD", "R", "RD") if (root / args.task / a).is_dir()}
     out_path = root / args.task / "judge.json"
     result = json.loads(out_path.read_text()) if out_path.exists() else {"task": args.task, "comparisons": []}
     done = {(c["x"], c["y"]) for c in result["comparisons"]}

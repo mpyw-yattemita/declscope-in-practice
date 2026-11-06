@@ -16,8 +16,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 # The tasks are shared by every experiment, at the top of the repository.
 ROOT = REPO.parent.parent
-PAIRS = [("N", "M"), ("M", "R"), ("N", "R")]
-ARM = {"N": "N（指示なし）", "M": "M（最小限＋declscope）", "R": "R（リファクタリング＋declscope）"}
+# The four comparisons of the two-by-two design, the treatment first: what
+# declscope adds under each scope, and what the scope changes with and
+# without declscope. The diagonals change two things at once and are not judged.
+PAIRS = [("RD", "R"), ("MD", "M"), ("R", "M"), ("RD", "MD")]
+# The comparison the conclusion rests on (design.md). The others are secondary.
+PRIMARY = ("RD", "R")
+ARM = {"M": "M（最小限）", "MD": "M′（最小限＋declscope）", "R": "R（リファクタリング）", "RD": "R′（リファクタリング＋declscope）"}
 B = 10000
 
 
@@ -53,7 +58,7 @@ def ok_without_white_box(step, wb):
 def load_runs(root):
     tasks = {}
     for tdir in sorted(p for p in root.iterdir() if p.is_dir()):
-        for arm in ("N", "M", "R"):
+        for arm in ("M", "MD", "R", "RD"):
             for rdir in sorted((tdir / arm).glob("*")) if (tdir / arm).is_dir() else []:
                 rj = rdir / "run.json"
                 if not rj.exists():
@@ -65,6 +70,7 @@ def load_runs(root):
                 wb = white_box(tdir.name)
                 rev = rdir / "review.json"
                 comp = rdir / "compliance.json"
+                gu = rdir / "guardrail.json"
                 tasks.setdefault(tdir.name, {}).setdefault(arm, []).append({
                     "rep": rdir.name,
                     "stage1_last_success": bool(s1 and s1[-1]["score"].get("success")),
@@ -78,6 +84,7 @@ def load_runs(root):
                     "audit_ok": all(s["audit"]["ok"] for s in steps),
                     "review": json.loads(rev.read_text()) if rev.exists() else None,
                     "compliance": json.loads(comp.read_text()) if comp.exists() else None,
+                    "guardrail": json.loads(gu.read_text()) if gu.exists() else None,
                 })
     return tasks
 
@@ -164,17 +171,18 @@ def main():
     md += ["## 判定", "", "| 比較 | 歯止め（段階1の最後の段の失敗） | 分割の勝率（95% 区間） | 判定が付いた課題 | 結果 | 段階2のトークン比（参考） |",
            "| --- | --- | --- | --- | --- | --- |"]
     for c in comps:
-        md.append(f"| {ARM[c['x']]} 対 {ARM[c['y']]} | {c['x']} {c['failures'][c['x']]} / {c['y']} {c['failures'][c['y']]}: {c['guard']} "
+        role = "主" if (c["x"], c["y"]) == PRIMARY else "副"
+        md.append(f"| {role}: {ARM[c['x']]} 対 {ARM[c['y']]} | {c['x']} {c['failures'][c['x']]} / {c['y']} {c['failures'][c['y']]}: {c['guard']} "
                   f"| {fmt(c['win_share'])}（{fmt(c['ci'][0])}〜{fmt(c['ci'][1])}） | {c['tasks_with_a_decision']} / {len(judges)} "
                   f"| **{c['result']}** | {fmt(c['stage2_token_ratio'])}（{fmt(c['stage2_token_ratio_ci'][0])}〜{fmt(c['stage2_token_ratio_ci'][1])}） |")
-    md += ["", "勝率は、引き分けを除いた見比べのうち、左の群が勝った割合。トークン比は、左の群の段階2のトークン数を右の群で割ったもの。1 より小さいと左の群が少ない。", ""]
+    md += ["", "結論は「主」の比較で出す。「副」は副次的な結果として読む。", "", "勝率は、引き分けを除いた見比べのうち、左の群が勝った割合。トークン比は、左の群の段階2のトークン数を右の群で割ったもの。1 より小さいと左の群が少ない。", ""]
     md += ["参考: 内部の表現を固定するテスト（実験の前に task.yaml の `white_box_tests` に書いたもの）を除くと、段階1の最後の段の失敗は次のとおり。", "",
            "| 群 | 失敗（全テスト） | 失敗（内部の表現を固定するテストを除く） |", "| --- | --- | --- |"]
-    for a in ("N", "M", "R"):
+    for a in ("M", "MD", "R", "RD"):
         f1 = sum(1 for t in tasks.values() for r in t.get(a, []) if not r["stage1_last_success"])
         f2 = sum(1 for t in tasks.values() for r in t.get(a, []) if not r["stage1_last_success_without_white_box"])
         md.append(f"| {ARM[a]} | {f1} | {f2} |")
-    md += ["", "## 課題ごとの見比べ", "", "| 課題 | " + " | ".join(f"{ARM[x]} 対 {ARM[y]}" for x, y in PAIRS) + " |", "| --- | --- | --- | --- |"]
+    md += ["", "## 課題ごとの見比べ", "", "| 課題 | " + " | ".join(f"{ARM[x]} 対 {ARM[y]}" for x, y in PAIRS) + " |", "| --- |" + " --- |" * len(PAIRS)]
     for t in sorted(judges):
         cells = []
         for c in comps:
@@ -184,17 +192,17 @@ def main():
     md += ["", "## run ごとの記録", "", "| 課題 | 群 | 段階1の成否（段ごと） | 段階1のトークン | 段階2の成否 | 段階2のトークン | ディレクティブ | 構造レビューの指摘（1000行あたり） | 監査 |",
            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     for t, arms in tasks.items():
-        for a in ("N", "M", "R"):
+        for a in ("M", "MD", "R", "RD"):
             for r in arms.get(a, []):
                 rv = r["review"] or {}
                 md.append(f"| {t} | {a} | {' '.join('○' if s else '×' for s in r['stage1_successes'])} | {r['stage1_tokens'] // 1000}k "
                           f"| {'○' if r['stage2_success'] else '×'} | {(r['stage2_tokens'] or 0) // 1000}k | {r['directives']} "
                           f"| {rv.get('counted', '–')}（{fmt(rv.get('per_kloc'), 1)}） | {'問題なし' if r['audit_ok'] else '違反あり'} |")
     md += ["", "## 段階1の終わりに declscope が報告するもの", "",
-           "どの群にも M 群と R 群と同じ設定と seed の baseline を当てて、`declscope` と `declscope shrink` を実行した（`analysis/compliance.py`）。", "",
+           "どの群にも M′ 群と R′ 群と同じ設定と seed の baseline を当てて、`declscope` と `declscope shrink` を実行した（`analysis/compliance.py`）。", "",
            "| 課題 | 群 | 境界 | 命名 | その他 | shrink | 通るか |", "| --- | --- | --- | --- | --- | --- | --- |"]
     for t, arms in tasks.items():
-        for a in ("N", "M", "R"):
+        for a in ("M", "MD", "R", "RD"):
             for r in arms.get(a, []):
                 c = r["compliance"]
                 if not c:
@@ -202,6 +210,25 @@ def main():
                 an = c["analyzer"]
                 other = an["surplus"] + an["unused"] + an["other"] + an["overexported"]
                 md.append(f"| {t} | {a} | {an['boundary']} | {an['qualify']} | {other} | {'判定できない' if c['shrink'] is None else c['shrink']} | {'通る' if c['clean'] else '通らない'} |")
+    md += ["", "## declscope の検査が役に立ったか", "",
+           "M′ と R′ の段階1の各段で、エージェントが実行した `declscope` と `declscope shrink` の出力を、トランスクリプトから読んだ（`analysis/guardrail_use.py`）。"
+           "「役に立った」は、検査が指摘を出し、最後の検査では指摘がなかった段。エージェントが指摘を受けてコードを直したことを示す。型エラーは指摘に数えない。", "",
+           "| 課題 | 群 | 段 | 判定 | 検査の回数 | 出た指摘（種類別） | 最後の検査の指摘 | 足したディレクティブ | 足した ignore |",
+           "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
+    VERDICT = {"helped": "役に立った", "left": "指摘が残った", "clean": "指摘なし", "not run": "実行しなかった"}
+    tally = {}
+    for t, arms in tasks.items():
+        for a in ("MD", "RD"):
+            for r in arms.get(a, []):
+                for st in (r["guardrail"] or {}).get("steps", []):
+                    tally.setdefault(a, {}).setdefault(st["verdict"], 0)
+                    tally[a][st["verdict"]] += 1
+                    rules = "、".join(f"{k} {v}" for k, v in sorted(st["by_rule"].items())) or "なし"
+                    md.append(f"| {t} | {ARM[a]} | {st['step']} | {VERDICT[st['verdict']]} | {st['checks']} | {rules} "
+                              f"| {'–' if st['last'] is None else st['last']} | {st['directives_added']} | {st['ignores_added']} |")
+    md += ["", "| 群 | " + " | ".join(VERDICT.values()) + " |", "| --- |" + " --- |" * len(VERDICT)]
+    for a in ("MD", "RD"):
+        md.append(f"| {ARM[a]} | " + " | ".join(str(tally.get(a, {}).get(k, 0)) for k in VERDICT) + " |")
     if "human" in out:
         h = out["human"]
         md += ["", "## 人による確かめ", "", f"人の多数決と AI の判定の一致率: {fmt(h['agreement'])}（{h['counted']} 組）。基準の 75% を{'満たす' if h['meets_75'] else '満たさない'}。", ""]
