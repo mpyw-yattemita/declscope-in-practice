@@ -51,7 +51,8 @@ python3 -I analysis/analyze.py --root runs      # 判定ルールの結果。ana
 | パッケージの地図を作るツール | `~/ws-tools/pkgmap` | `harness/pkgmap/` で `go build -o ~/ws-tools/pkgmap .` |
 | 第三者のコードを sandbox で包む hook | `~/.claude/hooks/untrusted-code-sandbox.py`、`~/.claude/hooks/nonet.sb` | [SAFETY.md](../../SAFETY.md) |
 | ワークスペース | `~/ws`、`~/ws-tmp`、`~/ws-archive` | ハーネスが作る |
-| 人の判定の並び順の秘密 | `analysis/human/.salt`。git に入れていない | 作り直せない。なくすと、pairs.json のハッシュと合わなくなる。バックアップしておく |
+| 人の判定の並び順の秘密 | `analysis/human/.salt`。git に入れていない | 判定画面を作る前なら、新しく作り直し、そのハッシュで `pairs.json` の `salt_sha256` を置き換えてよい。並び順は、群や AI の結果とは関係がない |
+| 人の判定の答えを読み解く対応表 | `analysis/human/key.json`。判定画面を作るときにできる。git に入れていない | 作り直せない。判定を始めたら、バックアップしておく |
 
 > [!CAUTION]
 > 第三者のコードを実行する前に、[SAFETY.md](../../SAFETY.md) と、トップの [AGENTS.md](../../AGENTS.md) を読むこと。テストの実行をサブエージェントに任せない。
