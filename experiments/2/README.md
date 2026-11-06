@@ -26,5 +26,32 @@ declscope を入れたエージェントに、最小限の対応だけをさせ�
 
 ```bash
 cd experiments/2
-python3 -I harness/run_all.py --clones <upstream の clone を置いたディレクトリ>
+python3 -I harness/run_all.py
 ```
+
+`run_all.py` は、課題ごとに N、M、R を1回ずつ順に実行する。1つの run が終わるたびに commit して push し、3群がそろった課題には判定役と構造レビューを走らせる。止まっても、もう一度実行すれば、終わった run を飛ばして続きから始める。使用量の上限に当たったときは、15分待ってからやり直す。
+
+全課題が終わったら、次を実行して集計する。
+
+```bash
+python3 -I analysis/compliance.py --root runs   # 段階1の終わりに declscope が報告するもの
+python3 -I analysis/analyze.py --root runs      # 判定ルールの結果。analysis/results.md に書く
+```
+
+報告は、実験1の [REPORT.md](../1/REPORT.md) と同じ形で `REPORT.md` に書く。
+
+## 前提になっているもの
+
+このリポジトリの外にあり、実行に要るもの。どれも用意済み。消えていたら、右の方法で作り直す。
+
+| もの | 場所 | 作り直し方 |
+| --- | --- | --- |
+| upstream の clone（5本） | `~/ws-clones/<owner>__<repo>`。`--clones` か環境変数 `WS_CLONES` で変えられる | `git clone https://github.com/<owner>/<repo> ~/ws-clones/<owner>__<repo>`。全履歴が要る |
+| declscope 0.24.2 と skill | `~/ws-tools/declscope-0.24.2/` | [harness/README.md](harness/README.md) の「準備」 |
+| パッケージの地図を作るツール | `~/ws-tools/pkgmap` | `harness/pkgmap/` で `go build -o ~/ws-tools/pkgmap .` |
+| 第三者のコードを sandbox で包む hook | `~/.claude/hooks/untrusted-code-sandbox.py`、`~/.claude/hooks/nonet.sb` | [SAFETY.md](../../SAFETY.md) |
+| ワークスペース | `~/ws`、`~/ws-tmp`、`~/ws-archive` | ハーネスが作る |
+| 人の判定の並び順の秘密 | `analysis/human/.salt`。git に入れていない | 作り直せない。なくすと、pairs.json のハッシュと合わなくなる。バックアップしておく |
+
+> [!CAUTION]
+> 第三者のコードを実行する前に、[SAFETY.md](../../SAFETY.md) と、トップの [AGENTS.md](../../AGENTS.md) を読むこと。テストの実行をサブエージェントに任せない。

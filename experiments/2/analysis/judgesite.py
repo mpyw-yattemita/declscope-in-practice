@@ -15,6 +15,7 @@ issue to submit. It runs no code from the packages.
 """
 
 import argparse
+import os
 import difflib
 import hashlib
 import json
@@ -58,7 +59,7 @@ def build_candidate(root, task, arm, rep, clone):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="runs")
-    ap.add_argument("--clones", required=True)
+    ap.add_argument("--clones", default=os.environ.get("WS_CLONES", str(Path.home() / "ws-clones")), help="directory holding upstream clones")
     ap.add_argument("--pairs", required=True, help="JSON list of {task, x, y}, fixed before the AI results are read")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()

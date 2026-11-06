@@ -15,6 +15,7 @@ third-party trees do. Results go to <root>/<task>/<arm>/<rep>/compliance.json.
 """
 
 import argparse
+import os
 import io
 import json
 import re
@@ -82,7 +83,7 @@ def classify(out):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="runs")
-    ap.add_argument("--clones", required=True)
+    ap.add_argument("--clones", default=os.environ.get("WS_CLONES", str(Path.home() / "ws-clones")), help="directory holding upstream clones")
     ap.add_argument("--tasks")
     args = ap.parse_args()
     root = (REPO / args.root).resolve()

@@ -22,6 +22,7 @@ external tool download is excluded, never cleared.
 """
 
 import argparse
+import os
 import json
 import re
 import subprocess
@@ -156,7 +157,7 @@ def scan_commit(clone, commit, task):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", required=True)
-    ap.add_argument("--clones", required=True)
+    ap.add_argument("--clones", default=os.environ.get("WS_CLONES", str(Path.home() / "ws-clones")), help="directory holding upstream clones")
     args = ap.parse_args()
     task_dir = (ROOT / args.task).resolve()
     task = json.loads(subprocess.run(

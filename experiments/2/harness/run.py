@@ -666,7 +666,7 @@ def main():
     ap.add_argument("--task", required=True)
     ap.add_argument("--arm", required=True, choices=list(ARMS))
     ap.add_argument("--rep", type=int, required=True)
-    ap.add_argument("--clones", required=True, help="directory holding upstream clones")
+    ap.add_argument("--clones", default=os.environ.get("WS_CLONES", str(Path.home() / "ws-clones")), help="directory holding upstream clones")
     ap.add_argument("--steps", help="comma-separated step numbers to run (default: all)")
     ap.add_argument("--model", default="claude-opus-5-5")
     ap.add_argument("--out", default="runs", help="output root inside this repository (smoke tests use smoke)")

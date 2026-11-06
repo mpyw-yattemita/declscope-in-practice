@@ -10,6 +10,7 @@ of that task. It commits and pushes after every run and every evaluation.
 """
 
 import argparse
+import os
 import datetime
 import subprocess
 import sys
@@ -45,7 +46,7 @@ def commit(paths, msg):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--clones", required=True)
+    ap.add_argument("--clones", default=os.environ.get("WS_CLONES", str(Path.home() / "ws-clones")), help="directory holding upstream clones")
     ap.add_argument("--tasks", default=",".join(TASKS))
     args = ap.parse_args()
     py = sys.executable

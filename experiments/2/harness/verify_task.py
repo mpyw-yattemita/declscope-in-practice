@@ -15,6 +15,7 @@ tasks/<id>/verify.json.
 """
 
 import argparse
+import os
 import json
 import shutil
 import subprocess
@@ -79,7 +80,7 @@ def same_as_upstream(task, step, clone):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", required=True)
-    ap.add_argument("--clones", required=True)
+    ap.add_argument("--clones", default=os.environ.get("WS_CLONES", str(Path.home() / "ws-clones")), help="directory holding upstream clones")
     ap.add_argument("--work", required=True)
     args = ap.parse_args()
     task_dir = (run.ROOT / args.task).resolve()
