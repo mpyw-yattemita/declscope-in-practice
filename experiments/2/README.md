@@ -50,6 +50,7 @@ python3 -I analysis/analyze.py --root runs      # 判定ルールの結果。ana
 | declscope 0.24.2 と skill | `~/ws-tools/declscope-0.24.2/` | [harness/README.md](harness/README.md) の「準備」 |
 | パッケージの地図を作るツール | `~/ws-tools/pkgmap` | `harness/pkgmap/` で `go build -o ~/ws-tools/pkgmap .` |
 | 第三者のコードを sandbox で包む hook | `~/.claude/hooks/untrusted-code-sandbox.py`、`~/.claude/hooks/nonet.sb` | [SAFETY.md](../../SAFETY.md) |
+| 課題の Go ツールチェーン | Go のモジュールキャッシュ（`golang.org/toolchain`）。課題の `go` の版（いまは 1.27.0） | `GOTOOLCHAIN=go1.27.0 go version`。ハーネスは `GOSUMDB=off` で動くので、キャッシュにないツールチェーンを取りに行けず、`go mod download` で止まる |
 | ワークスペース | `~/ws`、`~/ws-tmp`、`~/ws-archive` | ハーネスが作る |
 | 人の判定の並び順の秘密 | `analysis/human/.salt`。git に入れていない | 判定画面を作る前なら、新しく作り直し、そのハッシュで `pairs.json` の `salt_sha256` を置き換えてよい。並び順は、群や AI の結果とは関係がない |
 | 人の判定の答えを読み解く対応表 | `analysis/human/key.json`。判定画面を作るときにできる。git に入れていない | 作り直せない。判定を始めたら、バックアップしておく |
