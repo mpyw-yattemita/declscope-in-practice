@@ -1,0 +1,1073 @@
+diff --git a/hclwrite/ast_expression.go b/hclwrite/ast_expression.go
+index 57350e3..d0acf28 100644
+--- a/hclwrite/ast_expression.go
++++ b/hclwrite/ast_expression.go
+@@ -140,7 +140,7 @@ func NewExpressionAbsTraversal(traversal hcl.Traversal) *Expression {
+ // Variables returns the absolute traversals that exist within the receiving
+ // expression.
+ func (e *Expression) Variables() []*Traversal {
+-	nodes := e.absTraversals.List()
++	nodes := e.traversalNodes()
+ 	ret := make([]*Traversal, len(nodes))
+ 	for i, node := range nodes {
+ 		ret[i] = node.content.(*Traversal)
+@@ -165,7 +165,7 @@ func (e *Expression) RenameVariablePrefix(search, replacement []string) {
+ 		panic(fmt.Sprintf("search and replacement length mismatch (%d and %d)", len(search), len(replacement)))
+ 	}
+ Traversals:
+-	for node := range e.absTraversals {
++	for _, node := range e.traversalNodes() {
+ 		traversal := node.content.(*Traversal)
+ 		if len(traversal.steps) < len(search) {
+ 			// If it's shorter then it can't have our prefix
+@@ -197,6 +197,22 @@ Traversals:
+ 	}
+ }
+ 
++// traversalNodes returns the nodes of the absolute traversals within the
++// receiving expression, in source order. An object-construct expression has
++// none of its own, so it reports those of its items' keys and values.
++func (e *Expression) traversalNodes() []*node {
++	object := e.AsObjectConsExpr()
++	if object == nil {
++		return e.absTraversals.List()
++	}
++
++	var ret []*node
++	for _, itemExpr := range object.itemExpressions() {
++		ret = append(ret, itemExpr.traversalNodes()...)
++	}
++	return ret
++}
++
+ func (e *Expression) AsObjectConsExpr() *ObjectConsExpr {
+ 	if e.wrapped == nil {
+ 		return nil
+diff --git a/hclwrite/ast_expression_test.go b/hclwrite/ast_expression_test.go
+new file mode 100644
+index 0000000..0cb2c3a
+--- /dev/null
++++ b/hclwrite/ast_expression_test.go
+@@ -0,0 +1,104 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: MPL-2.0
++
++package hclwrite
++
++import (
++	"strings"
++	"testing"
++
++	"github.com/google/go-cmp/cmp"
++	"github.com/hashicorp/hcl/v2"
++	"github.com/hashicorp/hcl/v2/hclsyntax"
++)
++
++func TestExpressionVariablesObjectCons(t *testing.T) {
++	tests := map[string]struct {
++		src         string
++		wantVars    []string
++		wantRenamed string
++	}{
++		"value": {
++			src:         "a = { k = old.x }\n",
++			wantVars:    []string{"old.x"},
++			wantRenamed: "a = { k = new.x }\n",
++		},
++		"several items in source order": {
++			src:         "a = { k = old.x, j = other.y, l = old.z }\n",
++			wantVars:    []string{"old.x", "other.y", "old.z"},
++			wantRenamed: "a = { k = new.x, j = other.y, l = new.z }\n",
++		},
++		"nested object": {
++			src:         "a = { k = { j = old.x } }\n",
++			wantVars:    []string{"old.x"},
++			wantRenamed: "a = { k = { j = new.x } }\n",
++		},
++		"tuple value": {
++			src:         "a = { k = [old.x] }\n",
++			wantVars:    []string{"old.x"},
++			wantRenamed: "a = { k = [new.x] }\n",
++		},
++		"function call value": {
++			src:         "a = { k = f(old.x) }\n",
++			wantVars:    []string{"old.x"},
++			wantRenamed: "a = { k = f(new.x) }\n",
++		},
++		"naked identifier key": {
++			src:         "a = { old = 1 }\n",
++			wantVars:    nil,
++			wantRenamed: "a = { old = 1 }\n",
++		},
++		"naked identifier key with value": {
++			src:         "a = { old = old.x }\n",
++			wantVars:    []string{"old.x"},
++			wantRenamed: "a = { old = new.x }\n",
++		},
++		"parenthesized key": {
++			src:         "a = { (old.x) = 1 }\n",
++			wantVars:    []string{"old.x"},
++			wantRenamed: "a = { (new.x) = 1 }\n",
++		},
++		"parenthesized key and value": {
++			src:         "a = { (old.x) = old.y }\n",
++			wantVars:    []string{"old.x", "old.y"},
++			wantRenamed: "a = { (new.x) = new.y }\n",
++		},
++		"quoted key": {
++			src:         "a = { \"k\" = old.x }\n",
++			wantVars:    []string{"old.x"},
++			wantRenamed: "a = { \"k\" = new.x }\n",
++		},
++	}
++
++	for name, test := range tests {
++		t.Run(name, func(t *testing.T) {
++			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected diagnostics: %s", diags)
++			}
++			expr := f.Body().GetAttribute("a").Expr()
++
++			var gotVars []string
++			for _, traversal := range expr.Variables() {
++				gotVars = append(gotVars, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
++			}
++			if diff := cmp.Diff(test.wantVars, gotVars); diff != "" {
++				t.Errorf("wrong variables\n%s", diff)
++			}
++
++			nativeFile, diags := hclsyntax.ParseConfig([]byte(test.src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected hclsyntax diagnostics: %s", diags)
++			}
++			nativeExpr := nativeFile.Body.(*hclsyntax.Body).Attributes["a"].Expr
++			if got, want := len(gotVars), len(nativeExpr.Variables()); got != want {
++				t.Errorf("got %d variables, but hclsyntax reports %d", got, want)
++			}
++
++			expr.RenameVariablePrefix([]string{"old"}, []string{"new"})
++			if diff := cmp.Diff(test.wantRenamed, string(f.Bytes())); diff != "" {
++				t.Errorf("wrong result after rename\n%s", diff)
++			}
++		})
++	}
++}
+diff --git a/hclwrite/ast_object_cons_expr.go b/hclwrite/ast_object_cons_expr.go
+index 2c890cc..3bffbb1 100644
+--- a/hclwrite/ast_object_cons_expr.go
++++ b/hclwrite/ast_object_cons_expr.go
+@@ -3,8 +3,17 @@
+ 
+ package hclwrite
+ 
+-import "strings"
++import (
++	"strings"
+ 
++	"github.com/hashicorp/hcl/v2"
++	"github.com/hashicorp/hcl/v2/hclsyntax"
++	"github.com/zclconf/go-cty/cty"
++)
++
++// ObjectConsExpr is an object-construct expression, such as
++// { hat = "derby", (cat) = "calico" }. Get one from an expression with
++// Expression.AsObjectConsExpr.
+ type ObjectConsExpr struct {
+ 	inTree
+ 
+@@ -18,21 +27,215 @@ func newObjectConsExpr() *ObjectConsExpr {
+ 	}
+ }
+ 
+-func (o *ObjectConsExpr) ValueFor(key string) *ObjectConsValue {
++// Items returns the items of the object, in source order.
++func (o *ObjectConsExpr) Items() []*ObjectConsItem {
++	var ret []*ObjectConsItem
++	for _, n := range o.items.List() {
++		ret = append(ret, n.content.(*ObjectConsItem))
++	}
++	return ret
++}
++
++// ItemFor returns the first item whose key is the given string, or nil if
++// there is none.
++//
++// Only an item whose key is an identifier or a quoted string literal can be
++// found, and the two forms are equivalent: "hat" finds both hat = ... and
++// "hat" = .... A quoted key is compared after its escape sequences are
++// decoded. A key that is taken from a variable or another expression, such
++// as (hat), hat.band or "${hat}", is never found.
++func (o *ObjectConsExpr) ItemFor(key string) *ObjectConsItem {
++	for _, item := range o.Items() {
++		if name, ok := item.KeyExpr().literalName(); ok && name == key {
++			return item
++		}
++	}
++	return nil
++}
++
++// ValueExprFor returns the value of the item that ItemFor finds for the
++// given key, or nil if there is none.
++func (o *ObjectConsExpr) ValueExprFor(key string) *ObjectConsValue {
++	item := o.ItemFor(key)
++	if item == nil {
++		return nil
++	}
++	return item.ValueExpr()
++}
++
++// SetItem either replaces the value of the item that ItemFor finds for the
++// given key, leaving its key as written, or adds a new item to the end of
++// the object.
++//
++// A new key is written as an identifier when it is a valid one, and as a
++// quoted string literal otherwise. A new item follows the layout of the
++// object: on the same line after a comma in a single-line object, and on
++// its own line before the closing brace in a multi-line one.
++//
++// SetItem panics if the given expression is already part of a syntax tree,
++// since two items would then share it.
++//
++// The return values are the key and the value of the item that was either
++// modified in-place or created.
++func (o *ObjectConsExpr) SetItem(key string, expr *Expression) (*ObjectConsKeyExpr, *ObjectConsValue) {
++	if expr.inList() {
++		panic("SetItem called with an expression that is already part of a syntax tree")
++	}
++
++	item := o.ItemFor(key)
++	if item != nil {
++		value := item.ValueExpr()
++		value.expr = value.expr.ReplaceWith(expr)
++	} else {
++		item = o.appendItem(key, expr)
++	}
++	return item.KeyExpr(), item.ValueExpr()
++}
++
++// SetItemRaw is like SetItem, but uses the given tokens verbatim as the
++// value.
++//
++// The same caveats apply to this function as for NewExpressionRaw on which
++// it is based. If possible, prefer to use SetItemValue or SetItemTraversal.
++func (o *ObjectConsExpr) SetItemRaw(key string, tokens Tokens) (*ObjectConsKeyExpr, *ObjectConsValue) {
++	return o.SetItem(key, NewExpressionRaw(tokens))
++}
++
++// SetItemValue is like SetItem, but the value is given as a cty.Value, and
++// must therefore be a literal, as for NewExpressionLiteral. To set a
++// variable reference or other traversal, use SetItemTraversal.
++func (o *ObjectConsExpr) SetItemValue(key string, val cty.Value) (*ObjectConsKeyExpr, *ObjectConsValue) {
++	return o.SetItem(key, NewExpressionLiteral(val))
++}
++
++// SetItemTraversal is like SetItem, but the value is given as a
++// hcl.Traversal, which must be absolute, as for NewExpressionAbsTraversal.
++// To set a literal value, use SetItemValue.
++func (o *ObjectConsExpr) SetItemTraversal(key string, traversal hcl.Traversal) (*ObjectConsKeyExpr, *ObjectConsValue) {
++	return o.SetItem(key, NewExpressionAbsTraversal(traversal))
++}
++
++// itemExpressions returns the key and value expressions of each item, in
++// source order.
++//
++//declscope:shared // ast_expression.go finds the traversals in them
++func (o *ObjectConsExpr) itemExpressions() []*Expression {
++	var ret []*Expression
+ 	for _, n := range o.items.List() {
+-		if item, ok := n.content.(*ObjectConsItem); ok {
+-			k := item.key.content.(*ObjectConsKeyExpr)
++		item := n.content.(*ObjectConsItem)
++		key := item.key.content.(*ObjectConsKeyExpr)
++		ret = append(ret, key.wrapped.content.(*Expression), item.value.content.(*ObjectConsValue).Expr())
++	}
++	return ret
++}
++
++// appendItem adds a new item with the given key and value after the last
++// item of the object, laid out as the object already is.
++//
++// The tokens after the last item are split in two. A comma or a line comment
++// that follows the last item on its line stays with that item. The rest,
++// which ends with the closing brace, stays after the new item.
++func (o *ObjectConsExpr) appendItem(key string, expr *Expression) *ObjectConsItem {
++	rest := o.detachTrailingTokens()
++	multiLine := o.hasLineBreak(rest)
++
++	cut, lineEnded, hasComma := 0, false, false
++	for i, tok := range rest {
++		if tokenIsNewline(tok) {
++			cut, lineEnded = i+1, true
++			break
++		}
++		if tok.Type == hclsyntax.TokenComma {
++			// Keep a trailing comma with the last item, and anything after
++			// it on the line, such as an inline comment, with the closing
++			// brace.
++			cut, hasComma = i+1, true
++		}
++	}
++	head, tail := rest[:cut], append(Tokens(nil), rest[cut:]...)
++
++	var lead Tokens
++	switch {
++	case multiLine && !lineEnded:
++		// The closing brace shares a line with the last item, so the new
++		// item starts a line of its own.
++		lead = Tokens{{Type: hclsyntax.TokenNewline, Bytes: []byte{'\n'}}}
++	case !multiLine && len(o.items) > 0 && !hasComma:
++		lead = Tokens{{Type: hclsyntax.TokenComma, Bytes: []byte{','}}}
++	}
++	if multiLine {
++		tail = append(Tokens{{Type: hclsyntax.TokenNewline, Bytes: []byte{'\n'}}}, tail...)
++	} else if len(tail) > 0 && tail[0].SpacesBefore == 0 {
++		spaced := *tail[0]
++		spaced.SpacesBefore = 1
++		tail[0] = &spaced
++	}
+ 
+-			maybeKey := k.String()
+-			if maybeKey == key {
+-				return item.value.content.(*ObjectConsValue)
++	item := newObjectConsItem()
++	item.init(key, expr, lead)
++
++	o.children.AppendUnstructuredTokens(head)
++	o.items.Add(o.children.Append(item))
++	o.children.AppendUnstructuredTokens(tail)
++	return item
++}
++
++// detachTrailingTokens removes and returns the tokens after the last item,
++// or after the opening brace if the object has no items.
++func (o *ObjectConsExpr) detachTrailingTokens() Tokens {
++	var trailing []*node
++	o.walkChildNodes(func(n *node) {
++		if _, ok := n.content.(Tokens); ok {
++			trailing = append(trailing, n)
++		} else {
++			trailing = nil
++		}
++	})
++
++	var rest Tokens
++	for _, n := range trailing {
++		rest = append(rest, n.content.(Tokens)...)
++		n.Detach()
++	}
++
++	if len(o.items) == 0 {
++		for i, tok := range rest {
++			if tok.Type == hclsyntax.TokenOBrace {
++				o.children.AppendUnstructuredTokens(rest[:i+1])
++				return rest[i+1:]
+ 			}
+ 		}
+ 	}
++	return rest
++}
+ 
+-	return nil
++// hasLineBreak reports whether the object is written on several lines. Only
++// the tokens between its items count, along with the given tokens that were
++// detached from it, and not those inside an item's key or value.
++func (o *ObjectConsExpr) hasLineBreak(detached Tokens) bool {
++	layout := append(Tokens(nil), detached...)
++	o.walkChildNodes(func(n *node) {
++		switch c := n.content.(type) {
++		case Tokens:
++			layout = append(layout, c...)
++		case *ObjectConsItem:
++			c.walkChildNodes(func(in *node) {
++				if toks, ok := in.content.(Tokens); ok {
++					layout = append(layout, toks...)
++				}
++			})
++		}
++	})
++	for _, tok := range layout {
++		if tokenIsNewline(tok) {
++			return true
++		}
++	}
++	return false
+ }
+ 
++// ObjectConsItem is one item of an object-construct expression: a key and
++// its value.
+ type ObjectConsItem struct {
+ 	inTree
+ 	key   *node
+@@ -45,6 +248,49 @@ func newObjectConsItem() *ObjectConsItem {
+ 	}
+ }
+ 
++// KeyExpr returns the key of the item.
++func (item *ObjectConsItem) KeyExpr() *ObjectConsKeyExpr {
++	return item.key.content.(*ObjectConsKeyExpr)
++}
++
++// ValueExpr returns the value of the item.
++func (item *ObjectConsItem) ValueExpr() *ObjectConsValue {
++	return item.value.content.(*ObjectConsValue)
++}
++
++// init fills a new item with the given key and value, after the given tokens
++// that separate it from what comes before it.
++//
++// The key is written as an identifier if it is a valid one, and as a quoted
++// string literal otherwise, escaped so that it evaluates back to the key.
++// The identifier for is quoted too, since an object that starts with it
++// would be read as a for expression.
++func (item *ObjectConsItem) init(key string, expr *Expression, lead Tokens) {
++	var keyTokens Tokens
++	if hclsyntax.ValidIdentifier(key) && key != "for" {
++		keyTokens = TokensForIdentifier(key)
++	} else {
++		keyTokens = TokensForValue(cty.StringVal(key))
++	}
++	keyTokens[0].SpacesBefore = 1
++
++	item.children.AppendUnstructuredTokens(lead)
++	item.key = item.children.Append(newObjectConsKeyExpr(newNode(NewExpressionRaw(keyTokens))))
++	item.children.AppendUnstructuredTokens(Tokens{
++		{
++			Type:         hclsyntax.TokenEqual,
++			Bytes:        []byte{'='},
++			SpacesBefore: 1,
++		},
++	})
++	value := newObjectConsValue()
++	value.expr = value.children.Append(expr)
++	item.value = item.children.Append(value)
++}
++
++// ObjectConsKeyExpr is the key of an item of an object-construct
++// expression. It is an identifier, a quoted string, or another expression
++// whose value is the key.
+ type ObjectConsKeyExpr struct {
+ 	inTree
+ 
+@@ -61,24 +307,35 @@ func newObjectConsKeyExpr(wrapped *node) *ObjectConsKeyExpr {
+ 	return expr
+ }
+ 
+-func (k *ObjectConsKeyExpr) String() string {
+-	if k.wrapped == nil {
+-		return ""
++// literalName returns the key as a string, if it is an identifier or a
++// quoted string literal. A quoted key has its escape sequences decoded.
++func (k *ObjectConsKeyExpr) literalName() (string, bool) {
++	toks := k.wrapped.BuildTokens(nil)
++	if len(toks) == 1 && toks[0].Type == hclsyntax.TokenIdent {
++		return string(toks[0].Bytes), true
+ 	}
+ 
+-	if t, ok := k.wrapped.content.(*Traversal); ok && len(t.steps.List()) > 0 {
+-		var b strings.Builder
+-		tok := t.steps.List()[0].BuildTokens(nil)
+-
+-		//nolint:errcheck // strings.Builder returns no error
+-		tok.WriteTo(&b)
+-
+-		return b.String()
++	last := len(toks) - 1
++	if last < 1 || toks[0].Type != hclsyntax.TokenOQuote || toks[last].Type != hclsyntax.TokenCQuote {
++		return "", false
+ 	}
+-
+-	return ""
++	var b strings.Builder
++	for _, tok := range toks[1:last] {
++		if tok.Type != hclsyntax.TokenQuotedLit {
++			// A template interpolation or directive.
++			return "", false
++		}
++		s, diags := hclsyntax.ParseStringLiteralToken(hclsyntax.Token{Type: tok.Type, Bytes: tok.Bytes})
++		if diags.HasErrors() {
++			return "", false
++		}
++		b.WriteString(s)
++	}
++	return b.String(), true
+ }
+ 
++// ObjectConsValue is the value of an item of an object-construct
++// expression.
+ type ObjectConsValue struct {
+ 	inTree
+ 	expr *node
+@@ -90,6 +347,7 @@ func newObjectConsValue() *ObjectConsValue {
+ 	}
+ }
+ 
++// Expr returns the expression of the value.
+ func (o *ObjectConsValue) Expr() *Expression {
+ 	return o.expr.content.(*Expression)
+ }
+diff --git a/hclwrite/ast_object_cons_expr_test.go b/hclwrite/ast_object_cons_expr_test.go
+new file mode 100644
+index 0000000..3c794d2
+--- /dev/null
++++ b/hclwrite/ast_object_cons_expr_test.go
+@@ -0,0 +1,439 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: MPL-2.0
++
++//declscope:namespace objectConsExpr
++package hclwrite
++
++import (
++	"strings"
++	"testing"
++
++	"github.com/hashicorp/hcl/v2"
++	"github.com/hashicorp/hcl/v2/hclsyntax"
++	"github.com/zclconf/go-cty/cty"
++)
++
++func TestObjectConsExprItemFor(t *testing.T) {
++	tests := map[string]struct {
++		src       string
++		key       string
++		wantValue string // the value's source, or "" for no match
++	}{
++		"identifier":                    {`a = { hat = 1 }`, "hat", "1"},
++		"quoted":                        {`a = { "hat" = 1 }`, "hat", "1"},
++		"quoted with escaped template":  {`a = { "$${hat}" = 1 }`, "${hat}", "1"},
++		"quoted with escaped directive": {`a = { "%%{hat}" = 1 }`, "%{hat}", "1"},
++		"quoted with space":             {`a = { "a hat" = 1 }`, "a hat", "1"},
++		"quoted with escapes":           {`a = { "say \"hi\"\\" = 1 }`, `say "hi"\`, "1"},
++		"quoted empty":                  {`a = { "" = 1 }`, "", "1"},
++		"colon":                         {`a = { hat: 1 }`, "hat", "1"},
++		"second item":                   {`a = { cat = 1, hat = 2 }`, "hat", "2"},
++		"first of duplicates":           {`a = { hat = 1, "hat" = 2 }`, "hat", "1"},
++		"other key":                     {`a = { cat = 1 }`, "hat", ""},
++		"empty object":                  {`a = {}`, "hat", ""},
++		"parenthesized variable":        {`a = { (hat) = 1 }`, "hat", ""},
++		"traversal":                     {`a = { hat.band = 1 }`, "hat.band", ""},
++		"template":                      {`a = { "${hat}" = 1 }`, "hat", ""},
++		"template matched literally":    {`a = { "${hat}" = 1 }`, "${hat}", ""},
++		"escaped template not decoded":  {`a = { "$${hat}" = 1 }`, "$${hat}", ""},
++	}
++
++	for name, test := range tests {
++		t.Run(name, func(t *testing.T) {
++			obj := parseObjectConsExprForTest(t, test.src+"\n")
++
++			item := obj.ItemFor(test.key)
++			value := obj.ValueExprFor(test.key)
++			if test.wantValue == "" {
++				if item != nil || value != nil {
++					t.Fatalf("found an item for %q, want none", test.key)
++				}
++				return
++			}
++			if item == nil || value == nil {
++				t.Fatalf("found no item for %q", test.key)
++			}
++			if value != item.ValueExpr() {
++				t.Errorf("ValueExprFor and ItemFor disagree")
++			}
++			got := strings.TrimSpace(string(value.Expr().BuildTokens(nil).Bytes()))
++			if got != test.wantValue {
++				t.Errorf("wrong value\ngot:  %s\nwant: %s", got, test.wantValue)
++			}
++		})
++	}
++}
++
++func TestObjectConsExprItems(t *testing.T) {
++	obj := parseObjectConsExprForTest(t, "a = { hat = 1, (cat) = 2, \"dog\" = 3 }\n")
++
++	var got []string
++	for _, item := range obj.Items() {
++		got = append(got, strings.TrimSpace(string(item.KeyExpr().BuildTokens(nil).Bytes())))
++	}
++	want := []string{"hat", "(cat)", `"dog"`}
++	if strings.Join(got, " ") != strings.Join(want, " ") {
++		t.Errorf("wrong keys\ngot:  %q\nwant: %q", got, want)
++	}
++}
++
++func TestObjectConsExprSetItemKey(t *testing.T) {
++	tests := map[string]struct {
++		key  string
++		want string
++	}{
++		"identifier":       {"dog", `dog`},
++		"identifier dash":  {"dog-1", `dog-1`},
++		"space":            {"a hat", `"a hat"`},
++		"traversal":        {"hat.band", `"hat.band"`},
++		"leading digit":    {"1hat", `"1hat"`},
++		"quotes":           {`say "hi"`, `"say \"hi\""`},
++		"backslash":        {`a\b`, `"a\\b"`},
++		"template":         {"${hat}", `"$${hat}"`},
++		"directive":        {"%{hat}", `"%%{hat}"`},
++		"lone dollar":      {"$hat", `"$hat"`},
++		"empty":            {"", `""`},
++		"newline":          {"a\nb", `"a\nb"`},
++		"for keyword":      {"for", `"for"`},
++		"unicode":          {"日本", `日本`},
++		"unicode with gap": {"日 本", `"日 本"`},
++	}
++
++	for name, test := range tests {
++		t.Run(name, func(t *testing.T) {
++			f, obj := parseFileObjectConsExprForTest(t, "a = {}\n")
++
++			key, _ := obj.SetItemValue(test.key, cty.True)
++			got := strings.TrimSpace(string(key.BuildTokens(nil).Bytes()))
++			if got != test.want {
++				t.Errorf("wrong key\ngot:  %s\nwant: %s", got, test.want)
++			}
++			if obj.ItemFor(test.key) == nil {
++				t.Errorf("ItemFor(%q) does not find the key just set", test.key)
++			}
++
++			// The key must evaluate back to the original string.
++			src := f.Bytes()
++			native, diags := hclsyntax.ParseConfig(src, "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("result is not valid HCL: %s\n%s", diags, src)
++			}
++			attrs, _ := native.Body.JustAttributes()
++			val, diags := attrs["a"].Expr.Value(nil)
++			if diags.HasErrors() {
++				t.Fatalf("result does not evaluate: %s\n%s", diags, src)
++			}
++			if !val.Type().IsObjectType() || !val.Type().HasAttribute(test.key) {
++				t.Errorf("result has no key %q: %#v\n%s", test.key, val, src)
++			}
++			assertObjectConsExprFormatted(t, src)
++		})
++	}
++}
++
++func TestObjectConsExprSetItemReplaces(t *testing.T) {
++	tests := map[string]struct {
++		src  string
++		key  string
++		want string
++	}{
++		"identifier": {
++			"a = { hat = \"derby\", cat = \"calico\" }\n",
++			"hat",
++			"a = { hat = \"bowler\", cat = \"calico\" }\n",
++		},
++		"quoted key stays quoted": {
++			"a = { \"hat\" = \"derby\" }\n",
++			"hat",
++			"a = { \"hat\" = \"bowler\" }\n",
++		},
++		"escaped key stays as written": {
++			"a = { \"$${hat}\" = \"derby\" }\n",
++			"${hat}",
++			"a = { \"$${hat}\" = \"bowler\" }\n",
++		},
++		"multi-line value": {
++			"a = {\n  hat = {\n    b = 1\n  }\n  cat = 2\n}\n",
++			"hat",
++			"a = {\n  hat = \"bowler\"\n  cat = 2\n}\n",
++		},
++		"variable key is not replaced": {
++			"a = { (hat) = \"derby\" }\n",
++			"hat",
++			"a = { (hat) = \"derby\", hat = \"bowler\" }\n",
++		},
++	}
++
++	for name, test := range tests {
++		t.Run(name, func(t *testing.T) {
++			f, obj := parseFileObjectConsExprForTest(t, test.src)
++			before := len(obj.Items())
++
++			_, value := obj.SetItemValue(test.key, cty.StringVal("bowler"))
++			if value != obj.ValueExprFor(test.key) {
++				t.Errorf("SetItemValue did not return the value that ValueExprFor finds")
++			}
++			got := string(f.Bytes())
++			if got != test.want {
++				t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, test.want)
++			}
++			if !strings.Contains(name, "not replaced") && len(obj.Items()) != before {
++				t.Errorf("item count changed from %d to %d", before, len(obj.Items()))
++			}
++			assertObjectConsExprFormatted(t, f.Bytes())
++		})
++	}
++}
++
++func TestObjectConsExprSetItemLayout(t *testing.T) {
++	tests := map[string]struct {
++		src  string
++		keys []string
++		want string
++	}{
++		"single line": {
++			src:  "a = { hat = \"derby\" }\n",
++			keys: []string{"dog"},
++			want: "a = { hat = \"derby\", dog = \"bowler\" }\n",
++		},
++		"empty": {
++			src:  "a = {}\n",
++			keys: []string{"dog"},
++			want: "a = { dog = \"bowler\" }\n",
++		},
++		"empty, two items": {
++			src:  "a = {}\n",
++			keys: []string{"dog", "cat"},
++			want: "a = { dog = \"bowler\", cat = \"bowler\" }\n",
++		},
++		"single line, two items": {
++			src:  "a = { hat = \"derby\" }\n",
++			keys: []string{"dog", "cat"},
++			want: "a = { hat = \"derby\", dog = \"bowler\", cat = \"bowler\" }\n",
++		},
++		"single line, trailing comma": {
++			src:  "a = { hat = \"derby\", }\n",
++			keys: []string{"dog"},
++			want: "a = { hat = \"derby\", dog = \"bowler\" }\n",
++		},
++		"single line, inline comment before brace": {
++			src:  "a = { hat = \"derby\" /* end of a */ }\n",
++			keys: []string{"dog"},
++			want: "a = { hat = \"derby\", dog = \"bowler\" /* end of a */ }\n",
++		},
++		"single line, comma and inline comment before brace": {
++			src:  "a = { hat = \"derby\", /* end of a */ }\n",
++			keys: []string{"dog"},
++			want: "a = { hat = \"derby\", dog = \"bowler\" /* end of a */ }\n",
++		},
++		"single line, line comment after object": {
++			src:  "a = { hat = \"derby\" } # about a\n",
++			keys: []string{"dog"},
++			want: "a = { hat = \"derby\", dog = \"bowler\" } # about a\n",
++		},
++		"single line, multi-line value": {
++			src:  "a = { hat = {\n  b = 1\n} }\n",
++			keys: []string{"dog"},
++			want: "a = { hat = {\n  b = 1\n}, dog = \"bowler\" }\n",
++		},
++		"multi-line": {
++			src:  "a = {\n  hat = \"derby\"\n}\n",
++			keys: []string{"dog"},
++			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n}\n",
++		},
++		"multi-line, two items": {
++			src:  "a = {\n  hat = \"derby\"\n}\n",
++			keys: []string{"dog", "cat"},
++			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n  cat = \"bowler\"\n}\n",
++		},
++		"multi-line empty": {
++			src:  "a = {\n}\n",
++			keys: []string{"dog"},
++			want: "a = {\n  dog = \"bowler\"\n}\n",
++		},
++		"multi-line, commas": {
++			src:  "a = {\n  hat = \"derby\",\n}\n",
++			keys: []string{"dog"},
++			want: "a = {\n  hat = \"derby\",\n  dog = \"bowler\"\n}\n",
++		},
++		"multi-line, brace on last line": {
++			src:  "a = {\n  hat = \"derby\", cat = \"calico\" }\n",
++			keys: []string{"dog"},
++			want: "a = {\n  hat = \"derby\", cat = \"calico\"\n  dog = \"bowler\"\n}\n",
++		},
++		"multi-line, brace on last line, two items": {
++			src:  "a = {\n  hat = \"derby\" }\n",
++			keys: []string{"dog", "cat"},
++			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n  cat = \"bowler\"\n}\n",
++		},
++		"multi-line, brace on last line after comma": {
++			src:  "a = {\n  hat = \"derby\", }\n",
++			keys: []string{"dog"},
++			want: "a = {\n  hat = \"derby\",\n  dog = \"bowler\"\n}\n",
++		},
++		"multi-line, inline comment before brace": {
++			src:  "a = {\n  hat = \"derby\" /* end of a */ }\n",
++			keys: []string{"dog"},
++			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n/* end of a */ }\n",
++		},
++		"multi-line, line comment after last item": {
++			src:  "a = {\n  hat = \"derby\" # a hat\n}\n",
++			keys: []string{"dog"},
++			want: "a = {\n  hat = \"derby\" # a hat\n  dog = \"bowler\"\n}\n",
++		},
++		"multi-line, comma and line comment after last item": {
++			src:  "a = {\n  hat = \"derby\", # a hat\n}\n",
++			keys: []string{"dog"},
++			want: "a = {\n  hat = \"derby\", # a hat\n  dog = \"bowler\"\n}\n",
++		},
++		"multi-line, comments before brace": {
++			src:  "a = {\n  hat = \"derby\"\n\n  # more to come\n  // and more\n}\n",
++			keys: []string{"dog"},
++			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n\n  # more to come\n  // and more\n}\n",
++		},
++		"multi-line empty, comment": {
++			src:  "a = { # nothing yet\n}\n",
++			keys: []string{"dog"},
++			want: "a = { # nothing yet\n  dog = \"bowler\"\n}\n",
++		},
++		"multi-line, nested in block": {
++			src:  "b {\n  a = {\n    hat = \"derby\"\n  }\n}\n",
++			keys: []string{"dog"},
++			want: "b {\n  a = {\n    hat = \"derby\"\n    dog = \"bowler\"\n  }\n}\n",
++		},
++	}
++
++	for name, test := range tests {
++		t.Run(name, func(t *testing.T) {
++			f, obj := parseFileObjectConsExprForTest(t, test.src)
++
++			for _, key := range test.keys {
++				gotKey, gotValue := obj.SetItemValue(key, cty.StringVal("bowler"))
++				item := obj.ItemFor(key)
++				if item == nil {
++					t.Fatalf("ItemFor(%q) does not find the new item", key)
++				}
++				if gotKey != item.KeyExpr() || gotValue != item.ValueExpr() {
++					t.Errorf("SetItemValue(%q) did not return the new item's key and value", key)
++				}
++			}
++
++			got := string(f.Bytes())
++			if got != test.want {
++				t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, test.want)
++			}
++			if _, diags := hclsyntax.ParseConfig(f.Bytes(), "", hcl.InitialPos); diags.HasErrors() {
++				t.Errorf("result is not valid HCL: %s", diags)
++			}
++			assertObjectConsExprFormatted(t, f.Bytes())
++		})
++	}
++}
++
++func TestObjectConsExprSetItemHelpers(t *testing.T) {
++	f, obj := parseFileObjectConsExprForTest(t, "a = {}\n")
++
++	obj.SetItemRaw("raw", Tokens{{Type: hclsyntax.TokenIdent, Bytes: []byte("whatever")}})
++	obj.SetItemValue("value", cty.NumberIntVal(1))
++	obj.SetItemTraversal("traversal", hcl.Traversal{
++		hcl.TraverseRoot{Name: "var"},
++		hcl.TraverseAttr{Name: "hat"},
++	})
++	obj.SetItem("expr", NewExpressionLiteral(cty.StringVal("derby")))
++
++	want := "a = { raw = whatever, value = 1, traversal = var.hat, expr = \"derby\" }\n"
++	if got := string(f.Bytes()); got != want {
++		t.Errorf("wrong result\ngot:  %s\nwant: %s", got, want)
++	}
++
++	vars := obj.ValueExprFor("traversal").Expr().Variables()
++	if len(vars) != 1 || strings.TrimSpace(string(vars[0].BuildTokens(nil).Bytes())) != "var.hat" {
++		t.Errorf("wrong variables in the traversal value: %#v", vars)
++	}
++}
++
++func TestObjectConsExprSetItemPanics(t *testing.T) {
++	t.Run("expression attached by the parser", func(t *testing.T) {
++		f, obj := parseFileObjectConsExprForTest(t, "a = { hat = \"derby\" }\nb = c.d\n")
++		expr := f.Body().GetAttribute("b").Expr()
++		assertObjectConsExprPanics(t, func() { obj.SetItem("dog", expr) })
++	})
++	t.Run("item value attached by the parser", func(t *testing.T) {
++		_, obj := parseFileObjectConsExprForTest(t, "a = { hat = c.d }\n")
++		expr := obj.ValueExprFor("hat").Expr()
++		assertObjectConsExprPanics(t, func() { obj.SetItem("dog", expr) })
++	})
++	t.Run("expression attached by SetItem", func(t *testing.T) {
++		_, obj := parseFileObjectConsExprForTest(t, "a = {}\n")
++		expr := NewExpressionAbsTraversal(hcl.Traversal{hcl.TraverseRoot{Name: "c"}})
++		obj.SetItem("hat", expr)
++		assertObjectConsExprPanics(t, func() { obj.SetItem("dog", expr) })
++		assertObjectConsExprPanics(t, func() { obj.SetItem("hat", expr) })
++	})
++	t.Run("replaced expression may be reused", func(t *testing.T) {
++		_, obj := parseFileObjectConsExprForTest(t, "a = {}\n")
++		expr := NewExpressionAbsTraversal(hcl.Traversal{hcl.TraverseRoot{Name: "c"}})
++		obj.SetItem("hat", expr)
++		obj.SetItemValue("hat", cty.True)
++		obj.SetItem("dog", expr)
++	})
++}
++
++// TestObjectConsExprSetItemExample checks the example from the API's
++// proposal: the key is kept as written and the value is replaced.
++func TestObjectConsExprSetItemExample(t *testing.T) {
++	f, obj := parseFileObjectConsExprForTest(t, "a = {\n    hat = \"derby\", (cat) = \"calico\" }\n")
++
++	key, value := obj.SetItemRaw("hat", TokensForValue(cty.StringVal("bowler")))
++	if got := strings.TrimSpace(string(key.BuildTokens(nil).Bytes())); got != "hat" {
++		t.Errorf("wrong key: %s", got)
++	}
++	if got := strings.TrimSpace(string(value.BuildTokens(nil).Bytes())); got != `"bowler"` {
++		t.Errorf("wrong value: %s", got)
++	}
++	want := "a = {\nhat = \"bowler\", (cat) = \"calico\" }\n"
++	if got := string(f.Bytes()); got != want {
++		t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, want)
++	}
++}
++
++func parseFileObjectConsExprForTest(t *testing.T, src string) (*File, *ObjectConsExpr) {
++	t.Helper()
++	f, diags := ParseConfig([]byte(src), "", hcl.InitialPos)
++	if diags.HasErrors() {
++		t.Fatalf("invalid source: %s", diags)
++	}
++	body := f.Body()
++	if blocks := body.Blocks(); len(blocks) > 0 {
++		body = blocks[0].Body()
++	}
++	obj := body.GetAttribute("a").Expr().AsObjectConsExpr()
++	if obj == nil {
++		t.Fatalf("a is not an object-construct expression")
++	}
++	return f, obj
++}
++
++func parseObjectConsExprForTest(t *testing.T, src string) *ObjectConsExpr {
++	t.Helper()
++	_, obj := parseFileObjectConsExprForTest(t, src)
++	return obj
++}
++
++func assertObjectConsExprFormatted(t *testing.T, src []byte) {
++	t.Helper()
++	if formatted := Format(src); string(formatted) != string(src) {
++		t.Errorf("result is not in canonical form\ngot:\n%s\nformatted:\n%s", src, formatted)
++	}
++}
++
++func assertObjectConsExprPanics(t *testing.T, f func()) {
++	t.Helper()
++	defer func() {
++		t.Helper()
++		if recover() == nil {
++			t.Errorf("did not panic")
++		}
++	}()
++	f()
++}
+diff --git a/hclwrite/format.go b/hclwrite/format.go
+index a9d8029..9e56b4e 100644
+--- a/hclwrite/format.go
++++ b/hclwrite/format.go
+@@ -428,6 +428,7 @@ func linesForFormat(tokens Tokens) []formatLine {
+ 	return lines
+ }
+ 
++//declscope:shared // ast_object_cons_expr.go finds the line breaks of an object
+ func tokenIsNewline(tok *Token) bool {
+ 	switch tok.Type {
+ 	case hclsyntax.TokenNewline:
+diff --git a/hclwrite/node.go b/hclwrite/node.go
+index 2bb0149..5339890 100644
+--- a/hclwrite/node.go
++++ b/hclwrite/node.go
+@@ -18,9 +18,13 @@ type node struct {
+ }
+ 
+ func newNode(c nodeContent) *node {
+-	return &node{
++	n := &node{
+ 		content: c,
+ 	}
++	if h, ok := c.(interface{ setHolder(*node) }); ok {
++		h.setHolder(n)
++	}
++	return n
+ }
+ 
+ func (n *node) Equal(other *node) bool {
+@@ -80,6 +84,12 @@ func (n *node) ReplaceWith(c nodeContent) *node {
+ 	if after != nil {
+ 		after.before = nn
+ 	}
++	if list.first == n {
++		list.first = nn
++	}
++	if list.last == n {
++		list.last = nn
++	}
+ 	return nn
+ }
+ 
+@@ -113,9 +123,7 @@ func (ns *nodes) Clear() {
+ }
+ 
+ func (ns *nodes) Append(c nodeContent) *node {
+-	n := &node{
+-		content: c,
+-	}
++	n := newNode(c)
+ 	ns.AppendNode(n)
+ 	n.list = ns
+ 	return n
+@@ -136,9 +144,7 @@ func (ns *nodes) AppendNode(n *node) {
+ // Insert inserts a nodeContent at a given position.
+ // This is just a wrapper for InsertNode. See InsertNode for details.
+ func (ns *nodes) Insert(pos *node, c nodeContent) *node {
+-	n := &node{
+-		content: c,
+-	}
++	n := newNode(c)
+ 	ns.InsertNode(pos, n)
+ 	n.list = ns
+ 	return n
+@@ -263,6 +269,9 @@ type internalWalkFunc func(*node)
+ type inTree struct {
+ 	parent   *node
+ 	children *nodes
++
++	// holder is the node that most recently took this content, if any.
++	holder *node
+ }
+ 
+ func newInTree() inTree {
+@@ -277,6 +286,15 @@ func (it *inTree) assertUnattached() {
+ 	}
+ }
+ 
++// inList reports whether the content is held by a node that is part of a
++// list, and so part of a syntax tree.
++//
++//declscope:shared // ast_object_cons_expr.go refuses to attach an expression twice
++func (it *inTree) inList() bool {
++	return it.holder != nil && it.holder.list != nil
++}
++
++//declscope:shared // ast_object_cons_expr.go walks the layout of an object
+ func (it *inTree) walkChildNodes(w internalWalkFunc) {
+ 	for n := it.children.first; n != nil; n = n.after {
+ 		w(n)
+@@ -290,6 +308,11 @@ func (it *inTree) BuildTokens(to Tokens) Tokens {
+ 	return to
+ }
+ 
++// setHolder records the node that holds the content.
++func (it *inTree) setHolder(n *node) {
++	it.holder = n
++}
++
+ // leafNode can be embedded into a content struct to give it a do-nothing
+ // implementation of walkChildNodes
+ type leafNode struct {
+diff --git a/hclwrite/parser.go b/hclwrite/parser.go
+index 64eb034..6b01164 100644
+--- a/hclwrite/parser.go
++++ b/hclwrite/parser.go
+@@ -467,6 +467,11 @@ func parseObjectConsExpr(nativeExpr *hclsyntax.ObjectConsExpr, from inputTokens)
+ // literal is functionally equivalent to an Identifier.
+ func parseObjectConsKeyExpr(nativeExpr *hclsyntax.ObjectConsKeyExpr, from inputTokens) *node {
+ 	expr := parseExpression(nativeExpr.Wrapped, from)
++	if len(nativeExpr.Variables()) == 0 {
++		// A naked identifier is a literal name, not a variable, so its
++		// traversal must not be reported or renamed.
++		expr.content.(*Expression).absTraversals.Clear()
++	}
+ 	wrapExpr := newObjectConsKeyExpr(expr)
+ 
+ 	return newNode(wrapExpr)
