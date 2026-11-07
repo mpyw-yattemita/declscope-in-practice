@@ -1,0 +1,1490 @@
+diff --git a/README.md b/README.md
+index ae4d362..c06142b 100644
+--- a/README.md
++++ b/README.md
+@@ -449,21 +449,21 @@ The following sets of tools are available (all are on by default):
+   - `repo`: Repository name (string, required)
+ 
+ - **get_discussion_comments** - Get discussion comments
++  - `after`: Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs. (string, optional)
+   - `discussionNumber`: Discussion Number (number, required)
+   - `owner`: Repository owner (string, required)
++  - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_discussion_categories** - List discussion categories
+-  - `after`: Cursor for pagination, use the 'after' field from the previous response (string, optional)
+-  - `before`: Cursor for pagination, use the 'before' field from the previous response (string, optional)
+-  - `first`: Number of categories to return per page (min 1, max 100) (number, optional)
+-  - `last`: Number of categories to return from the end (min 1, max 100) (number, optional)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_discussions** - List discussions
++  - `after`: Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs. (string, optional)
+   - `category`: Optional filter by discussion category ID. If provided, only discussions with this category are listed. (string, optional)
+   - `owner`: Repository owner (string, required)
++  - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ </details>
+diff --git a/pkg/github/actions.go b/pkg/github/actions.go
+index 3c441d5..19b5638 100644
+--- a/pkg/github/actions.go
++++ b/pkg/github/actions.go
+@@ -62,8 +62,8 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc)
+ 
+ 			// Set up list options
+ 			opts := &github.ListOptions{
+-				PerPage: pagination.perPage,
+-				Page:    pagination.page,
++				PerPage: pagination.PerPage,
++				Page:    pagination.Page,
+ 			}
+ 
+ 			workflows, resp, err := client.Actions.ListWorkflows(ctx, owner, repo, opts)
+@@ -200,8 +200,8 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
+ 				Event:  event,
+ 				Status: status,
+ 				ListOptions: github.ListOptions{
+-					PerPage: pagination.perPage,
+-					Page:    pagination.page,
++					PerPage: pagination.PerPage,
++					Page:    pagination.Page,
+ 				},
+ 			}
+ 
+@@ -503,8 +503,8 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
+ 			opts := &github.ListWorkflowJobsOptions{
+ 				Filter: filter,
+ 				ListOptions: github.ListOptions{
+-					PerPage: pagination.perPage,
+-					Page:    pagination.page,
++					PerPage: pagination.PerPage,
++					Page:    pagination.Page,
+ 				},
+ 			}
+ 
+@@ -1025,8 +1025,8 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
+ 
+ 			// Set up list options
+ 			opts := &github.ListOptions{
+-				PerPage: pagination.perPage,
+-				Page:    pagination.page,
++				PerPage: pagination.PerPage,
++				Page:    pagination.Page,
+ 			}
+ 
+ 			artifacts, resp, err := client.Actions.ListWorkflowRunArtifacts(ctx, owner, repo, runID, opts)
+diff --git a/pkg/github/discussions.go b/pkg/github/discussions.go
+index 23e2724..b629c4a 100644
+--- a/pkg/github/discussions.go
++++ b/pkg/github/discussions.go
+@@ -13,6 +13,56 @@ import (
+ 	"github.com/shurcooL/githubv4"
+ )
+ 
++// discussionNode is a single discussion as returned by the list_discussions queries.
++type discussionNode struct {
++	Number    githubv4.Int
++	Title     githubv4.String
++	CreatedAt githubv4.DateTime
++	Category  struct {
++		Name githubv4.String
++	} `graphql:"category"`
++	URL githubv4.String `graphql:"url"`
++}
++
++// pageInfoFragment is the PageInfo of a GraphQL connection.
++// https://docs.github.com/en/graphql/reference/objects#pageinfo
++type pageInfoFragment struct {
++	HasNextPage     githubv4.Boolean
++	HasPreviousPage githubv4.Boolean
++	StartCursor     githubv4.String
++	EndCursor       githubv4.String
++}
++
++// paginatedResult builds the response object of a paginated tool: the items
++// under itemsKey, plus the pageInfo and totalCount of the connection.
++func paginatedResult(itemsKey string, items any, pageInfo pageInfoFragment, totalCount githubv4.Int) map[string]any {
++	return map[string]any{
++		itemsKey: items,
++		"pageInfo": map[string]any{
++			"hasNextPage":     bool(pageInfo.HasNextPage),
++			"hasPreviousPage": bool(pageInfo.HasPreviousPage),
++			"startCursor":     string(pageInfo.StartCursor),
++			"endCursor":       string(pageInfo.EndCursor),
++		},
++		"totalCount": int(totalCount),
++	}
++}
++
++// graphQLPaginationVars converts the cursor pagination parameters of a request
++// to the "first" and "after" GraphQL variables. "after" is a typed nil when no
++// cursor is given, so that it is declared as a nullable String and sent as null.
++func graphQLPaginationVars(pagination CursorPaginationParams) (githubv4.Int, *githubv4.String, error) {
++	gqlParams, err := pagination.ToGraphQLParams()
++	if err != nil {
++		return 0, nil, err
++	}
++	var after *githubv4.String
++	if gqlParams.After != nil {
++		after = githubv4.NewString(githubv4.String(*gqlParams.After))
++	}
++	return githubv4.Int(*gqlParams.First), after, nil
++}
++
+ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("list_discussions",
+ 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
+@@ -31,6 +81,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
+ 			mcp.WithString("category",
+ 				mcp.Description("Optional filter by discussion category ID. If provided, only discussions with this category are listed."),
+ 			),
++			WithCursorPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			// Required params
+@@ -49,101 +100,83 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
++			pagination, err := OptionalCursorPaginationParams(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			first, after, err := graphQLPaginationVars(pagination)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
+ 			client, err := getGQLClient(ctx)
+ 			if err != nil {
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+ 			}
+ 
+-			// If category filter is specified, use it as the category ID for server-side filtering
+-			var categoryID *githubv4.ID
+-			if category != "" {
+-				id := githubv4.ID(category)
+-				categoryID = &id
++			vars := map[string]interface{}{
++				"owner": githubv4.String(owner),
++				"repo":  githubv4.String(repo),
++				"first": first,
++				"after": after,
+ 			}
+ 
+-			// Now execute the discussions query
+-			var discussions []*github.Discussion
+-			if categoryID != nil {
++			var nodes []discussionNode
++			var pageInfo pageInfoFragment
++			var totalCount githubv4.Int
++			if category != "" {
+ 				// Query with category filter (server-side filtering)
+ 				var query struct {
+ 					Repository struct {
+ 						Discussions struct {
+-							Nodes []struct {
+-								Number    githubv4.Int
+-								Title     githubv4.String
+-								CreatedAt githubv4.DateTime
+-								Category  struct {
+-									Name githubv4.String
+-								} `graphql:"category"`
+-								URL githubv4.String `graphql:"url"`
+-							}
+-						} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
++							Nodes      []discussionNode
++							PageInfo   pageInfoFragment
++							TotalCount githubv4.Int
++						} `graphql:"discussions(first: $first, after: $after, categoryId: $categoryId)"`
+ 					} `graphql:"repository(owner: $owner, name: $repo)"`
+ 				}
+-				vars := map[string]interface{}{
+-					"owner":      githubv4.String(owner),
+-					"repo":       githubv4.String(repo),
+-					"categoryId": *categoryID,
+-				}
++				vars["categoryId"] = githubv4.ID(category)
+ 				if err := client.Query(ctx, &query, vars); err != nil {
+ 					return mcp.NewToolResultError(err.Error()), nil
+ 				}
+-
+-				// Map nodes to GitHub Discussion objects
+-				for _, n := range query.Repository.Discussions.Nodes {
+-					di := &github.Discussion{
+-						Number:    github.Ptr(int(n.Number)),
+-						Title:     github.Ptr(string(n.Title)),
+-						HTMLURL:   github.Ptr(string(n.URL)),
+-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
+-						DiscussionCategory: &github.DiscussionCategory{
+-							Name: github.Ptr(string(n.Category.Name)),
+-						},
+-					}
+-					discussions = append(discussions, di)
+-				}
++				nodes = query.Repository.Discussions.Nodes
++				pageInfo = query.Repository.Discussions.PageInfo
++				totalCount = query.Repository.Discussions.TotalCount
+ 			} else {
+ 				// Query without category filter
+ 				var query struct {
+ 					Repository struct {
+ 						Discussions struct {
+-							Nodes []struct {
+-								Number    githubv4.Int
+-								Title     githubv4.String
+-								CreatedAt githubv4.DateTime
+-								Category  struct {
+-									Name githubv4.String
+-								} `graphql:"category"`
+-								URL githubv4.String `graphql:"url"`
+-							}
+-						} `graphql:"discussions(first: 100)"`
++							Nodes      []discussionNode
++							PageInfo   pageInfoFragment
++							TotalCount githubv4.Int
++						} `graphql:"discussions(first: $first, after: $after)"`
+ 					} `graphql:"repository(owner: $owner, name: $repo)"`
+ 				}
+-				vars := map[string]interface{}{
+-					"owner": githubv4.String(owner),
+-					"repo":  githubv4.String(repo),
+-				}
+ 				if err := client.Query(ctx, &query, vars); err != nil {
+ 					return mcp.NewToolResultError(err.Error()), nil
+ 				}
++				nodes = query.Repository.Discussions.Nodes
++				pageInfo = query.Repository.Discussions.PageInfo
++				totalCount = query.Repository.Discussions.TotalCount
++			}
+ 
+-				// Map nodes to GitHub Discussion objects
+-				for _, n := range query.Repository.Discussions.Nodes {
+-					di := &github.Discussion{
+-						Number:    github.Ptr(int(n.Number)),
+-						Title:     github.Ptr(string(n.Title)),
+-						HTMLURL:   github.Ptr(string(n.URL)),
+-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
+-						DiscussionCategory: &github.DiscussionCategory{
+-							Name: github.Ptr(string(n.Category.Name)),
+-						},
+-					}
+-					discussions = append(discussions, di)
+-				}
++			// Map nodes to GitHub Discussion objects
++			discussions := make([]*github.Discussion, 0, len(nodes))
++			for _, n := range nodes {
++				discussions = append(discussions, &github.Discussion{
++					Number:    github.Ptr(int(n.Number)),
++					Title:     github.Ptr(string(n.Title)),
++					HTMLURL:   github.Ptr(string(n.URL)),
++					CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
++					DiscussionCategory: &github.DiscussionCategory{
++						Name: github.Ptr(string(n.Category.Name)),
++					},
++				})
+ 			}
+ 
+ 			// Marshal and return
+-			out, err := json.Marshal(discussions)
++			out, err := json.Marshal(paginatedResult("discussions", discussions, pageInfo, totalCount))
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal discussions: %w", err)
+ 			}
+@@ -236,6 +269,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 			mcp.WithString("owner", mcp.Required(), mcp.Description("Repository owner")),
+ 			mcp.WithString("repo", mcp.Required(), mcp.Description("Repository name")),
+ 			mcp.WithNumber("discussionNumber", mcp.Required(), mcp.Description("Discussion Number")),
++			WithCursorPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			// Decode params
+@@ -248,6 +282,15 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
++			pagination, err := OptionalCursorPaginationParams(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			first, after, err := graphQLPaginationVars(pagination)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
+ 			client, err := getGQLClient(ctx)
+ 			if err != nil {
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+@@ -260,7 +303,9 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 							Nodes []struct {
+ 								Body githubv4.String
+ 							}
+-						} `graphql:"comments(first:100)"`
++							PageInfo   pageInfoFragment
++							TotalCount githubv4.Int
++						} `graphql:"comments(first: $first, after: $after)"`
+ 					} `graphql:"discussion(number: $discussionNumber)"`
+ 				} `graphql:"repository(owner: $owner, name: $repo)"`
+ 			}
+@@ -268,16 +313,19 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 				"owner":            githubv4.String(params.Owner),
+ 				"repo":             githubv4.String(params.Repo),
+ 				"discussionNumber": githubv4.Int(params.DiscussionNumber),
++				"first":            first,
++				"after":            after,
+ 			}
+ 			if err := client.Query(ctx, &q, vars); err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+-			var comments []*github.IssueComment
+-			for _, c := range q.Repository.Discussion.Comments.Nodes {
++			connection := q.Repository.Discussion.Comments
++			comments := make([]*github.IssueComment, 0, len(connection.Nodes))
++			for _, c := range connection.Nodes {
+ 				comments = append(comments, &github.IssueComment{Body: github.Ptr(string(c.Body))})
+ 			}
+ 
+-			out, err := json.Marshal(comments)
++			out, err := json.Marshal(paginatedResult("comments", comments, connection.PageInfo, connection.TotalCount))
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal comments: %w", err)
+ 			}
+@@ -286,6 +334,10 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 		}
+ }
+ 
++// discussionCategoriesPageSize is the number of categories list_discussion_categories requests.
++// GitHub allows at most 25 discussion categories per repository, so one page holds all of them.
++const discussionCategoriesPageSize = 25
++
+ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("list_discussion_categories",
+ 			mcp.WithDescription(t("TOOL_LIST_DISCUSSION_CATEGORIES_DESCRIPTION", "List discussion categories with their id and name, for a repository")),
+@@ -301,51 +353,17 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
+ 				mcp.Required(),
+ 				mcp.Description("Repository name"),
+ 			),
+-			mcp.WithNumber("first",
+-				mcp.Description("Number of categories to return per page (min 1, max 100)"),
+-				mcp.Min(1),
+-				mcp.Max(100),
+-			),
+-			mcp.WithNumber("last",
+-				mcp.Description("Number of categories to return from the end (min 1, max 100)"),
+-				mcp.Min(1),
+-				mcp.Max(100),
+-			),
+-			mcp.WithString("after",
+-				mcp.Description("Cursor for pagination, use the 'after' field from the previous response"),
+-			),
+-			mcp.WithString("before",
+-				mcp.Description("Cursor for pagination, use the 'before' field from the previous response"),
+-			),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			// Decode params
+ 			var params struct {
+-				Owner  string
+-				Repo   string
+-				First  int32
+-				Last   int32
+-				After  string
+-				Before string
++				Owner string
++				Repo  string
+ 			}
+ 			if err := mapstructure.Decode(request.Params.Arguments, &params); err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+-			// Validate pagination parameters
+-			if params.First != 0 && params.Last != 0 {
+-				return mcp.NewToolResultError("only one of 'first' or 'last' may be specified"), nil
+-			}
+-			if params.After != "" && params.Before != "" {
+-				return mcp.NewToolResultError("only one of 'after' or 'before' may be specified"), nil
+-			}
+-			if params.After != "" && params.Last != 0 {
+-				return mcp.NewToolResultError("'after' cannot be used with 'last'. Did you mean to use 'before' instead?"), nil
+-			}
+-			if params.Before != "" && params.First != 0 {
+-				return mcp.NewToolResultError("'before' cannot be used with 'first'. Did you mean to use 'after' instead?"), nil
+-			}
+-
+ 			client, err := getGQLClient(ctx)
+ 			if err != nil {
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+@@ -357,24 +375,28 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
+ 							ID   githubv4.ID
+ 							Name githubv4.String
+ 						}
+-					} `graphql:"discussionCategories(first: 100)"`
++						PageInfo   pageInfoFragment
++						TotalCount githubv4.Int
++					} `graphql:"discussionCategories(first: $first)"`
+ 				} `graphql:"repository(owner: $owner, name: $repo)"`
+ 			}
+ 			vars := map[string]interface{}{
+ 				"owner": githubv4.String(params.Owner),
+ 				"repo":  githubv4.String(params.Repo),
++				"first": githubv4.Int(discussionCategoriesPageSize),
+ 			}
+ 			if err := client.Query(ctx, &q, vars); err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+-			var categories []map[string]string
+-			for _, c := range q.Repository.DiscussionCategories.Nodes {
++			connection := q.Repository.DiscussionCategories
++			categories := make([]map[string]string, 0, len(connection.Nodes))
++			for _, c := range connection.Nodes {
+ 				categories = append(categories, map[string]string{
+ 					"id":   fmt.Sprint(c.ID),
+ 					"name": string(c.Name),
+ 				})
+ 			}
+-			out, err := json.Marshal(categories)
++			out, err := json.Marshal(paginatedResult("categories", categories, connection.PageInfo, connection.TotalCount))
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal discussion categories: %w", err)
+ 			}
+diff --git a/pkg/github/discussions_test.go b/pkg/github/discussions_test.go
+index c6688a5..cfa0df6 100644
+--- a/pkg/github/discussions_test.go
++++ b/pkg/github/discussions_test.go
+@@ -3,7 +3,6 @@ package github
+ import (
+ 	"context"
+ 	"encoding/json"
+-	"net/http"
+ 	"testing"
+ 	"time"
+ 
+@@ -25,19 +24,62 @@ var (
+ 		{"number": 2, "title": "Discussion 2 title", "createdAt": "2023-02-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/2", "category": map[string]any{"name": "Questions"}},
+ 		{"number": 3, "title": "Discussion 3 title", "createdAt": "2023-03-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/3", "category": map[string]any{"name": "General"}},
+ 	}
++	pageInfoLastPage = map[string]any{
++		"hasNextPage":     false,
++		"hasPreviousPage": false,
++		"startCursor":     "",
++		"endCursor":       "",
++	}
+ 	mockResponseListAll = githubv4mock.DataResponse(map[string]any{
+ 		"repository": map[string]any{
+-			"discussions": map[string]any{"nodes": discussionsAll},
++			"discussions": map[string]any{
++				"nodes":      discussionsAll,
++				"pageInfo":   pageInfoLastPage,
++				"totalCount": 3,
++			},
+ 		},
+ 	})
+ 	mockResponseListGeneral = githubv4mock.DataResponse(map[string]any{
+ 		"repository": map[string]any{
+-			"discussions": map[string]any{"nodes": discussionsGeneral},
++			"discussions": map[string]any{
++				"nodes":      discussionsGeneral,
++				"pageInfo":   pageInfoLastPage,
++				"totalCount": 2,
++			},
++		},
++	})
++	mockResponseListNextPage = githubv4mock.DataResponse(map[string]any{
++		"repository": map[string]any{
++			"discussions": map[string]any{
++				"nodes": discussionsAll[:1],
++				"pageInfo": map[string]any{
++					"hasNextPage":     true,
++					"hasPreviousPage": true,
++					"startCursor":     "Y3Vyc29yOjI=",
++					"endCursor":       "Y3Vyc29yOjI=",
++				},
++				"totalCount": 3,
++			},
+ 		},
+ 	})
+ 	mockErrorRepoNotFound = githubv4mock.ErrorResponse("repository not found")
+ )
+ 
++// GraphQL documents the discussion tools are expected to send.
++const (
++	queryListDiscussions           = "query($after:String$first:Int!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussions(first: $first, after: $after){nodes{number,title,createdAt,category{name},url},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}"
++	queryListDiscussionsByCategory = "query($after:String$categoryId:ID!$first:Int!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussions(first: $first, after: $after, categoryId: $categoryId){nodes{number,title,createdAt,category{name},url},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}"
++	queryGetDiscussionComments     = "query($after:String$discussionNumber:Int!$first:Int!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussion(number: $discussionNumber){comments(first: $first, after: $after){nodes{body},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}}"
++	queryListDiscussionCategories  = "query($first:Int!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussionCategories(first: $first){nodes{id,name},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}"
++)
++
++type pageInfoOutput struct {
++	HasNextPage     bool   `json:"hasNextPage"`
++	HasPreviousPage bool   `json:"hasPreviousPage"`
++	StartCursor     string `json:"startCursor"`
++	EndCursor       string `json:"endCursor"`
++}
++
+ func Test_ListDiscussions(t *testing.T) {
+ 	mockClient := githubv4.NewClient(nil)
+ 	// Verify tool definition and schema
+@@ -46,64 +88,49 @@ func Test_ListDiscussions(t *testing.T) {
+ 	assert.NotEmpty(t, toolDef.Description)
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "owner")
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "repo")
++	assert.Contains(t, toolDef.InputSchema.Properties, "category")
++	assert.Contains(t, toolDef.InputSchema.Properties, "perPage")
++	assert.Contains(t, toolDef.InputSchema.Properties, "after")
+ 	assert.ElementsMatch(t, toolDef.InputSchema.Required, []string{"owner", "repo"})
+ 
+-	// mock for the call to ListDiscussions without category filter
+-	var qDiscussions struct {
+-		Repository struct {
+-			Discussions struct {
+-				Nodes []struct {
+-					Number    githubv4.Int
+-					Title     githubv4.String
+-					CreatedAt githubv4.DateTime
+-					Category  struct {
+-						Name githubv4.String
+-					} `graphql:"category"`
+-					URL githubv4.String `graphql:"url"`
+-				}
+-			} `graphql:"discussions(first: 100)"`
+-		} `graphql:"repository(owner: $owner, name: $repo)"`
+-	}
+-
+-	// mock for the call to get discussions with category filter
+-	var qDiscussionsFiltered struct {
+-		Repository struct {
+-			Discussions struct {
+-				Nodes []struct {
+-					Number    githubv4.Int
+-					Title     githubv4.String
+-					CreatedAt githubv4.DateTime
+-					Category  struct {
+-						Name githubv4.String
+-					} `graphql:"category"`
+-					URL githubv4.String `graphql:"url"`
+-				}
+-			} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+-		} `graphql:"repository(owner: $owner, name: $repo)"`
++	varsListAll := map[string]interface{}{
++		"owner": githubv4.String("owner"),
++		"repo":  githubv4.String("repo"),
++		"first": githubv4.Int(DefaultGraphQLPageSize),
++		"after": (*githubv4.String)(nil),
+ 	}
+ 
+-	varsListAll := map[string]interface{}{
++	varsListWithPagination := map[string]interface{}{
+ 		"owner": githubv4.String("owner"),
+ 		"repo":  githubv4.String("repo"),
++		"first": githubv4.Int(1),
++		"after": githubv4.String("Y3Vyc29yOjE="),
+ 	}
+ 
+ 	varsRepoNotFound := map[string]interface{}{
+ 		"owner": githubv4.String("owner"),
+ 		"repo":  githubv4.String("nonexistent-repo"),
++		"first": githubv4.Int(DefaultGraphQLPageSize),
++		"after": (*githubv4.String)(nil),
+ 	}
+ 
+ 	varsDiscussionsFiltered := map[string]interface{}{
+ 		"owner":      githubv4.String("owner"),
+ 		"repo":       githubv4.String("repo"),
+ 		"categoryId": githubv4.ID("DIC_kwDOABC123"),
++		"first":      githubv4.Int(DefaultGraphQLPageSize),
++		"after":      (*githubv4.String)(nil),
+ 	}
+ 
+ 	tests := []struct {
+-		name          string
+-		reqParams     map[string]interface{}
+-		expectError   bool
+-		errContains   string
+-		expectedCount int
++		name               string
++		reqParams          map[string]interface{}
++		matcher            githubv4mock.Matcher
++		expectError        bool
++		errContains        string
++		expectedCount      int
++		expectedPageInfo   pageInfoOutput
++		expectedTotalCount int
+ 	}{
+ 		{
+ 			name: "list all discussions without category filter",
+@@ -111,8 +138,9 @@ func Test_ListDiscussions(t *testing.T) {
+ 				"owner": "owner",
+ 				"repo":  "repo",
+ 			},
+-			expectError:   false,
+-			expectedCount: 3, // All discussions
++			matcher:            githubv4mock.NewQueryMatcher(queryListDiscussions, varsListAll, mockResponseListAll),
++			expectedCount:      3, // All discussions
++			expectedTotalCount: 3,
+ 		},
+ 		{
+ 			name: "filter by category ID",
+@@ -121,8 +149,38 @@ func Test_ListDiscussions(t *testing.T) {
+ 				"repo":     "repo",
+ 				"category": "DIC_kwDOABC123",
+ 			},
+-			expectError:   false,
+-			expectedCount: 2, // Only General discussions (matching the category ID)
++			matcher:            githubv4mock.NewQueryMatcher(queryListDiscussionsByCategory, varsDiscussionsFiltered, mockResponseListGeneral),
++			expectedCount:      2, // Only General discussions (matching the category ID)
++			expectedTotalCount: 2,
++		},
++		{
++			name: "perPage and after are passed as first and after",
++			reqParams: map[string]interface{}{
++				"owner":   "owner",
++				"repo":    "repo",
++				"perPage": float64(1),
++				"after":   "Y3Vyc29yOjE=",
++			},
++			matcher:       githubv4mock.NewQueryMatcher(queryListDiscussions, varsListWithPagination, mockResponseListNextPage),
++			expectedCount: 1,
++			expectedPageInfo: pageInfoOutput{
++				HasNextPage:     true,
++				HasPreviousPage: true,
++				StartCursor:     "Y3Vyc29yOjI=",
++				EndCursor:       "Y3Vyc29yOjI=",
++			},
++			expectedTotalCount: 3,
++		},
++		{
++			name: "perPage above maximum",
++			reqParams: map[string]interface{}{
++				"owner":   "owner",
++				"repo":    "repo",
++				"perPage": float64(101),
++			},
++			matcher:     githubv4mock.NewQueryMatcher(queryListDiscussions, varsListAll, mockResponseListAll),
++			expectError: true,
++			errContains: "perPage value 101 exceeds maximum of 100",
+ 		},
+ 		{
+ 			name: "repository not found error",
+@@ -130,6 +188,7 @@ func Test_ListDiscussions(t *testing.T) {
+ 				"owner": "owner",
+ 				"repo":  "nonexistent-repo",
+ 			},
++			matcher:     githubv4mock.NewQueryMatcher(queryListDiscussions, varsRepoNotFound, mockErrorRepoNotFound),
+ 			expectError: true,
+ 			errContains: "repository not found",
+ 		},
+@@ -137,27 +196,13 @@ func Test_ListDiscussions(t *testing.T) {
+ 
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+-			var httpClient *http.Client
+-
+-			switch tc.name {
+-			case "list all discussions without category filter":
+-				// Simple case - no category filter
+-				matcher := githubv4mock.NewQueryMatcher(qDiscussions, varsListAll, mockResponseListAll)
+-				httpClient = githubv4mock.NewMockedHTTPClient(matcher)
+-			case "filter by category ID":
+-				// Simple case - category filter using category ID directly
+-				matcher := githubv4mock.NewQueryMatcher(qDiscussionsFiltered, varsDiscussionsFiltered, mockResponseListGeneral)
+-				httpClient = githubv4mock.NewMockedHTTPClient(matcher)
+-			case "repository not found error":
+-				matcher := githubv4mock.NewQueryMatcher(qDiscussions, varsRepoNotFound, mockErrorRepoNotFound)
+-				httpClient = githubv4mock.NewMockedHTTPClient(matcher)
+-			}
+-
++			httpClient := githubv4mock.NewMockedHTTPClient(tc.matcher)
+ 			gqlClient := githubv4.NewClient(httpClient)
+ 			_, handler := ListDiscussions(stubGetGQLClientFn(gqlClient), translations.NullTranslationHelper)
+ 
+ 			req := createMCPRequest(tc.reqParams)
+ 			res, err := handler(context.Background(), req)
++			require.NoError(t, err)
+ 			text := getTextResult(t, res).Text
+ 
+ 			if tc.expectError {
+@@ -165,17 +210,22 @@ func Test_ListDiscussions(t *testing.T) {
+ 				assert.Contains(t, text, tc.errContains)
+ 				return
+ 			}
+-			require.NoError(t, err)
++			require.False(t, res.IsError, text)
+ 
+-			var returnedDiscussions []*github.Discussion
+-			err = json.Unmarshal([]byte(text), &returnedDiscussions)
+-			require.NoError(t, err)
++			var response struct {
++				Discussions []*github.Discussion `json:"discussions"`
++				PageInfo    pageInfoOutput       `json:"pageInfo"`
++				TotalCount  int                  `json:"totalCount"`
++			}
++			require.NoError(t, json.Unmarshal([]byte(text), &response))
+ 
+-			assert.Len(t, returnedDiscussions, tc.expectedCount, "Expected %d discussions, got %d", tc.expectedCount, len(returnedDiscussions))
++			assert.Len(t, response.Discussions, tc.expectedCount, "Expected %d discussions, got %d", tc.expectedCount, len(response.Discussions))
++			assert.Equal(t, tc.expectedPageInfo, response.PageInfo)
++			assert.Equal(t, tc.expectedTotalCount, response.TotalCount)
+ 
+ 			// Verify that all returned discussions have a category if filtered
+ 			if _, hasCategory := tc.reqParams["category"]; hasCategory {
+-				for _, discussion := range returnedDiscussions {
++				for _, discussion := range response.Discussions {
+ 					require.NotNil(t, discussion.DiscussionCategory, "Discussion should have category")
+ 					assert.NotEmpty(t, *discussion.DiscussionCategory.Name, "Discussion should have category name")
+ 				}
+@@ -285,24 +335,10 @@ func Test_GetDiscussionComments(t *testing.T) {
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "owner")
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "repo")
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "discussionNumber")
++	assert.Contains(t, toolDef.InputSchema.Properties, "perPage")
++	assert.Contains(t, toolDef.InputSchema.Properties, "after")
+ 	assert.ElementsMatch(t, toolDef.InputSchema.Required, []string{"owner", "repo", "discussionNumber"})
+ 
+-	var q struct {
+-		Repository struct {
+-			Discussion struct {
+-				Comments struct {
+-					Nodes []struct {
+-						Body githubv4.String
+-					}
+-				} `graphql:"comments(first:100)"`
+-			} `graphql:"discussion(number: $discussionNumber)"`
+-		} `graphql:"repository(owner: $owner, name: $repo)"`
+-	}
+-	vars := map[string]interface{}{
+-		"owner":            githubv4.String("owner"),
+-		"repo":             githubv4.String("repo"),
+-		"discussionNumber": githubv4.Int(1),
+-	}
+ 	mockResponse := githubv4mock.DataResponse(map[string]any{
+ 		"repository": map[string]any{
+ 			"discussion": map[string]any{
+@@ -311,50 +347,97 @@ func Test_GetDiscussionComments(t *testing.T) {
+ 						{"body": "This is the first comment"},
+ 						{"body": "This is the second comment"},
+ 					},
++					"pageInfo": map[string]any{
++						"hasNextPage":     true,
++						"hasPreviousPage": false,
++						"startCursor":     "Y3Vyc29yOjE=",
++						"endCursor":       "Y3Vyc29yOjI=",
++					},
++					"totalCount": 5,
+ 				},
+ 			},
+ 		},
+ 	})
+-	matcher := githubv4mock.NewQueryMatcher(q, vars, mockResponse)
+-	httpClient := githubv4mock.NewMockedHTTPClient(matcher)
+-	gqlClient := githubv4.NewClient(httpClient)
+-	_, handler := GetDiscussionComments(stubGetGQLClientFn(gqlClient), translations.NullTranslationHelper)
+ 
+-	request := createMCPRequest(map[string]interface{}{
+-		"owner":            "owner",
+-		"repo":             "repo",
+-		"discussionNumber": int32(1),
+-	})
++	tests := []struct {
++		name      string
++		reqParams map[string]interface{}
++		vars      map[string]interface{}
++	}{
++		{
++			name: "default pagination",
++			reqParams: map[string]interface{}{
++				"owner":            "owner",
++				"repo":             "repo",
++				"discussionNumber": int32(1),
++			},
++			vars: map[string]interface{}{
++				"owner":            githubv4.String("owner"),
++				"repo":             githubv4.String("repo"),
++				"discussionNumber": githubv4.Int(1),
++				"first":            githubv4.Int(DefaultGraphQLPageSize),
++				"after":            (*githubv4.String)(nil),
++			},
++		},
++		{
++			name: "perPage and after",
++			reqParams: map[string]interface{}{
++				"owner":            "owner",
++				"repo":             "repo",
++				"discussionNumber": int32(1),
++				"perPage":          float64(2),
++				"after":            "Y3Vyc29yOjA=",
++			},
++			vars: map[string]interface{}{
++				"owner":            githubv4.String("owner"),
++				"repo":             githubv4.String("repo"),
++				"discussionNumber": githubv4.Int(1),
++				"first":            githubv4.Int(2),
++				"after":            githubv4.String("Y3Vyc29yOjA="),
++			},
++		},
++	}
+ 
+-	result, err := handler(context.Background(), request)
+-	require.NoError(t, err)
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			matcher := githubv4mock.NewQueryMatcher(queryGetDiscussionComments, tc.vars, mockResponse)
++			httpClient := githubv4mock.NewMockedHTTPClient(matcher)
++			gqlClient := githubv4.NewClient(httpClient)
++			_, handler := GetDiscussionComments(stubGetGQLClientFn(gqlClient), translations.NullTranslationHelper)
+ 
+-	textContent := getTextResult(t, result)
++			result, err := handler(context.Background(), createMCPRequest(tc.reqParams))
++			require.NoError(t, err)
+ 
+-	var returnedComments []*github.IssueComment
+-	err = json.Unmarshal([]byte(textContent.Text), &returnedComments)
+-	require.NoError(t, err)
+-	assert.Len(t, returnedComments, 2)
+-	expectedBodies := []string{"This is the first comment", "This is the second comment"}
+-	for i, comment := range returnedComments {
+-		assert.Equal(t, expectedBodies[i], *comment.Body)
++			textContent := getTextResult(t, result)
++			require.False(t, result.IsError, textContent.Text)
++
++			var response struct {
++				Comments   []*github.IssueComment `json:"comments"`
++				PageInfo   pageInfoOutput         `json:"pageInfo"`
++				TotalCount int                    `json:"totalCount"`
++			}
++			require.NoError(t, json.Unmarshal([]byte(textContent.Text), &response))
++			assert.Len(t, response.Comments, 2)
++			expectedBodies := []string{"This is the first comment", "This is the second comment"}
++			for i, comment := range response.Comments {
++				assert.Equal(t, expectedBodies[i], *comment.Body)
++			}
++			assert.Equal(t, pageInfoOutput{
++				HasNextPage:     true,
++				HasPreviousPage: false,
++				StartCursor:     "Y3Vyc29yOjE=",
++				EndCursor:       "Y3Vyc29yOjI=",
++			}, response.PageInfo)
++			assert.Equal(t, 5, response.TotalCount)
++		})
+ 	}
+ }
+ 
+ func Test_ListDiscussionCategories(t *testing.T) {
+-	var q struct {
+-		Repository struct {
+-			DiscussionCategories struct {
+-				Nodes []struct {
+-					ID   githubv4.ID
+-					Name githubv4.String
+-				}
+-			} `graphql:"discussionCategories(first: 100)"`
+-		} `graphql:"repository(owner: $owner, name: $repo)"`
+-	}
+ 	vars := map[string]interface{}{
+ 		"owner": githubv4.String("owner"),
+ 		"repo":  githubv4.String("repo"),
++		"first": githubv4.Int(25),
+ 	}
+ 	mockResp := githubv4mock.DataResponse(map[string]any{
+ 		"repository": map[string]any{
+@@ -363,10 +446,17 @@ func Test_ListDiscussionCategories(t *testing.T) {
+ 					{"id": "123", "name": "CategoryOne"},
+ 					{"id": "456", "name": "CategoryTwo"},
+ 				},
++				"pageInfo": map[string]any{
++					"hasNextPage":     false,
++					"hasPreviousPage": false,
++					"startCursor":     "Y3Vyc29yOjE=",
++					"endCursor":       "Y3Vyc29yOjI=",
++				},
++				"totalCount": 2,
+ 			},
+ 		},
+ 	})
+-	matcher := githubv4mock.NewQueryMatcher(q, vars, mockResp)
++	matcher := githubv4mock.NewQueryMatcher(queryListDiscussionCategories, vars, mockResp)
+ 	httpClient := githubv4mock.NewMockedHTTPClient(matcher)
+ 	gqlClient := githubv4.NewClient(httpClient)
+ 
+@@ -375,6 +465,10 @@ func Test_ListDiscussionCategories(t *testing.T) {
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
++	assert.NotContains(t, tool.InputSchema.Properties, "first")
++	assert.NotContains(t, tool.InputSchema.Properties, "last")
++	assert.NotContains(t, tool.InputSchema.Properties, "after")
++	assert.NotContains(t, tool.InputSchema.Properties, "before")
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo"})
+ 
+ 	request := createMCPRequest(map[string]interface{}{"owner": "owner", "repo": "repo"})
+@@ -382,11 +476,22 @@ func Test_ListDiscussionCategories(t *testing.T) {
+ 	require.NoError(t, err)
+ 
+ 	text := getTextResult(t, result).Text
+-	var categories []map[string]string
+-	require.NoError(t, json.Unmarshal([]byte(text), &categories))
+-	assert.Len(t, categories, 2)
+-	assert.Equal(t, "123", categories[0]["id"])
+-	assert.Equal(t, "CategoryOne", categories[0]["name"])
+-	assert.Equal(t, "456", categories[1]["id"])
+-	assert.Equal(t, "CategoryTwo", categories[1]["name"])
++	require.False(t, result.IsError, text)
++
++	var response struct {
++		Categories []map[string]string `json:"categories"`
++		PageInfo   pageInfoOutput      `json:"pageInfo"`
++		TotalCount int                 `json:"totalCount"`
++	}
++	require.NoError(t, json.Unmarshal([]byte(text), &response))
++	assert.Len(t, response.Categories, 2)
++	assert.Equal(t, "123", response.Categories[0]["id"])
++	assert.Equal(t, "CategoryOne", response.Categories[0]["name"])
++	assert.Equal(t, "456", response.Categories[1]["id"])
++	assert.Equal(t, "CategoryTwo", response.Categories[1]["name"])
++	assert.Equal(t, pageInfoOutput{
++		StartCursor: "Y3Vyc29yOjE=",
++		EndCursor:   "Y3Vyc29yOjI=",
++	}, response.PageInfo)
++	assert.Equal(t, 2, response.TotalCount)
+ }
+diff --git a/pkg/github/issues.go b/pkg/github/issues.go
+index 29d32bd..80a150a 100644
+--- a/pkg/github/issues.go
++++ b/pkg/github/issues.go
+@@ -630,8 +630,8 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
+ 
+ 			opts := &github.IssueListCommentsOptions{
+ 				ListOptions: github.ListOptions{
+-					Page:    pagination.page,
+-					PerPage: pagination.perPage,
++					Page:    pagination.Page,
++					PerPage: pagination.PerPage,
+ 				},
+ 			}
+ 
+diff --git a/pkg/github/notifications.go b/pkg/github/notifications.go
+index a41edaf..fdd4180 100644
+--- a/pkg/github/notifications.go
++++ b/pkg/github/notifications.go
+@@ -88,8 +88,8 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
+ 				All:           filter == FilterIncludeRead,
+ 				Participating: filter == FilterOnlyParticipating,
+ 				ListOptions: github.ListOptions{
+-					Page:    paginationParams.page,
+-					PerPage: paginationParams.perPage,
++					Page:    paginationParams.Page,
++					PerPage: paginationParams.PerPage,
+ 				},
+ 			}
+ 
+diff --git a/pkg/github/pullrequests.go b/pkg/github/pullrequests.go
+index d98dc33..47b7c6b 100644
+--- a/pkg/github/pullrequests.go
++++ b/pkg/github/pullrequests.go
+@@ -403,8 +403,8 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
+ 				Sort:      sort,
+ 				Direction: direction,
+ 				ListOptions: github.ListOptions{
+-					PerPage: pagination.perPage,
+-					Page:    pagination.page,
++					PerPage: pagination.PerPage,
++					Page:    pagination.Page,
+ 				},
+ 			}
+ 
+@@ -622,8 +622,8 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 			opts := &github.ListOptions{
+-				PerPage: pagination.perPage,
+-				Page:    pagination.page,
++				PerPage: pagination.PerPage,
++				Page:    pagination.Page,
+ 			}
+ 			files, resp, err := client.PullRequests.ListFiles(ctx, owner, repo, pullNumber, opts)
+ 			if err != nil {
+diff --git a/pkg/github/repositories.go b/pkg/github/repositories.go
+index 2e56c86..ecd36d7 100644
+--- a/pkg/github/repositories.go
++++ b/pkg/github/repositories.go
+@@ -58,8 +58,8 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
+ 			}
+ 
+ 			opts := &github.ListOptions{
+-				Page:    pagination.page,
+-				PerPage: pagination.perPage,
++				Page:    pagination.Page,
++				PerPage: pagination.PerPage,
+ 			}
+ 
+ 			client, err := getClient(ctx)
+@@ -139,7 +139,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			// Set default perPage to 30 if not provided
+-			perPage := pagination.perPage
++			perPage := pagination.PerPage
+ 			if perPage == 0 {
+ 				perPage = 30
+ 			}
+@@ -147,7 +147,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
+ 				SHA:    sha,
+ 				Author: author,
+ 				ListOptions: github.ListOptions{
+-					Page:    pagination.page,
++					Page:    pagination.Page,
+ 					PerPage: perPage,
+ 				},
+ 			}
+@@ -217,8 +217,8 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
+ 
+ 			opts := &github.BranchListOptions{
+ 				ListOptions: github.ListOptions{
+-					Page:    pagination.page,
+-					PerPage: pagination.perPage,
++					Page:    pagination.Page,
++					PerPage: pagination.PerPage,
+ 				},
+ 			}
+ 
+@@ -1198,8 +1198,8 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
+ 			}
+ 
+ 			opts := &github.ListOptions{
+-				Page:    pagination.page,
+-				PerPage: pagination.perPage,
++				Page:    pagination.Page,
++				PerPage: pagination.PerPage,
+ 			}
+ 
+ 			client, err := getClient(ctx)
+diff --git a/pkg/github/search.go b/pkg/github/search.go
+index 04a1fac..b11bb3b 100644
+--- a/pkg/github/search.go
++++ b/pkg/github/search.go
+@@ -39,8 +39,8 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
+ 
+ 			opts := &github.SearchOptions{
+ 				ListOptions: github.ListOptions{
+-					Page:    pagination.page,
+-					PerPage: pagination.perPage,
++					Page:    pagination.Page,
++					PerPage: pagination.PerPage,
+ 				},
+ 			}
+ 
+@@ -118,8 +118,8 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
+ 				Sort:  sort,
+ 				Order: order,
+ 				ListOptions: github.ListOptions{
+-					PerPage: pagination.perPage,
+-					Page:    pagination.page,
++					PerPage: pagination.PerPage,
++					Page:    pagination.Page,
+ 				},
+ 			}
+ 
+@@ -193,8 +193,8 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
+ 			Sort:  sort,
+ 			Order: order,
+ 			ListOptions: github.ListOptions{
+-				PerPage: pagination.perPage,
+-				Page:    pagination.page,
++				PerPage: pagination.PerPage,
++				Page:    pagination.Page,
+ 			},
+ 		}
+ 
+diff --git a/pkg/github/search_utils.go b/pkg/github/search_utils.go
+index 5dd4804..a6ff1f7 100644
+--- a/pkg/github/search_utils.go
++++ b/pkg/github/search_utils.go
+@@ -56,8 +56,8 @@ func searchHandler(
+ 		Sort:  sort,
+ 		Order: order,
+ 		ListOptions: github.ListOptions{
+-			Page:    pagination.page,
+-			PerPage: pagination.perPage,
++			Page:    pagination.Page,
++			PerPage: pagination.PerPage,
+ 		},
+ 	}
+ 
+diff --git a/pkg/github/server.go b/pkg/github/server.go
+index ea476e3..f5a5199 100644
+--- a/pkg/github/server.go
++++ b/pkg/github/server.go
+@@ -193,13 +193,60 @@ func WithPagination() mcp.ToolOption {
+ 	}
+ }
+ 
++// WithUnifiedPagination returns a ToolOption that adds "page", "perPage", and "after" parameters to the tool.
++// It is meant for GraphQL tools that accept page/perPage and convert them to a cursor internally.
++// The "page" parameter is optional, min 1.
++// The "perPage" parameter is optional, min 1, max 100.
++// The "after" parameter is optional and takes precedence as the cursor when set.
++func WithUnifiedPagination() mcp.ToolOption {
++	return func(tool *mcp.Tool) {
++		mcp.WithNumber("page",
++			mcp.Description("Page number for pagination (min 1)"),
++			mcp.Min(1),
++		)(tool)
++
++		withPerPageParam()(tool)
++		withAfterParam()(tool)
++	}
++}
++
++// WithCursorPagination returns a ToolOption that adds "perPage" and "after" parameters to the tool.
++// The "perPage" parameter is optional, min 1, max 100. If unset, defaults to 30.
++// The "after" parameter is optional, the cursor of the page to start after.
++// https://docs.github.com/en/graphql/guides/using-pagination-in-the-graphql-api
++func WithCursorPagination() mcp.ToolOption {
++	return func(tool *mcp.Tool) {
++		withPerPageParam()(tool)
++		withAfterParam()(tool)
++	}
++}
++
++func withPerPageParam() mcp.ToolOption {
++	return mcp.WithNumber("perPage",
++		mcp.Description("Results per page for pagination (min 1, max 100)"),
++		mcp.Min(1),
++		mcp.Max(100),
++	)
++}
++
++func withAfterParam() mcp.ToolOption {
++	return mcp.WithString("after",
++		mcp.Description("Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs."),
++	)
++}
++
++// DefaultGraphQLPageSize is the default number of items requested per page from GraphQL APIs.
++const DefaultGraphQLPageSize = 30
++
+ type PaginationParams struct {
+-	page    int
+-	perPage int
++	Page    int
++	PerPage int
++	After   string
+ }
+ 
+-// OptionalPaginationParams returns the "page" and "perPage" parameters from the request,
+-// or their default values if not present, "page" default is 1, "perPage" default is 30.
++// OptionalPaginationParams returns the "page", "perPage" and "after" parameters from the request,
++// or their default values if not present, "page" default is 1, "perPage" default is 30,
++// "after" default is empty.
+ // In future, we may want to make the default values configurable, or even have this
+ // function returned from `withPagination`, where the defaults are provided alongside
+ // the min/max values.
+@@ -212,12 +259,80 @@ func OptionalPaginationParams(r mcp.CallToolRequest) (PaginationParams, error) {
+ 	if err != nil {
+ 		return PaginationParams{}, err
+ 	}
++	after, err := OptionalParam[string](r, "after")
++	if err != nil {
++		return PaginationParams{}, err
++	}
+ 	return PaginationParams{
+-		page:    page,
+-		perPage: perPage,
++		Page:    page,
++		PerPage: perPage,
++		After:   after,
++	}, nil
++}
++
++// OptionalCursorPaginationParams returns the "perPage" and "after" parameters from the request,
++// or their default values if not present, "perPage" default is 30, "after" default is empty.
++func OptionalCursorPaginationParams(r mcp.CallToolRequest) (CursorPaginationParams, error) {
++	perPage, err := OptionalIntParamWithDefault(r, "perPage", DefaultGraphQLPageSize)
++	if err != nil {
++		return CursorPaginationParams{}, err
++	}
++	after, err := OptionalParam[string](r, "after")
++	if err != nil {
++		return CursorPaginationParams{}, err
++	}
++	return CursorPaginationParams{
++		PerPage: perPage,
++		After:   after,
+ 	}, nil
+ }
+ 
++// CursorPaginationParams holds cursor-based pagination parameters, without a page number.
++type CursorPaginationParams struct {
++	PerPage int
++	After   string
++}
++
++// GraphQLPaginationParams holds the "first" and "after" arguments of a GraphQL connection.
++// https://docs.github.com/en/graphql/reference/objects#connection
++type GraphQLPaginationParams struct {
++	First *int32
++	After *string
++}
++
++// ToGraphQLParams converts cursor pagination parameters to GraphQL parameters.
++// First is PerPage, and After is nil when the cursor is empty.
++func (p CursorPaginationParams) ToGraphQLParams() (*GraphQLPaginationParams, error) {
++	if p.PerPage > 100 {
++		return nil, fmt.Errorf("perPage value %d exceeds maximum of 100", p.PerPage)
++	}
++	if p.PerPage < 0 {
++		return nil, fmt.Errorf("perPage value %d cannot be negative", p.PerPage)
++	}
++	first := int32(p.PerPage)
++
++	var after *string
++	if p.After != "" {
++		after = &p.After
++	}
++
++	return &GraphQLPaginationParams{
++		First: &first,
++		After: after,
++	}, nil
++}
++
++// ToGraphQLParams converts REST pagination parameters to GraphQL parameters.
++// If After is set, it is used as the cursor. GraphQL has no page numbers,
++// so Page is not used.
++func (p PaginationParams) ToGraphQLParams() (*GraphQLPaginationParams, error) {
++	cursor := CursorPaginationParams{
++		PerPage: p.PerPage,
++		After:   p.After,
++	}
++	return cursor.ToGraphQLParams()
++}
++
+ func MarshalledTextResult(v any) *mcp.CallToolResult {
+ 	data, err := json.Marshal(v)
+ 	if err != nil {
+diff --git a/pkg/github/server_test.go b/pkg/github/server_test.go
+index 6353f25..9f8b8c9 100644
+--- a/pkg/github/server_test.go
++++ b/pkg/github/server_test.go
+@@ -10,8 +10,10 @@ import (
+ 
+ 	"github.com/github/github-mcp-server/pkg/raw"
+ 	"github.com/google/go-github/v73/github"
++	"github.com/mark3labs/mcp-go/mcp"
+ 	"github.com/shurcooL/githubv4"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func stubGetClientFn(client *github.Client) GetClientFn {
+@@ -489,8 +491,8 @@ func TestOptionalPaginationParams(t *testing.T) {
+ 			name:   "no pagination parameters, default values",
+ 			params: map[string]any{},
+ 			expected: PaginationParams{
+-				page:    1,
+-				perPage: 30,
++				Page:    1,
++				PerPage: 30,
+ 			},
+ 			expectError: false,
+ 		},
+@@ -500,8 +502,8 @@ func TestOptionalPaginationParams(t *testing.T) {
+ 				"page": float64(2),
+ 			},
+ 			expected: PaginationParams{
+-				page:    2,
+-				perPage: 30,
++				Page:    2,
++				PerPage: 30,
+ 			},
+ 			expectError: false,
+ 		},
+@@ -511,8 +513,8 @@ func TestOptionalPaginationParams(t *testing.T) {
+ 				"perPage": float64(50),
+ 			},
+ 			expected: PaginationParams{
+-				page:    1,
+-				perPage: 50,
++				Page:    1,
++				PerPage: 50,
+ 			},
+ 			expectError: false,
+ 		},
+@@ -523,8 +525,21 @@ func TestOptionalPaginationParams(t *testing.T) {
+ 				"perPage": float64(50),
+ 			},
+ 			expected: PaginationParams{
+-				page:    2,
+-				perPage: 50,
++				Page:    2,
++				PerPage: 50,
++			},
++			expectError: false,
++		},
++		{
++			name: "after parameter",
++			params: map[string]any{
++				"perPage": float64(50),
++				"after":   "Y3Vyc29yOjE=",
++			},
++			expected: PaginationParams{
++				Page:    1,
++				PerPage: 50,
++				After:   "Y3Vyc29yOjE=",
+ 			},
+ 			expectError: false,
+ 		},
+@@ -536,6 +551,14 @@ func TestOptionalPaginationParams(t *testing.T) {
+ 			expected:    PaginationParams{},
+ 			expectError: true,
+ 		},
++		{
++			name: "invalid after parameter",
++			params: map[string]any{
++				"after": float64(1),
++			},
++			expected:    PaginationParams{},
++			expectError: true,
++		},
+ 		{
+ 			name: "invalid perPage parameter",
+ 			params: map[string]any{
+@@ -560,3 +583,136 @@ func TestOptionalPaginationParams(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestOptionalCursorPaginationParams(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]any
++		expected    CursorPaginationParams
++		expectError bool
++	}{
++		{
++			name:     "no pagination parameters, default values",
++			params:   map[string]any{},
++			expected: CursorPaginationParams{PerPage: 30},
++		},
++		{
++			name:     "perPage and after parameters",
++			params:   map[string]any{"perPage": float64(50), "after": "Y3Vyc29yOjE="},
++			expected: CursorPaginationParams{PerPage: 50, After: "Y3Vyc29yOjE="},
++		},
++		{
++			name:        "invalid perPage parameter",
++			params:      map[string]any{"perPage": "not-a-number"},
++			expectError: true,
++		},
++		{
++			name:        "invalid after parameter",
++			params:      map[string]any{"after": float64(1)},
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			result, err := OptionalCursorPaginationParams(createMCPRequest(tc.params))
++			if tc.expectError {
++				assert.Error(t, err)
++				return
++			}
++			assert.NoError(t, err)
++			assert.Equal(t, tc.expected, result)
++		})
++	}
++}
++
++func TestPaginationParams_ToGraphQLParams(t *testing.T) {
++	tests := []struct {
++		name          string
++		params        PaginationParams
++		expectedFirst int32
++		expectedAfter *string
++		errContains   string
++	}{
++		{
++			name:          "no cursor",
++			params:        PaginationParams{Page: 1, PerPage: 30},
++			expectedFirst: 30,
++		},
++		{
++			name:          "cursor is used as after",
++			params:        PaginationParams{Page: 2, PerPage: 10, After: "Y3Vyc29yOjE="},
++			expectedFirst: 10,
++			expectedAfter: github.Ptr("Y3Vyc29yOjE="),
++		},
++		{
++			name:          "maximum perPage",
++			params:        PaginationParams{PerPage: 100},
++			expectedFirst: 100,
++		},
++		{
++			name:        "perPage above maximum",
++			params:      PaginationParams{PerPage: 101},
++			errContains: "perPage value 101 exceeds maximum of 100",
++		},
++		{
++			name:        "negative perPage",
++			params:      PaginationParams{PerPage: -1},
++			errContains: "perPage value -1 cannot be negative",
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			// PaginationParams and CursorPaginationParams must convert identically.
++			cursor := CursorPaginationParams{PerPage: tc.params.PerPage, After: tc.params.After}
++			for _, convert := range []func() (*GraphQLPaginationParams, error){
++				tc.params.ToGraphQLParams,
++				cursor.ToGraphQLParams,
++			} {
++				result, err := convert()
++				if tc.errContains != "" {
++					assert.EqualError(t, err, tc.errContains)
++					assert.Nil(t, result)
++					continue
++				}
++				require.NoError(t, err)
++				require.NotNil(t, result.First)
++				assert.Equal(t, tc.expectedFirst, *result.First)
++				assert.Equal(t, tc.expectedAfter, result.After)
++			}
++		})
++	}
++}
++
++func TestPaginationToolOptions(t *testing.T) {
++	cursorTool := mcp.NewTool("cursor", WithCursorPagination())
++	assert.ElementsMatch(t, []string{"perPage", "after"}, mapKeys(cursorTool.InputSchema.Properties))
++
++	unifiedTool := mcp.NewTool("unified", WithUnifiedPagination())
++	assert.ElementsMatch(t, []string{"page", "perPage", "after"}, mapKeys(unifiedTool.InputSchema.Properties))
++
++	assert.Equal(t, map[string]any{
++		"type":        "number",
++		"description": "Results per page for pagination (min 1, max 100)",
++		"minimum":     float64(1),
++		"maximum":     float64(100),
++	}, unifiedTool.InputSchema.Properties["perPage"])
++	assert.Equal(t, map[string]any{
++		"type":        "string",
++		"description": "Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs.",
++	}, unifiedTool.InputSchema.Properties["after"])
++	assert.Equal(t, map[string]any{
++		"type":        "number",
++		"description": "Page number for pagination (min 1)",
++		"minimum":     float64(1),
++	}, unifiedTool.InputSchema.Properties["page"])
++}
++
++func mapKeys(m map[string]any) []string {
++	keys := make([]string, 0, len(m))
++	for k := range m {
++		keys = append(keys, k)
++	}
++	return keys
++}
