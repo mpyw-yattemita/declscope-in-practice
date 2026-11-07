@@ -1770,6 +1770,127 @@ func TestParse(t *testing.T) {
 				},
 			},
 		},
+		{
+			`a = join(" ", ["fedora", "fez"])`,
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{{
+					Type: "Attribute",
+					Children: []TestTreeNode{
+						{Type: "comments"},
+						{Type: "identifier", Val: "a"},
+						{Type: "Tokens", Val: " ="},
+						{
+							Type: "Expression",
+							Children: []TestTreeNode{{
+								Type: "FunctionCallExpr",
+								Children: []TestTreeNode{
+									{Type: "Tokens", Val: " join("},
+									{
+										Type:     "Expression",
+										Children: []TestTreeNode{{Type: "quoted", Val: `" "`}},
+									},
+									{Type: "Tokens", Val: ","},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type: "TupleConsExpr",
+											Children: []TestTreeNode{
+												{Type: "Tokens", Val: " ["},
+												{
+													Type:     "Expression",
+													Children: []TestTreeNode{{Type: "quoted", Val: `"fedora"`}},
+												},
+												{Type: "Tokens", Val: ","},
+												{
+													Type:     "Expression",
+													Children: []TestTreeNode{{Type: "quoted", Val: ` "fez"`}},
+												},
+												{Type: "Tokens", Val: "]"},
+											},
+										}},
+									},
+									{Type: "Tokens", Val: ")"},
+								},
+							}},
+						},
+						{Type: "comments"},
+					},
+				}},
+			},
+		},
+		{
+			`a = [f(), {}, [], provider::ex::g(x...),]`,
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{{
+					Type: "Attribute",
+					Children: []TestTreeNode{
+						{Type: "comments"},
+						{Type: "identifier", Val: "a"},
+						{Type: "Tokens", Val: " ="},
+						{
+							Type: "Expression",
+							Children: []TestTreeNode{{
+								Type: "TupleConsExpr",
+								Children: []TestTreeNode{
+									{Type: "Tokens", Val: " ["},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type:     "FunctionCallExpr",
+											Children: []TestTreeNode{{Type: "Tokens", Val: "f()"}},
+										}},
+									},
+									{Type: "Tokens", Val: ","},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type: "ObjectConsExpr",
+											Children: []TestTreeNode{
+												{Type: "Tokens", Val: " {"},
+												{Type: "Tokens", Val: "}"},
+											},
+										}},
+									},
+									{Type: "Tokens", Val: ","},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type:     "TupleConsExpr",
+											Children: []TestTreeNode{{Type: "Tokens", Val: " []"}},
+										}},
+									},
+									{Type: "Tokens", Val: ","},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type: "FunctionCallExpr",
+											Children: []TestTreeNode{
+												{Type: "Tokens", Val: " provider::ex::g("},
+												{
+													Type: "Expression",
+													Children: []TestTreeNode{{
+														Type: "Traversal",
+														Children: []TestTreeNode{{
+															Type:     "TraverseName",
+															Children: []TestTreeNode{{Type: "identifier", Val: "x"}},
+														}},
+													}},
+												},
+												{Type: "Tokens", Val: "...)"},
+											},
+										}},
+									},
+									{Type: "Tokens", Val: ",]"},
+								},
+							}},
+						},
+						{Type: "comments"},
+					},
+				}},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -2153,6 +2274,34 @@ foo "bar" "baz" {
 					"wrong result\ninput: %s\ndiff:\n%s",
 					test.input, diff,
 				)
+			}
+		})
+	}
+}
+
+func TestParseFunctionCallAndTupleConsRoundTrip(t *testing.T) {
+	tests := []string{
+		"a = f()\n",
+		"a = f(x...)\n",
+		"a = f(x, y,)\n",
+		"a = f( # c\n  x, // d\n  /* e */ y\n)\n",
+		"a = f(<<EOT\nhello ${x}\nEOT\n, y)\n",
+		"a = f(\"${x}\", (y), z ? 1 : 2, -1, !b)\n",
+		"a = [<<EOT\nhello\nEOT\n]\n",
+		"a = [\n  1, # one\n  [2, {k = f(old.x)}],\n]\n",
+		"a = [for x in y : x]\n",
+		"a = { k = f(old.x, [old.y]) }\n",
+	}
+
+	for _, src := range tests {
+		t.Run(src, func(t *testing.T) {
+			file, diags := parse([]byte(src), "", hcl.InitialPos)
+			if diags.HasErrors() {
+				t.Fatalf("unexpected diagnostics: %s", diags.Error())
+			}
+			// Bytes formats its result, so read the tokens as parsed.
+			if got := string(file.BuildTokens(nil).Bytes()); got != src {
+				t.Errorf("wrong result\ngot:  %q\nwant: %q", got, src)
 			}
 		})
 	}

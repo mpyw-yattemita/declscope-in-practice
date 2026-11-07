@@ -18,13 +18,9 @@ type node struct {
 }
 
 func newNode(c nodeContent) *node {
-	n := &node{
+	return &node{
 		content: c,
 	}
-	if h, ok := c.(interface{ setHolder(*node) }); ok {
-		h.setHolder(n)
-	}
-	return n
 }
 
 func (n *node) Equal(other *node) bool {
@@ -84,12 +80,6 @@ func (n *node) ReplaceWith(c nodeContent) *node {
 	if after != nil {
 		after.before = nn
 	}
-	if list.first == n {
-		list.first = nn
-	}
-	if list.last == n {
-		list.last = nn
-	}
 	return nn
 }
 
@@ -123,7 +113,9 @@ func (ns *nodes) Clear() {
 }
 
 func (ns *nodes) Append(c nodeContent) *node {
-	n := newNode(c)
+	n := &node{
+		content: c,
+	}
 	ns.AppendNode(n)
 	n.list = ns
 	return n
@@ -144,7 +136,9 @@ func (ns *nodes) AppendNode(n *node) {
 // Insert inserts a nodeContent at a given position.
 // This is just a wrapper for InsertNode. See InsertNode for details.
 func (ns *nodes) Insert(pos *node, c nodeContent) *node {
-	n := newNode(c)
+	n := &node{
+		content: c,
+	}
 	ns.InsertNode(pos, n)
 	n.list = ns
 	return n
@@ -269,9 +263,6 @@ type internalWalkFunc func(*node)
 type inTree struct {
 	parent   *node
 	children *nodes
-
-	// holder is the node that most recently took this content, if any.
-	holder *node
 }
 
 func newInTree() inTree {
@@ -286,11 +277,12 @@ func (it *inTree) assertUnattached() {
 	}
 }
 
-// inList reports whether the content is held by a node that is part of a
-// list, and so part of a syntax tree.
+// setParent records the node that the content is attached under, so that a
+// later assertUnattached can tell that it is already part of a syntax tree.
+// A nil parent records that the content is no longer attached.
 //
-func (it *inTree) inList() bool {
-	return it.holder != nil && it.holder.list != nil
+func (it *inTree) setParent(parent *node) {
+	it.parent = parent
 }
 
 func (it *inTree) walkChildNodes(w internalWalkFunc) {
@@ -304,11 +296,6 @@ func (it *inTree) BuildTokens(to Tokens) Tokens {
 		to = n.BuildTokens(to)
 	}
 	return to
-}
-
-// setHolder records the node that holds the content.
-func (it *inTree) setHolder(n *node) {
-	it.holder = n
 }
 
 // leafNode can be embedded into a content struct to give it a do-nothing

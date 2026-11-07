@@ -13,8 +13,8 @@ it cannot load are counted apart, and are no finding. Results go to
 
 | Verdict | Meaning |
 | --- | --- |
-| helped | A check reported a finding, and the last check had none: the agent changed its code after a report |
-| left | The last check still reported something |
+| helped | A check reported a finding, and a later check had none: the agent changed its code after a report |
+| left | No check after the first report came back clean |
 | clean | Every check was clean: nothing for the check to catch |
 | not run | The agent never ran a check |
 
@@ -97,13 +97,20 @@ def findings(diags):
 
 
 def verdict(checks):
+    """A check after a report came back clean: the agent fixed what it was
+    told. The last check alone does not decide it, because an agent may end
+    on a probe: in hcl, M', step 3, it appended a name to parser.go, ran the
+    check to see the report, and restored the file. Whether anything was left
+    in the code is compliance.py's question, asked of the code itself."""
     if not checks:
         return "not run"
-    if findings(checks[-1]["diagnostics"]):
-        return "left"
-    if any(findings(c["diagnostics"]) for c in checks):
+    counts = [len(findings(c["diagnostics"])) for c in checks]
+    first = next((i for i, n in enumerate(counts) if n), None)
+    if first is None:
+        return "clean"
+    if any(n == 0 for n in counts[first + 1:]):
         return "helped"
-    return "clean"
+    return "left"
 
 
 def step_record(sdir):

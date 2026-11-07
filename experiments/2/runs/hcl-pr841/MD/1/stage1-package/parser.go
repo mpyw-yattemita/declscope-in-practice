@@ -286,7 +286,9 @@ func parseAttribute(nativeAttr *hclsyntax.Attribute, from, leadComments, lineCom
 	// Collect any stragglers, though there shouldn't be any
 	children.AppendUnstructuredTokens(from.Tokens())
 
-	return newNode(attr)
+	attrNode := newNode(attr)
+	attr.Expr().setParent(attrNode)
+	return attrNode
 }
 
 func parseBlock(nativeBlock *hclsyntax.Block, from, leadComments, lineComments, newline inputTokens) *node {
@@ -385,6 +387,14 @@ func parseExpression(nativeExpr hclsyntax.Expression, from inputTokens) *node {
 	case *hclsyntax.ObjectConsKeyExpr:
 		return parseObjectConsKeyExpr(tNativeExpr, from)
 
+	// Function call expression
+	case *hclsyntax.FunctionCallExpr:
+		return parseFunctionCallExpr(tNativeExpr, from)
+
+	// Tuple-construct expression
+	case *hclsyntax.TupleConsExpr:
+		return parseTupleConsExpr(tNativeExpr, from)
+
 	case *hclsyntax.TemplateExpr:
 		return parseTemplateExpr(tNativeExpr, from)
 
@@ -448,6 +458,7 @@ func parseObjectConsExpr(nativeExpr *hclsyntax.ObjectConsExpr, from inputTokens)
 		value.expr = parseExpression(nativeItem.ValueExpr, valueTokens)
 		value.children.AppendNode(value.expr)
 		item.value = item.children.Append(value)
+		value.Expr().setParent(item.value)
 
 		node := expr.children.Append(item)
 		expr.items.Add(node)
@@ -467,13 +478,76 @@ func parseObjectConsExpr(nativeExpr *hclsyntax.ObjectConsExpr, from inputTokens)
 // literal is functionally equivalent to an Identifier.
 func parseObjectConsKeyExpr(nativeExpr *hclsyntax.ObjectConsKeyExpr, from inputTokens) *node {
 	expr := parseExpression(nativeExpr.Wrapped, from)
-	if len(nativeExpr.Variables()) == 0 {
-		// A naked identifier is a literal name, not a variable, so its
-		// traversal must not be reported or renamed.
-		expr.content.(*Expression).absTraversals.Clear()
-	}
-	wrapExpr := newObjectConsKeyExpr(expr)
+	// hclsyntax reads the key as a literal name by the same test.
+	literalName := hcl.ExprAsKeyword(nativeExpr.Wrapped) != ""
+	wrapExpr := newObjectConsKeyExpr(expr, literalName)
 
+	return newNode(wrapExpr)
+}
+
+// parseFunctionCallExpr parses a function call expression, defined as:
+//
+//	FunctionCall = Identifier ("::" Identifier)* "(" Arguments ")";
+//	Arguments = (
+//	    () ||
+//	    (Expression ("," Expression)* ("," | "...")?)
+//	);
+//
+// Each argument becomes an Expression of its own. The tokens around the
+// arguments, comments included, stay as unstructured tokens of the call.
+//
+func parseFunctionCallExpr(nativeExpr *hclsyntax.FunctionCallExpr, from inputTokens) *node {
+	expr := newFunctionCallExpr()
+	children := expr.children
+
+	var before, argTokens inputTokens
+	for _, nativeArg := range nativeExpr.Args {
+		before, argTokens, from = from.Partition(nativeArg.Range())
+		children.AppendUnstructuredTokens(before.writerTokens)
+		arg := parseExpression(nativeArg, argTokens)
+		children.AppendNode(arg)
+		expr.args.Add(arg)
+	}
+	children.AppendUnstructuredTokens(from.writerTokens)
+
+	// Wrap in an Expression
+	wrapExpr := newExpression()
+	wrapExpr.wrap(expr)
+	for _, arg := range expr.args.List() {
+		arg.content.(*Expression).setParent(wrapExpr.wrapped)
+	}
+	return newNode(wrapExpr)
+}
+
+// parseTupleConsExpr parses a tuple-construct expression, defined as:
+//
+//	tuple = "[" (
+//	    (Expression ("," Expression)* ","?)?
+//	) "]";
+//
+// Each element becomes an Expression of its own. The tokens around the
+// elements, comments included, stay as unstructured tokens of the tuple.
+//
+func parseTupleConsExpr(nativeExpr *hclsyntax.TupleConsExpr, from inputTokens) *node {
+	expr := newTupleConsExpr()
+	children := expr.children
+
+	var before, elemTokens inputTokens
+	for _, nativeElem := range nativeExpr.Exprs {
+		before, elemTokens, from = from.Partition(nativeElem.Range())
+		children.AppendUnstructuredTokens(before.writerTokens)
+		elem := parseExpression(nativeElem, elemTokens)
+		children.AppendNode(elem)
+		expr.elems.Add(elem)
+	}
+	children.AppendUnstructuredTokens(from.writerTokens)
+
+	// Wrap in an Expression
+	wrapExpr := newExpression()
+	wrapExpr.wrap(expr)
+	for _, elem := range expr.elems.List() {
+		elem.content.(*Expression).setParent(wrapExpr.wrapped)
+	}
 	return newNode(wrapExpr)
 }
 

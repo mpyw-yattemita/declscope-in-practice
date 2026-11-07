@@ -1,0 +1,122 @@
+Only in /Users/ryosuke.ishibashi/ws/4a6e7cb49957/.claude: skills
+Only in /Users/ryosuke.ishibashi/ws/4a6e7cb49957: .declscope-baseline.yaml
+Only in /Users/ryosuke.ishibashi/ws/4a6e7cb49957: .declscope.yaml
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_expression.go /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/ast_expression.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_expression.go	2026-11-07 11:59:17
++++ /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/ast_expression.go	2026-11-07 12:01:10
+@@ -241,7 +241,6 @@
+ // expression, in source order, including those inside a wrapped
+ // object-construct, function call or tuple-construct expression.
+ //
+-//declscope:shared // ast_object_cons_expr.go, ast_function_call_expr.go and ast_tuple_cons_expr.go recurse into nested expressions
+ func (e *Expression) variableNodes() []*node {
+ 	nodes := e.absTraversals.List()
+ 	if object := e.AsObjectConsExpr(); object != nil {
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_function_call_expr.go /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/ast_function_call_expr.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_function_call_expr.go	2026-11-07 11:58:39
++++ /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/ast_function_call_expr.go	2026-11-07 12:01:10
+@@ -1,7 +1,6 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+-//declscope:namespace functionCallExpr
+ package hclwrite
+ 
+ import (
+@@ -17,11 +16,9 @@
+ type FunctionCallExpr struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go adds the arguments it parses
+ 	args nodeSet
+ }
+ 
+-//declscope:shared // parser.go builds these
+ func newFunctionCallExpr() *FunctionCallExpr {
+ 	return &FunctionCallExpr{
+ 		inTree: newInTree(),
+@@ -58,7 +55,6 @@
+ // variableNodes returns the traversal nodes in the arguments, in source
+ // order.
+ //
+-//declscope:shared // ast_expression.go collects them for Expression.Variables
+ func (call *FunctionCallExpr) variableNodes() []*node {
+ 	var ret []*node
+ 	for _, n := range call.args.List() {
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_object_cons_expr.go /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/ast_object_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_object_cons_expr.go	2026-11-07 11:55:53
++++ /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/ast_object_cons_expr.go	2026-11-07 12:01:10
+@@ -120,7 +120,6 @@
+ // variableNodes returns the traversal nodes in the keys and values of the
+ // items, in source order. A key that is a literal name contributes none.
+ //
+-//declscope:shared // ast_expression.go collects them for Expression.Variables
+ func (o *ObjectConsExpr) variableNodes() []*node {
+ 	var ret []*node
+ 	for _, n := range o.items.List() {
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_tuple_cons_expr.go /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/ast_tuple_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_tuple_cons_expr.go	2026-11-07 11:58:39
++++ /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/ast_tuple_cons_expr.go	2026-11-07 12:01:10
+@@ -1,7 +1,6 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+-//declscope:namespace tupleConsExpr
+ package hclwrite
+ 
+ // TupleConsExpr represents a tuple-construct expression such as
+@@ -13,11 +12,9 @@
+ type TupleConsExpr struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go adds the elements it parses
+ 	elems nodeSet
+ }
+ 
+-//declscope:shared // parser.go builds these
+ func newTupleConsExpr() *TupleConsExpr {
+ 	return &TupleConsExpr{
+ 		inTree: newInTree(),
+@@ -28,7 +25,6 @@
+ // variableNodes returns the traversal nodes in the elements, in source
+ // order.
+ //
+-//declscope:shared // ast_expression.go collects them for Expression.Variables
+ func (tuple *TupleConsExpr) variableNodes() []*node {
+ 	var ret []*node
+ 	for _, n := range tuple.elems.List() {
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/node.go /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/node.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/node.go	2026-11-07 11:54:26
++++ /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/node.go	2026-11-07 12:01:10
+@@ -281,12 +281,10 @@
+ // later assertUnattached can tell that it is already part of a syntax tree.
+ // A nil parent records that the content is no longer attached.
+ //
+-//declscope:shared // parser.go and ast_object_cons_expr.go record where they attach expressions
+ func (it *inTree) setParent(parent *node) {
+ 	it.parent = parent
+ }
+ 
+-//declscope:shared // ast_object_cons_expr.go reads the tokens around object items
+ func (it *inTree) walkChildNodes(w internalWalkFunc) {
+ 	for n := it.children.first; n != nil; n = n.after {
+ 		w(n)
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/parser.go /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/parser.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/parser.go	2026-11-07 11:59:17
++++ /Users/ryosuke.ishibashi/ws/8198518193a9/hclwrite/parser.go	2026-11-07 12:01:10
+@@ -496,7 +496,6 @@
+ // Each argument becomes an Expression of its own. The tokens around the
+ // arguments, comments included, stay as unstructured tokens of the call.
+ //
+-//declscope:ignore qualify // parser.go keeps every parse function, named parseXxx for what it parses
+ func parseFunctionCallExpr(nativeExpr *hclsyntax.FunctionCallExpr, from inputTokens) *node {
+ 	expr := newFunctionCallExpr()
+ 	children := expr.children
+@@ -529,7 +528,6 @@
+ // Each element becomes an Expression of its own. The tokens around the
+ // elements, comments included, stay as unstructured tokens of the tuple.
+ //
+-//declscope:ignore qualify // parser.go keeps every parse function, named parseXxx for what it parses
+ func parseTupleConsExpr(nativeExpr *hclsyntax.TupleConsExpr, from inputTokens) *node {
+ 	expr := newTupleConsExpr()
+ 	children := expr.children

@@ -1,0 +1,41 @@
+Only in /Users/ryosuke.ishibashi/ws/4a6e7cb49957/.claude: skills
+Only in /Users/ryosuke.ishibashi/ws/4a6e7cb49957: .declscope-baseline.yaml
+Only in /Users/ryosuke.ishibashi/ws/4a6e7cb49957: .declscope.yaml
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_expression.go /Users/ryosuke.ishibashi/ws/b80a43ac0ff5/hclwrite/ast_expression.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_expression.go	2026-11-07 11:47:26
++++ /Users/ryosuke.ishibashi/ws/b80a43ac0ff5/hclwrite/ast_expression.go	2026-11-07 11:56:13
+@@ -213,7 +213,6 @@
+ // expression, in source order, including those inside the items of a
+ // wrapped object-construct expression.
+ //
+-//declscope:shared // ast_object_cons_expr.go recurses into item keys and values
+ func (e *Expression) variableNodes() []*node {
+ 	nodes := e.absTraversals.List()
+ 	if object := e.AsObjectConsExpr(); object != nil {
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_object_cons_expr.go /Users/ryosuke.ishibashi/ws/b80a43ac0ff5/hclwrite/ast_object_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/ast_object_cons_expr.go	2026-11-07 11:55:53
++++ /Users/ryosuke.ishibashi/ws/b80a43ac0ff5/hclwrite/ast_object_cons_expr.go	2026-11-07 11:56:13
+@@ -120,7 +120,6 @@
+ // variableNodes returns the traversal nodes in the keys and values of the
+ // items, in source order. A key that is a literal name contributes none.
+ //
+-//declscope:shared // ast_expression.go collects them for Expression.Variables
+ func (o *ObjectConsExpr) variableNodes() []*node {
+ 	var ret []*node
+ 	for _, n := range o.items.List() {
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/node.go /Users/ryosuke.ishibashi/ws/b80a43ac0ff5/hclwrite/node.go
+--- /Users/ryosuke.ishibashi/ws/4a6e7cb49957/hclwrite/node.go	2026-11-07 11:54:26
++++ /Users/ryosuke.ishibashi/ws/b80a43ac0ff5/hclwrite/node.go	2026-11-07 11:56:13
+@@ -281,12 +281,10 @@
+ // later assertUnattached can tell that it is already part of a syntax tree.
+ // A nil parent records that the content is no longer attached.
+ //
+-//declscope:shared // parser.go and ast_object_cons_expr.go record where they attach expressions
+ func (it *inTree) setParent(parent *node) {
+ 	it.parent = parent
+ }
+ 
+-//declscope:shared // ast_object_cons_expr.go reads the tokens around object items
+ func (it *inTree) walkChildNodes(w internalWalkFunc) {
+ 	for n := it.children.first; n != nil; n = n.after {
+ 		w(n)

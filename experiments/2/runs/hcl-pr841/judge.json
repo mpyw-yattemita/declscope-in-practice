@@ -121,125 +121,6 @@
       }
     },
     {
-      "x": "MD/1",
-      "y": "M/1",
-      "winner": "M",
-      "first": {
-        "better": "y",
-        "reasons": [
-          "y gives each new expression kind its own file and type, matching the existing ast_*.go layout: ast_function_call_expr.go holds FunctionCallExpr and ast_tuple_cons_expr.go holds TupleConsExpr. The parser side mirrors this in y/parser.go, where parseFunctionCallExpr and parseTupleConsExpr share parseExprList.",
-          "In y, each expression type collects its own variables: ObjectConsExpr.variables, FunctionCallExpr.variables and TupleConsExpr.variables all go through the shared variablesOf helper. In x, Expression.traversalNodes in ast_expression.go reaches into ObjectConsExpr's internals through itemExpressions, which tangles the two types.",
-          "x changes the core node machinery in node.go for one feature: it adds inTree.holder, setHolder and inList, and makes newNode probe for setHolder. y does its attachment check with the existing assertUnattached and parent fields, and leaves node.go alone.",
-          "y puts the rule for whether a key is a literal in one place: ObjectConsKeyExpr.literal is set in parseObjectConsKeyExpr, and key construction lives in newObjectConsKeyExprForName on the key type. x handles this by clearing absTraversals of the parsed key expression after the fact, and builds key tokens inside ObjectConsItem.init.",
-          "y has some flaws too. ast_object_cons_expr.go repeats line-end helpers (isLineEnd, hasLineEnd, newNewlineToken) that overlap with tokenIsNewline in format.go. ObjectConsExpr.variables sits after the ObjectConsKeyExpr declarations instead of with its own type. Assignments to parent are spread through parser.go."
-        ],
-        "audit": {
-          "ok": true,
-          "issues": [],
-          "warnings": []
-        },
-        "agent": {
-          "exit_code": 0,
-          "is_error": false,
-          "num_turns": 1,
-          "tokens": 123221,
-          "usage": {
-            "input_tokens": 2,
-            "cache_creation_input_tokens": 110400,
-            "cache_read_input_tokens": 11757,
-            "output_tokens": 1062,
-            "output_tokens_details": {
-              "thinking_tokens": 463
-            },
-            "server_tool_use": {
-              "web_search_requests": 0,
-              "web_fetch_requests": 0
-            },
-            "service_tier": "standard",
-            "cache_creation": {
-              "ephemeral_1h_input_tokens": 110400,
-              "ephemeral_5m_input_tokens": 0
-            },
-            "inference_geo": "global",
-            "iterations": [
-              {
-                "input_tokens": 2,
-                "output_tokens": 1062,
-                "cache_read_input_tokens": 11757,
-                "cache_creation_input_tokens": 110400,
-                "cache_creation": {
-                  "ephemeral_5m_input_tokens": 0,
-                  "ephemeral_1h_input_tokens": 110400
-                },
-                "type": "message"
-              }
-            ],
-            "speed": "standard",
-            "fallback_credit": null
-          },
-          "cost_usd": 0.9067994,
-          "duration_s": 14.3
-        }
-      },
-      "second": {
-        "better": "x",
-        "reasons": [
-          "x gives each new expression kind its own file and type (ast_function_call_expr.go, ast_tuple_cons_expr.go), matching the existing ast_*.go layout. Each type collects its own variables, and Expression.Variables only hands the work to them.",
-          "y's Expression.traversalNodes in ast_expression.go handles the object case itself by calling ObjectConsExpr.itemExpressions. So Expression has to know how objects store their items, instead of the object type answering for itself.",
-          "y adds a 'holder' field and setHolder/inList to the shared inTree/newNode in node.go just to serve ObjectConsExpr.SetItem. That pushes one feature's needs into tree code used by every type. x reuses the existing inTree.assertUnattached and parent links.",
-          "x keeps the key's job in ObjectConsKeyExpr: a 'literal' flag set by parseObjectConsKeyExpr and the newObjectConsKeyExprForName constructor. y puts key construction in ObjectConsItem.init, and handles literal keys by clearing absTraversals inside parser.go, which spreads key logic across three places.",
-          "x is not spotless. ObjectConsExpr.variables sits in the middle of the ObjectConsKeyExpr section, and hasLineEnd/isLineEnd repeat format.go's tokenIsNewline, which y reuses. These are smaller problems than y's boundary leaks."
-        ],
-        "audit": {
-          "ok": true,
-          "issues": [],
-          "warnings": []
-        },
-        "agent": {
-          "exit_code": 0,
-          "is_error": false,
-          "num_turns": 1,
-          "tokens": 123144,
-          "usage": {
-            "input_tokens": 2,
-            "cache_creation_input_tokens": 110398,
-            "cache_read_input_tokens": 11757,
-            "output_tokens": 987,
-            "output_tokens_details": {
-              "thinking_tokens": 497
-            },
-            "server_tool_use": {
-              "web_search_requests": 0,
-              "web_fetch_requests": 0
-            },
-            "service_tier": "standard",
-            "cache_creation": {
-              "ephemeral_1h_input_tokens": 110398,
-              "ephemeral_5m_input_tokens": 0
-            },
-            "inference_geo": "global",
-            "iterations": [
-              {
-                "input_tokens": 2,
-                "output_tokens": 987,
-                "cache_read_input_tokens": 11757,
-                "cache_creation_input_tokens": 110398,
-                "cache_creation": {
-                  "ephemeral_5m_input_tokens": 0,
-                  "ephemeral_1h_input_tokens": 110398
-                },
-                "type": "message"
-              }
-            ],
-            "speed": "standard",
-            "fallback_credit": null
-          },
-          "cost_usd": 0.9052834,
-          "duration_s": 14.1
-        }
-      }
-    },
-    {
       "x": "R/1",
       "y": "M/1",
       "winner": "R",
@@ -359,17 +240,135 @@
       }
     },
     {
+      "x": "MD/1",
+      "y": "M/1",
+      "winner": "tie",
+      "first": {
+        "better": "y",
+        "reasons": [
+          "y/parser.go puts the shared argument and element walk for function calls and tuples into one parseExprList. x/parser.go repeats almost the same loop and setParent fix-up in both parseFunctionCallExpr and parseTupleConsExpr.",
+          "y/ast_function_call_expr.go takes the name from the parser and stores it in FunctionCallExpr, so the type holds structure only. x's FunctionCallExpr.Name walks child tokens again and depends on how the parser lays them out, which spreads parsing knowledge into the AST type.",
+          "y adds one variablesOf helper in ast_expression.go, so FunctionCallExpr and TupleConsExpr each have a one-line variables method. x adds a parallel variableNodes layer to Expression, ObjectConsExpr, FunctionCallExpr and TupleConsExpr, and changes node.go (inTree.setParent) for the new feature.",
+          "x keeps item building and value replacement on ObjectConsItem (init, setValueExpr). y's ObjectConsExpr.SetItem changes the value's children and parent directly, and y puts ObjectConsExpr.variables among the ObjectConsKeyExpr declarations. Both are cohesion weaknesses in y/ast_object_cons_expr.go.",
+          "y puts key creation on the key type (newObjectConsKeyExprForName) and keeps the line-layout helpers as plain functions (isLineEnd, hasLineEnd). x makes tokenEndsLine and splitClosing methods on ObjectConsExpr even though they never use the receiver."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 140372,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 127532,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 1081,
+            "output_tokens_details": {
+              "thinking_tokens": 543
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 127532,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 1081,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 127532,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 127532
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 1.0442354,
+          "duration_s": 15.2
+        }
+      },
+      "second": {
+        "better": "y",
+        "reasons": [
+          "In y/ast_object_cons_expr.go, building and changing an item belongs to ObjectConsItem: `init` creates the key, the `=` and the value, and `setValueExpr` swaps the value. `ObjectConsExpr.appendItem` only handles layout. In x, `ObjectConsExpr.SetItem` and `appendItem` build the item's children and set the value's `expr` and `parent` fields themselves, so the item's internals are spread across the container type.",
+          "y adds `inTree.setParent` in node.go, so attaching a node goes through the tree type that owns `parent`. That one setter is used by parser.go, `ObjectConsItem` and the new parsers. x writes `.parent = ...` directly from SetItem, parseAttribute and parseExprList.",
+          "y keeps all the traversal collection in one place. `Expression.variableNodes` sits next to the `As*` accessors and calls a matching `variableNodes` on ObjectConsExpr, FunctionCallExpr and TupleConsExpr. In x, `ObjectConsExpr.variables` sits between ObjectConsKeyExpr and ObjectConsValue, away from the rest of ObjectConsExpr. x also puts general token helpers (`hasLineEnd`, `isLineEnd`, `newNewlineToken`) at package level in the object-construct file.",
+          "Points in x's favour: parser.go shares `parseExprList` between function calls and tuples, where y repeats nearly the same loop twice, and `FunctionCallExpr` stores its name instead of reading it back from tokens as y's `Name()` does. These are local gains and don't outweigh y's clearer split of responsibilities between types.",
+          "y's tests follow its source files: the new ast_function_call_expr_test.go matches ast_function_call_expr.go, and the round-trip test for the new parsers is in parser_test.go. x puts the function-call name checks in ast_expression_test.go."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 140584,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 127538,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 1287,
+            "output_tokens_details": {
+              "thinking_tokens": 629
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 127538,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 1287,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 127538,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 127538
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 1.0484034000000002,
+          "duration_s": 15.2
+        }
+      }
+    },
+    {
       "x": "RD/1",
       "y": "MD/1",
       "winner": "RD",
       "first": {
         "better": "x",
         "reasons": [
-          "In x, each expression type collects its own traversals: ObjectConsExpr, ObjectConsKeyExpr, FunctionCallExpr and TupleConsExpr each have a traversals method, and Expression.traversals only dispatches to them. In y, Expression.traversalNodes in ast_expression.go calls ObjectConsExpr.itemExpressions, which reaches into the key's wrapped node and the value node, so the object's internals leak into Expression.",
-          "x puts the new FunctionCallExpr and TupleConsExpr in their own files (ast_function_call_expr.go, ast_tuple_cons_expr.go), with matching parse functions and a shared parseExpressionList in parser.go. This follows the package's existing one-file-per-AST-type pattern.",
-          "x moves the prefix-matching logic out of Expression.RenameVariablePrefix into Traversal.renamePrefix, so the rename logic lives on the type it changes. y keeps a long labelled loop in Expression that digs into TraverseName and identifier internals.",
-          "x splits parser.go along feature lines. The token partitioning type and its helpers go to partition.go with partition_test.go, and writerTokens and lexConfigTokens go to tokens.go with tokens_test.go. In y, parser.go (736 lines) mixes parsing, the inputTokens partitioning type, token conversion and lexing, and parser_test.go tests all of them.",
-          "x decides whether an object key is a literal name once, at parse time, and stores it on ObjectConsKeyExpr. In y, ObjectConsKeyExpr.literalName re-reads the key's tokens and decodes escapes on every lookup. y's inTree also ends up with two overlapping attachment fields, parent and holder, each with its own check (assertUnattached and inList), where x has one holder field and one check."
+          "x moves the token-partitioning type (`partitionableTokens`, `partitionTokens`, and the lead-comment and line-end helpers) out of parser.go into its own partition.go with partition_test.go, and moves `writerTokens` and `lexConfigTokens` into tokens.go with tokens_test.go. y leaves `inputTokens`, the partition helpers, `writerTokens` and `lexConfig` in an 810-line parser.go, and their tests in parser_test.go, so that file has several jobs.",
+          "x records whether an expression is attached in one place: `newNode` calls `inTree.setHolder`. y's `setParent` calls are spread across `parseAttribute`, `parseObjectConsExpr`, `parseFunctionCallExpr`, `parseTupleConsExpr` and `ObjectConsItem.setValueExpr`, so the attachment feature leaks into the parser.",
+          "x reuses one `parseExpressionList` for both function calls and tuples, and reuses `tokenIsNewline` from format.go. y repeats the same parse loop in `parseFunctionCallExpr` and `parseTupleConsExpr`, and adds `ObjectConsExpr.tokenEndsLine`, which duplicates `tokenIsNewline`.",
+          "x keeps key semantics on the key type: `parseObjectConsKeyExpr` stores the name, and `ObjectConsKeyExpr` has `hasName` and `traversals`. It also moves prefix renaming onto `Traversal.renamePrefix`. y's `ObjectConsKeyExpr.staticName` re-lexes and re-parses the key's tokens, and `ObjectConsExpr.variableNodes` reaches into the key's and value's internal fields, which blurs the type boundaries."
         ],
         "audit": {
           "ok": true,
@@ -380,14 +379,14 @@
           "exit_code": 0,
           "is_error": false,
           "num_turns": 1,
-          "tokens": 140960,
+          "tokens": 158064,
           "usage": {
             "input_tokens": 2,
-            "cache_creation_input_tokens": 128157,
+            "cache_creation_input_tokens": 145293,
             "cache_read_input_tokens": 11757,
-            "output_tokens": 1044,
+            "output_tokens": 1012,
             "output_tokens_details": {
-              "thinking_tokens": 421
+              "thinking_tokens": 403
             },
             "server_tool_use": {
               "web_search_requests": 0,
@@ -395,19 +394,19 @@
             },
             "service_tier": "standard",
             "cache_creation": {
-              "ephemeral_1h_input_tokens": 128157,
+              "ephemeral_1h_input_tokens": 145293,
               "ephemeral_5m_input_tokens": 0
             },
             "inference_geo": "global",
             "iterations": [
               {
                 "input_tokens": 2,
-                "output_tokens": 1044,
+                "output_tokens": 1012,
                 "cache_read_input_tokens": 11757,
-                "cache_creation_input_tokens": 128157,
+                "cache_creation_input_tokens": 145293,
                 "cache_creation": {
                   "ephemeral_5m_input_tokens": 0,
-                  "ephemeral_1h_input_tokens": 128157
+                  "ephemeral_1h_input_tokens": 145293
                 },
                 "type": "message"
               }
@@ -415,18 +414,18 @@
             "speed": "standard",
             "fallback_credit": null
           },
-          "cost_usd": 1.0484954,
-          "duration_s": 14.0
+          "cost_usd": 1.1849434,
+          "duration_s": 12.3
         }
       },
       "second": {
         "better": "y",
         "reasons": [
-          "In y, each node type finds its own variables. Expression.traversals hands off to ObjectConsExpr.traversals, FunctionCallExpr.traversals, TupleConsExpr.traversals and ObjectConsKeyExpr.traversals, so each type only walks its own children. In x, Expression.traversalNodes in ast_expression.go reaches into the object's internals through ObjectConsExpr.itemExpressions, which pulls out key.wrapped and item.value by hand.",
-          "y moves the prefix-matching loop out of Expression.RenameVariablePrefix and into a new Traversal.renamePrefix method, so it sits on the Traversal type whose steps it changes. In x, the whole loop, with its labelled continue, is still inside the Expression method.",
-          "y gives each new expression kind its own file, following the package's existing ast_<type>.go pattern: ast_function_call_expr.go and ast_tuple_cons_expr.go, each with its own test file. Parsing for both shares one helper, parseExpressionList. x adds no types for these and leaves them as unstructured tokens.",
-          "y splits the 736-line parser.go of x along clear lines. The token-partitioning type and helpers move to partition.go with partition_test.go, and writerTokens and lexConfigTokens move to tokens.go with tokens_test.go. That leaves parser.go building only the tree, while x's parser.go still mixes lexing, partitioning and tree building.",
-          "In y, the parser decides whether an object key is a literal name (parseObjectConsKeyExpr records name and literal on ObjectConsKeyExpr), and the key type just answers hasName and traversals. In x, the parser clears the inner Expression's absTraversals from outside, and literalName decodes the key again from its tokens on every lookup. That spreads the key's meaning across parser.go and ast_object_cons_expr.go."
+          "y moves the token-partitioning code (partitionableTokens, partitionTokens, partitionLeadCommentTokens, partitionLineEndTokens) into its own partition.go with partition_test.go, and moves writerTokens/lexConfigTokens into tokens.go with tokens_test.go. That leaves parser.go (527 lines) doing only tree building. In x, parser.go grows to 810 lines and mixes parsing, the inputTokens partition type, token conversion and lexing, and parser_test.go also tests partitioning and lexing.",
+          "y gives each type its own part of the variable walk: Traversal.renamePrefix in ast_expression.go, and ObjectConsKeyExpr.traversals, which decides for itself whether a literal key contributes anything. In x, RenameVariablePrefix renames steps inline, and ObjectConsExpr.variableNodes reaches into key.wrapped and key.literalName from outside the key type.",
+          "y works out whether a key is a literal name, and what that name is, once in parseObjectConsKeyExpr and stores it on ObjectConsKeyExpr (name/literal). It also shares parseExpressionList between function calls and tuples. x's ObjectConsKeyExpr.staticName re-parses the key's tokens with hclsyntax on every lookup, and x repeats the argument/element loop in parseFunctionCallExpr and parseTupleConsExpr.",
+          "y's ObjectConsExpr.appendItem reuses the package's existing tokenIsNewline from format.go and uses nodes.Last/Insert/ReplaceWith from node.go, fixing those node.go helpers where needed. x adds tokenEndsLine and splitClosing as ObjectConsExpr methods that never use their receiver, and tokenEndsLine duplicates format.go's newline check.",
+          "y records attachment in one place: newNode calls inTree.setHolder. In x, setParent calls are spread through parser.go (parseAttribute, parseObjectConsExpr, parseFunctionCallExpr, parseTupleConsExpr) and ObjectConsItem.setValueExpr, so tracking attachment is not owned by node.go."
         ],
         "audit": {
           "ok": true,
@@ -437,14 +436,14 @@
           "exit_code": 0,
           "is_error": false,
           "num_turns": 1,
-          "tokens": 140963,
+          "tokens": 158235,
           "usage": {
             "input_tokens": 2,
-            "cache_creation_input_tokens": 128159,
+            "cache_creation_input_tokens": 145293,
             "cache_read_input_tokens": 11757,
-            "output_tokens": 1045,
+            "output_tokens": 1183,
             "output_tokens_details": {
-              "thinking_tokens": 408
+              "thinking_tokens": 445
             },
             "server_tool_use": {
               "web_search_requests": 0,
@@ -452,19 +451,19 @@
             },
             "service_tier": "standard",
             "cache_creation": {
-              "ephemeral_1h_input_tokens": 128159,
+              "ephemeral_1h_input_tokens": 145293,
               "ephemeral_5m_input_tokens": 0
             },
             "inference_geo": "global",
             "iterations": [
               {
                 "input_tokens": 2,
-                "output_tokens": 1045,
+                "output_tokens": 1183,
                 "cache_read_input_tokens": 11757,
-                "cache_creation_input_tokens": 128159,
+                "cache_creation_input_tokens": 145293,
                 "cache_creation": {
                   "ephemeral_5m_input_tokens": 0,
-                  "ephemeral_1h_input_tokens": 128159
+                  "ephemeral_1h_input_tokens": 145293
                 },
                 "type": "message"
               }
@@ -472,8 +471,8 @@
             "speed": "standard",
             "fallback_credit": null
           },
-          "cost_usd": 1.0485314,
-          "duration_s": 13.5
+          "cost_usd": 1.1883634,
+          "duration_s": 17.7
         }
       }
     }

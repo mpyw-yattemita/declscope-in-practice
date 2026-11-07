@@ -1,8 +1,8 @@
 diff --git a/hclwrite/ast_expression.go b/hclwrite/ast_expression.go
-index 57350e3..d0acf28 100644
+index 57350e3..cf3c9a6 100644
 --- a/hclwrite/ast_expression.go
 +++ b/hclwrite/ast_expression.go
-@@ -1,269 +1,285 @@
+@@ -1,269 +1,282 @@
  // Copyright IBM Corp. 2014, 2026
  // SPDX-License-Identifier: MPL-2.0
  
@@ -146,7 +146,7 @@ index 57350e3..d0acf28 100644
  // expression.
  func (e *Expression) Variables() []*Traversal {
 -	nodes := e.absTraversals.List()
-+	nodes := e.traversalNodes()
++	nodes := e.variableNodes()
  	ret := make([]*Traversal, len(nodes))
  	for i, node := range nodes {
  		ret[i] = node.content.(*Traversal)
@@ -172,7 +172,7 @@ index 57350e3..d0acf28 100644
  	}
  Traversals:
 -	for node := range e.absTraversals {
-+	for _, node := range e.traversalNodes() {
++	for _, node := range e.variableNodes() {
  		traversal := node.content.(*Traversal)
  		if len(traversal.steps) < len(search) {
  			// If it's shorter then it can't have our prefix
@@ -204,22 +204,6 @@ index 57350e3..d0acf28 100644
  	}
  }
  
-+// traversalNodes returns the nodes of the absolute traversals within the
-+// receiving expression, in source order. An object-construct expression has
-+// none of its own, so it reports those of its items' keys and values.
-+func (e *Expression) traversalNodes() []*node {
-+	object := e.AsObjectConsExpr()
-+	if object == nil {
-+		return e.absTraversals.List()
-+	}
-+
-+	var ret []*node
-+	for _, itemExpr := range object.itemExpressions() {
-+		ret = append(ret, itemExpr.traversalNodes()...)
-+	}
-+	return ret
-+}
-+
  func (e *Expression) AsObjectConsExpr() *ObjectConsExpr {
  	if e.wrapped == nil {
  		return nil
@@ -232,6 +216,19 @@ index 57350e3..d0acf28 100644
  	return nil
  }
  
++// variableNodes returns the nodes of the absolute traversals in the
++// expression, in source order, including those inside the items of a
++// wrapped object-construct expression.
++//
++//declscope:shared // ast_object_cons_expr.go recurses into item keys and values
++func (e *Expression) variableNodes() []*node {
++	nodes := e.absTraversals.List()
++	if object := e.AsObjectConsExpr(); object != nil {
++		nodes = append(nodes, object.variableNodes()...)
++	}
++	return nodes
++}
++
  func (e *Expression) asQuoted() *quoted {
  	if e.wrapped == nil {
  		return nil
@@ -292,10 +289,10 @@ index 57350e3..d0acf28 100644
  }
 diff --git a/hclwrite/ast_expression_test.go b/hclwrite/ast_expression_test.go
 new file mode 100644
-index 0000000..0cb2c3a
+index 0000000..2ef7e8b
 --- /dev/null
 +++ b/hclwrite/ast_expression_test.go
-@@ -0,0 +1,104 @@
+@@ -0,0 +1,112 @@
 +// Copyright IBM Corp. 2014, 2026
 +// SPDX-License-Identifier: MPL-2.0
 +
@@ -306,105 +303,113 @@ index 0000000..0cb2c3a
 +	"testing"
 +
 +	"github.com/google/go-cmp/cmp"
++
 +	"github.com/hashicorp/hcl/v2"
 +	"github.com/hashicorp/hcl/v2/hclsyntax"
 +)
 +
 +func TestExpressionVariablesObjectCons(t *testing.T) {
-+	tests := map[string]struct {
-+		src         string
-+		wantVars    []string
-+		wantRenamed string
++	tests := []struct {
++		src     string
++		vars    []string
++		renamed string
 +	}{
-+		"value": {
-+			src:         "a = { k = old.x }\n",
-+			wantVars:    []string{"old.x"},
-+			wantRenamed: "a = { k = new.x }\n",
++		{
++			src:     "a = { k = old.x }\n",
++			vars:    []string{"old.x"},
++			renamed: "a = { k = new.x }\n",
 +		},
-+		"several items in source order": {
-+			src:         "a = { k = old.x, j = other.y, l = old.z }\n",
-+			wantVars:    []string{"old.x", "other.y", "old.z"},
-+			wantRenamed: "a = { k = new.x, j = other.y, l = new.z }\n",
++		{
++			src:     "a = { k = { j = old.x } }\n",
++			vars:    []string{"old.x"},
++			renamed: "a = { k = { j = new.x } }\n",
 +		},
-+		"nested object": {
-+			src:         "a = { k = { j = old.x } }\n",
-+			wantVars:    []string{"old.x"},
-+			wantRenamed: "a = { k = { j = new.x } }\n",
++		{
++			src:     "a = { k = [old.x] }\n",
++			vars:    []string{"old.x"},
++			renamed: "a = { k = [new.x] }\n",
 +		},
-+		"tuple value": {
-+			src:         "a = { k = [old.x] }\n",
-+			wantVars:    []string{"old.x"},
-+			wantRenamed: "a = { k = [new.x] }\n",
++		{
++			src:     "a = { k = f(old.x) }\n",
++			vars:    []string{"old.x"},
++			renamed: "a = { k = f(new.x) }\n",
 +		},
-+		"function call value": {
-+			src:         "a = { k = f(old.x) }\n",
-+			wantVars:    []string{"old.x"},
-+			wantRenamed: "a = { k = f(new.x) }\n",
++		{
++			src:     "a = { k = \"${old.x}\" }\n",
++			vars:    []string{"old.x"},
++			renamed: "a = { k = \"${new.x}\" }\n",
 +		},
-+		"naked identifier key": {
-+			src:         "a = { old = 1 }\n",
-+			wantVars:    nil,
-+			wantRenamed: "a = { old = 1 }\n",
++		{
++			// A naked identifier key is a literal name, not a variable.
++			src:     "a = { old = 1 }\n",
++			vars:    nil,
++			renamed: "a = { old = 1 }\n",
 +		},
-+		"naked identifier key with value": {
-+			src:         "a = { old = old.x }\n",
-+			wantVars:    []string{"old.x"},
-+			wantRenamed: "a = { old = new.x }\n",
++		{
++			src:     "a = { old = old.x }\n",
++			vars:    []string{"old.x"},
++			renamed: "a = { old = new.x }\n",
 +		},
-+		"parenthesized key": {
-+			src:         "a = { (old.x) = 1 }\n",
-+			wantVars:    []string{"old.x"},
-+			wantRenamed: "a = { (new.x) = 1 }\n",
++		{
++			// A parenthesized key is an expression.
++			src:     "a = { (old.x) = 1 }\n",
++			vars:    []string{"old.x"},
++			renamed: "a = { (new.x) = 1 }\n",
 +		},
-+		"parenthesized key and value": {
-+			src:         "a = { (old.x) = old.y }\n",
-+			wantVars:    []string{"old.x", "old.y"},
-+			wantRenamed: "a = { (new.x) = new.y }\n",
++		{
++			src:     "a = { \"k\" = old.x }\n",
++			vars:    []string{"old.x"},
++			renamed: "a = { \"k\" = new.x }\n",
 +		},
-+		"quoted key": {
-+			src:         "a = { \"k\" = old.x }\n",
-+			wantVars:    []string{"old.x"},
-+			wantRenamed: "a = { \"k\" = new.x }\n",
++		{
++			src:     "a = { (old.a) = old.b, k = { j = old.c }, l = other.d }\n",
++			vars:    []string{"old.a", "old.b", "old.c", "other.d"},
++			renamed: "a = { (new.a) = new.b, k = { j = new.c }, l = other.d }\n",
++		},
++		{
++			src:     "a = {}\n",
++			vars:    nil,
++			renamed: "a = {}\n",
 +		},
 +	}
 +
-+	for name, test := range tests {
-+		t.Run(name, func(t *testing.T) {
++	for _, test := range tests {
++		t.Run(test.src, func(t *testing.T) {
 +			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
 +			if diags.HasErrors() {
-+				t.Fatalf("unexpected diagnostics: %s", diags)
++				t.Fatalf("unexpected diagnostics: %s", diags.Error())
 +			}
 +			expr := f.Body().GetAttribute("a").Expr()
 +
-+			var gotVars []string
++			var got []string
 +			for _, traversal := range expr.Variables() {
-+				gotVars = append(gotVars, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
++				got = append(got, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
 +			}
-+			if diff := cmp.Diff(test.wantVars, gotVars); diff != "" {
++			if diff := cmp.Diff(test.vars, got); diff != "" {
 +				t.Errorf("wrong variables\n%s", diff)
 +			}
 +
 +			nativeFile, diags := hclsyntax.ParseConfig([]byte(test.src), "", hcl.InitialPos)
 +			if diags.HasErrors() {
-+				t.Fatalf("unexpected hclsyntax diagnostics: %s", diags)
++				t.Fatalf("unexpected hclsyntax diagnostics: %s", diags.Error())
 +			}
-+			nativeExpr := nativeFile.Body.(*hclsyntax.Body).Attributes["a"].Expr
-+			if got, want := len(gotVars), len(nativeExpr.Variables()); got != want {
-+				t.Errorf("got %d variables, but hclsyntax reports %d", got, want)
++			nativeAttrs, _ := nativeFile.Body.JustAttributes()
++			if want := len(nativeAttrs["a"].Expr.Variables()); len(got) != want {
++				t.Errorf("got %d variables, but hclsyntax reports %d", len(got), want)
 +			}
 +
 +			expr.RenameVariablePrefix([]string{"old"}, []string{"new"})
-+			if diff := cmp.Diff(test.wantRenamed, string(f.Bytes())); diff != "" {
++			if diff := cmp.Diff(test.renamed, string(f.Bytes())); diff != "" {
 +				t.Errorf("wrong result after rename\n%s", diff)
 +			}
 +		})
 +	}
 +}
 diff --git a/hclwrite/ast_object_cons_expr.go b/hclwrite/ast_object_cons_expr.go
-index 2c890cc..02892b2 100644
+index 2c890cc..b83119b 100644
 --- a/hclwrite/ast_object_cons_expr.go
 +++ b/hclwrite/ast_object_cons_expr.go
-@@ -1,95 +1,109 @@
+@@ -1,95 +1,119 @@
  // Copyright IBM Corp. 2014, 2026
  // SPDX-License-Identifier: MPL-2.0
  
@@ -440,16 +445,20 @@ index 2c890cc..02892b2 100644
  	return nil
  }
  
-+// itemExpressions returns the key and value expressions of each item, in
-+// source order.
++// variableNodes returns the traversal nodes in the keys and values of the
++// items, in source order. A key that is a literal name contributes none.
 +//
-+//declscope:shared // ast_expression.go finds the traversals in them
-+func (o *ObjectConsExpr) itemExpressions() []*Expression {
-+	var ret []*Expression
++//declscope:shared // ast_expression.go collects them for Expression.Variables
++func (o *ObjectConsExpr) variableNodes() []*node {
++	var ret []*node
 +	for _, n := range o.items.List() {
 +		item := n.content.(*ObjectConsItem)
 +		key := item.key.content.(*ObjectConsKeyExpr)
-+		ret = append(ret, key.wrapped.content.(*Expression), item.value.content.(*ObjectConsValue).Expr())
++		if !key.literalName {
++			ret = append(ret, key.wrapped.content.(*Expression).variableNodes()...)
++		}
++		value := item.value.content.(*ObjectConsValue)
++		ret = append(ret, value.expr.content.(*Expression).variableNodes()...)
 +	}
 +	return ret
 +}
@@ -470,12 +479,21 @@ index 2c890cc..02892b2 100644
  	inTree
  
  	wrapped *node
++
++	// literalName is true when the key is a naked name, such as "k" in
++	// { k = v }. As in hclsyntax, such a key is a literal string, not a
++	// reference, so it has no variables.
++	literalName bool
  }
  
- func newObjectConsKeyExpr(wrapped *node) *ObjectConsKeyExpr {
+-func newObjectConsKeyExpr(wrapped *node) *ObjectConsKeyExpr {
++func newObjectConsKeyExpr(wrapped *node, literalName bool) *ObjectConsKeyExpr {
  	expr := &ObjectConsKeyExpr{
- 		inTree:  newInTree(),
- 		wrapped: wrapped,
+-		inTree:  newInTree(),
+-		wrapped: wrapped,
++		inTree:      newInTree(),
++		wrapped:     wrapped,
++		literalName: literalName,
  	}
  	expr.children.AppendNode(wrapped)
  
@@ -515,10 +533,10 @@ index 2c890cc..02892b2 100644
  	return o.expr.content.(*Expression)
  }
 diff --git a/hclwrite/parser.go b/hclwrite/parser.go
-index 64eb034..6b01164 100644
+index 64eb034..5c9b98f 100644
 --- a/hclwrite/parser.go
 +++ b/hclwrite/parser.go
-@@ -1,731 +1,736 @@
+@@ -1,731 +1,733 @@
  // Copyright IBM Corp. 2014, 2026
  // SPDX-License-Identifier: MPL-2.0
  
@@ -988,12 +1006,10 @@ index 64eb034..6b01164 100644
  // literal is functionally equivalent to an Identifier.
  func parseObjectConsKeyExpr(nativeExpr *hclsyntax.ObjectConsKeyExpr, from inputTokens) *node {
  	expr := parseExpression(nativeExpr.Wrapped, from)
-+	if len(nativeExpr.Variables()) == 0 {
-+		// A naked identifier is a literal name, not a variable, so its
-+		// traversal must not be reported or renamed.
-+		expr.content.(*Expression).absTraversals.Clear()
-+	}
- 	wrapExpr := newObjectConsKeyExpr(expr)
+-	wrapExpr := newObjectConsKeyExpr(expr)
++	// hclsyntax reads the key as a literal name by the same test.
++	literalName := hcl.ExprAsKeyword(nativeExpr.Wrapped) != ""
++	wrapExpr := newObjectConsKeyExpr(expr, literalName)
  
  	return newNode(wrapExpr)
  }

@@ -98,3 +98,27 @@ func ExampleExpression_RenameVariablePrefix() {
 	// foo = z.x + z.y * b.c
 	// bar = max(z.z, b.c)
 }
+
+func ExampleObjectConsExpr_SetItemRaw() {
+	src := []byte("a = {\n    hat = \"derby\", (cat) = \"calico\" }\n")
+	f, diags := hclwrite.ParseConfig(src, "", hcl.Pos{Line: 1, Column: 1})
+	if diags.HasErrors() {
+		fmt.Printf("errors: %s", diags)
+		return
+	}
+
+	object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
+	bowler := hclwrite.TokensForValue(cty.StringVal("bowler"))
+
+	// "hat" is found and replaced. A key from an expression, such as (cat),
+	// is never found, so "cat" is added as a new item.
+	object.SetItemRaw("hat", bowler)
+	object.SetItemRaw("cat", bowler)
+
+	fmt.Printf("%s", f.Bytes())
+	// Output:
+	// a = {
+	//   hat = "bowler", (cat) = "calico"
+	//   cat = "bowler"
+	// }
+}

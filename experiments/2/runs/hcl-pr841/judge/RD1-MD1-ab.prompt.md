@@ -64,21 +64,24 @@ You may read any other file under x/ or y/ if you need to.
 | ast_block_test.go | 579 |  | TestBlockType (func), TestBlockLabels (func), TestBlockSetType_buildTokens (func), TestBlockSetType (func), TestBlockSetLabels (func), TestBlockLeadComments (func), mustParseConfig (func) |
 | ast_body.go | 309 |  | Body (type), newBody (func), Body.appendItem (method), Body.appendItemNode (method), Body.Clear (method), Body.AppendUnstructuredTokens (method), Body.Attributes (method), Body.Blocks (method), Body.GetAttribute (method), Body.getAttributeNode (method), Body.RenameAttribute (method), Body.FirstMatchingBlock (method), Body.RemoveNewlineBeforeBlock (method), Body.RemoveBlock (method), Body.SetAttributeRaw (method), Body.SetAttributeValue (method), Body.SetAttributeTraversal (method), Body.RemoveAttribute (method), Body.AppendBlock (method), Body.AppendNewBlock (method), Body.AppendNewline (method) |
 | ast_body_test.go | 2195 |  | TestBodyGetAttribute (func), TestBodyFirstMatchingBlock (func), TestBodySetAttributeValue (func), TestBodySetAttributeTraversal (func), TestBodySetAttributeTraversal_ReturnsTheAttribute (func), TestBodySetAttributeRaw (func), TestBodySetAttributeRaw_ReturnsTheAttribute (func), TestBodySetAttributeValue_ReturnsTheAttribute (func), TestBodySetAttributeValueInBlock (func), TestBodySetAttributeValueInNestedBlock (func), TestBodyRemoveAttribute (func), TestBodyRenameAttribute (func), TestBodyAppendBlock (func), TestBodyRemoveBlock (func), TestBodyRemoveNewlineBeforeBlock (func), testFn (func) |
-| ast_expression.go | 285 | CHANGED | Expression (type), newExpression (func), Expression.wrap (method), NewExpressionRaw (func), NewExpressionLiteral (func), NewExpressionAbsTraversal (func), Expression.Variables (method), Expression.RenameVariablePrefix (method), Expression.traversalNodes (method), Expression.AsObjectConsExpr (method), Expression.asQuoted (method), Expression.AsQuotedLiteral (method), Traversal (type), newTraversal (func), TraverseName (type), newTraverseName (func), TraverseIndex (type), newTraverseIndex (func) |
-| ast_expression_test.go | 104 | NEW | TestExpressionVariablesObjectCons (func) |
-| ast_object_cons_expr.go | 352 | CHANGED | ObjectConsExpr (type), newObjectConsExpr (func), ObjectConsExpr.Items (method), ObjectConsExpr.ItemFor (method), ObjectConsExpr.ValueExprFor (method), ObjectConsExpr.SetItem (method), ObjectConsExpr.SetItemRaw (method), ObjectConsExpr.SetItemValue (method), ObjectConsExpr.SetItemTraversal (method), ObjectConsExpr.itemExpressions (method), ObjectConsExpr.appendItem (method), ObjectConsExpr.detachTrailingTokens (method), ObjectConsExpr.hasLineBreak (method), ObjectConsItem (type), newObjectConsItem (func), ObjectConsItem.KeyExpr (method), ObjectConsItem.ValueExpr (method), ObjectConsItem.init (method), ObjectConsKeyExpr (type), newObjectConsKeyExpr (func), ObjectConsKeyExpr.literalName (method), ObjectConsValue (type), newObjectConsValue (func), ObjectConsValue.Expr (method) |
-| ast_object_cons_expr_test.go | 438 | NEW | TestObjectConsExprItemFor (func), TestObjectConsExprItems (func), TestObjectConsExprSetItemKey (func), TestObjectConsExprSetItemReplaces (func), TestObjectConsExprSetItemLayout (func), TestObjectConsExprSetItemHelpers (func), TestObjectConsExprSetItemPanics (func), TestObjectConsExprSetItemExample (func), parseFileObjectConsExprForTest (func), parseObjectConsExprForTest (func), assertObjectConsExprFormatted (func), assertObjectConsExprPanics (func) |
+| ast_expression.go | 315 | CHANGED | Expression (type), newExpression (func), Expression.wrap (method), NewExpressionRaw (func), NewExpressionLiteral (func), NewExpressionAbsTraversal (func), Expression.Variables (method), Expression.RenameVariablePrefix (method), Expression.AsObjectConsExpr (method), Expression.AsFunctionCallExpr (method), Expression.AsTupleConsExpr (method), Expression.variableNodes (method), Expression.asQuoted (method), Expression.AsQuotedLiteral (method), Traversal (type), newTraversal (func), TraverseName (type), newTraverseName (func), TraverseIndex (type), newTraverseIndex (func) |
+| ast_expression_test.go | 210 | NEW | TestExpressionVariablesObjectCons (func), TestExpressionVariablesFunctionCallAndTupleCons (func), TestExpressionAsFunctionCallExprAndTupleConsExpr (func) |
+| ast_function_call_expr.go | 64 | NEW | FunctionCallExpr (type), newFunctionCallExpr (func), FunctionCallExpr.Name (method), FunctionCallExpr.variableNodes (method) |
+| ast_function_call_expr_test.go | 38 | NEW | TestFunctionCallExprName (func) |
+| ast_object_cons_expr.go | 373 | CHANGED | ObjectConsExpr (type), newObjectConsExpr (func), ObjectConsExpr.Items (method), ObjectConsExpr.ItemFor (method), ObjectConsExpr.ValueExprFor (method), ObjectConsExpr.SetItem (method), ObjectConsExpr.SetItemRaw (method), ObjectConsExpr.SetItemValue (method), ObjectConsExpr.SetItemTraversal (method), ObjectConsExpr.variableNodes (method), ObjectConsExpr.appendItem (method), ObjectConsExpr.isMultiline (method), ObjectConsExpr.splitClosing (method), ObjectConsExpr.tokenEndsLine (method), ObjectConsItem (type), newObjectConsItem (func), ObjectConsItem.KeyExpr (method), ObjectConsItem.ValueExpr (method), ObjectConsItem.init (method), ObjectConsItem.setValueExpr (method), ObjectConsKeyExpr (type), newObjectConsKeyExpr (func), ObjectConsKeyExpr.staticName (method), ObjectConsValue (type), newObjectConsValue (func), ObjectConsValue.Expr (method) |
+| ast_object_cons_expr_test.go | 381 | NEW | TestObjectConsExprItemFor (func), TestObjectConsExprItems (func), TestObjectConsExprSetItemKey (func), TestObjectConsExprSetItemExisting (func), TestObjectConsExprSetItemKinds (func), TestObjectConsExprSetItemPanics (func), TestObjectConsExprSetItemLayout (func) |
 | ast_test.go | 50 |  | TestTreeNode (type), makeTestTree (func) |
+| ast_tuple_cons_expr.go | 34 | NEW | TupleConsExpr (type), newTupleConsExpr (func), TupleConsExpr.variableNodes (method) |
 | doc.go | 14 |  |  |
-| examples_test.go | 100 |  | Example_generateFromScratch (func), ExampleExpression_RenameVariablePrefix (func) |
-| format.go | 472 | CHANGED | format (func), formatIndent (func), formatSpaces (func), formatCells (func), spaceAfterToken (func), linesForFormat (func), tokenIsNewline (func), tokenBracketChange (func), formatLine (type) |
+| examples_test.go | 124 | CHANGED | Example_generateFromScratch (func), ExampleExpression_RenameVariablePrefix (func), ExampleObjectConsExpr_SetItemRaw (func) |
+| format.go | 472 |  | format (func), formatIndent (func), formatSpaces (func), formatCells (func), spaceAfterToken (func), linesForFormat (func), tokenIsNewline (func), tokenBracketChange (func), formatLine (type) |
 | format_test.go | 800 |  | TestFormat (func), TestLinesForFormat (func) |
 | generate.go | 399 |  | TokensForValue (func), TokensForTraversal (func), TokensForIdentifier (func), TokensForTuple (func), TokensForObject (func), TokensForFunctionCall (func), appendTokensForValue (func), appendTokensForTraversal (func), appendTokensForTraversalStep (func), escapeQuotedStringLit (func), appendRune (func) |
 | generate_test.go | 920 |  | TestTokensForValue (func), TestTokensForTraversal (func), TestTokensForTuple (func), TestTokensForObject (func), TestTokensForFunctionCall (func), TestTokenGenerateConsistency (func) |
 | native_node_sorter.go | 26 |  | nativeNodeSorter (type), nativeNodeSorter.Len (method), nativeNodeSorter.Less (method), nativeNodeSorter.Swap (method) |
-| node.go | 320 | CHANGED | node (type), newNode (func), node.Equal (method), node.BuildTokens (method), node.Detach (method), node.ReplaceWith (method), node.assertUnattached (method), nodeContent (type), nodes (type), nodes.BuildTokens (method), nodes.Clear (method), nodes.Append (method), nodes.AppendNode (method), nodes.Insert (method), nodes.InsertNode (method), nodes.AppendUnstructuredTokens (method), nodes.FindNodeWithContent (method), nodeSet (type), newNodeSet (func), nodeSet.Has (method), nodeSet.Add (method), nodeSet.Remove (method), nodeSet.Clear (method), nodeSet.List (method), nodeSet.FindNodeWithContent (method), internalWalkFunc (type), inTree (type), newInTree (func), inTree.assertUnattached (method), inTree.inList (method), inTree.walkChildNodes (method), inTree.BuildTokens (method), inTree.setHolder (method), leafNode (type), leafNode.walkChildNodes (method) |
-| parser.go | 736 | CHANGED | parse (func), inputTokens (type), inputTokens.Partition (method), inputTokens.PartitionType (method), inputTokens.PartitionTypeOk (method), inputTokens.PartitionTypeSingle (method), inputTokens.PartitionIncludingComments (method), inputTokens.PartitionBlockItem (method), inputTokens.PartitionLeadComments (method), inputTokens.PartitionLineEndTokens (method), inputTokens.Slice (method), inputTokens.Len (method), inputTokens.Tokens (method), inputTokens.Types (method), parseBody (func), parseBodyItem (func), parseAttribute (func), parseBlock (func), parseBlockLabels (func), parseExpression (func), parseAnyExpression (func), parseObjectConsExpr (func), parseObjectConsKeyExpr (func), parseTemplateExpr (func), parseTraversal (func), parseTraversalStep (func), writerTokens (func), partitionTokens (func), partitionLeadCommentTokens (func), partitionLineEndTokens (func), lexConfig (func) |
-| parser_test.go | 2159 |  | TestParse (func), TestPartitionTokens (func), TestPartitionLeadCommentTokens (func), TestLexConfig (func) |
+| node.go | 307 | CHANGED | node (type), newNode (func), node.Equal (method), node.BuildTokens (method), node.Detach (method), node.ReplaceWith (method), node.assertUnattached (method), nodeContent (type), nodes (type), nodes.BuildTokens (method), nodes.Clear (method), nodes.Append (method), nodes.AppendNode (method), nodes.Insert (method), nodes.InsertNode (method), nodes.AppendUnstructuredTokens (method), nodes.FindNodeWithContent (method), nodeSet (type), newNodeSet (func), nodeSet.Has (method), nodeSet.Add (method), nodeSet.Remove (method), nodeSet.Clear (method), nodeSet.List (method), nodeSet.FindNodeWithContent (method), internalWalkFunc (type), inTree (type), newInTree (func), inTree.assertUnattached (method), inTree.setParent (method), inTree.walkChildNodes (method), inTree.BuildTokens (method), leafNode (type), leafNode.walkChildNodes (method) |
+| parser.go | 810 | CHANGED | parse (func), inputTokens (type), inputTokens.Partition (method), inputTokens.PartitionType (method), inputTokens.PartitionTypeOk (method), inputTokens.PartitionTypeSingle (method), inputTokens.PartitionIncludingComments (method), inputTokens.PartitionBlockItem (method), inputTokens.PartitionLeadComments (method), inputTokens.PartitionLineEndTokens (method), inputTokens.Slice (method), inputTokens.Len (method), inputTokens.Tokens (method), inputTokens.Types (method), parseBody (func), parseBodyItem (func), parseAttribute (func), parseBlock (func), parseBlockLabels (func), parseExpression (func), parseAnyExpression (func), parseObjectConsExpr (func), parseObjectConsKeyExpr (func), parseFunctionCallExpr (func), parseTupleConsExpr (func), parseTemplateExpr (func), parseTraversal (func), parseTraversalStep (func), writerTokens (func), partitionTokens (func), partitionLeadCommentTokens (func), partitionLineEndTokens (func), lexConfig (func) |
+| parser_test.go | 2308 | CHANGED | TestParse (func), TestPartitionTokens (func), TestPartitionLeadCommentTokens (func), TestLexConfig (func), TestParseFunctionCallAndTupleConsRoundTrip (func) |
 | public.go | 48 |  | NewFile (func), ParseConfig (func), Format (func) |
 | round_trip_test.go | 181 |  | TestRoundTripVerbatim (func), TestRoundTripFormat (func), TestRoundTripSafeConcurrent (func) |
 | tokens.go | 136 |  | Token (type), Token.asHCLSyntax (method), Tokens (type), Tokens.Bytes (method), Tokens.testValue (method), Tokens.Columns (method), Tokens.WriteTo (method), Tokens.walkChildNodes (method), Tokens.BuildTokens (method), ObjectAttrTokens (type), newIdentToken (func) |
@@ -7300,7 +7303,7 @@ func NewExpressionAbsTraversal(traversal hcl.Traversal) *Expression {
 // Variables returns the absolute traversals that exist within the receiving
 // expression.
 func (e *Expression) Variables() []*Traversal {
-	nodes := e.traversalNodes()
+	nodes := e.variableNodes()
 	ret := make([]*Traversal, len(nodes))
 	for i, node := range nodes {
 		ret[i] = node.content.(*Traversal)
@@ -7325,7 +7328,7 @@ func (e *Expression) RenameVariablePrefix(search, replacement []string) {
 		panic(fmt.Sprintf("search and replacement length mismatch (%d and %d)", len(search), len(replacement)))
 	}
 Traversals:
-	for _, node := range e.traversalNodes() {
+	for _, node := range e.variableNodes() {
 		traversal := node.content.(*Traversal)
 		if len(traversal.steps) < len(search) {
 			// If it's shorter then it can't have our prefix
@@ -7357,22 +7360,6 @@ Traversals:
 	}
 }
 
-// traversalNodes returns the nodes of the absolute traversals within the
-// receiving expression, in source order. An object-construct expression has
-// none of its own, so it reports those of its items' keys and values.
-func (e *Expression) traversalNodes() []*node {
-	object := e.AsObjectConsExpr()
-	if object == nil {
-		return e.absTraversals.List()
-	}
-
-	var ret []*node
-	for _, itemExpr := range object.itemExpressions() {
-		ret = append(ret, itemExpr.traversalNodes()...)
-	}
-	return ret
-}
-
 func (e *Expression) AsObjectConsExpr() *ObjectConsExpr {
 	if e.wrapped == nil {
 		return nil
@@ -7383,6 +7370,52 @@ func (e *Expression) AsObjectConsExpr() *ObjectConsExpr {
 	}
 
 	return nil
+}
+
+// AsFunctionCallExpr returns the wrapped function call expression, or nil if
+// this expression does not parse as a function call expression.
+func (e *Expression) AsFunctionCallExpr() *FunctionCallExpr {
+	if e.wrapped == nil {
+		return nil
+	}
+
+	if call, ok := e.wrapped.content.(*FunctionCallExpr); ok {
+		return call
+	}
+
+	return nil
+}
+
+// AsTupleConsExpr returns the wrapped tuple-construct expression, or nil if
+// this expression does not parse as a tuple-construct expression.
+func (e *Expression) AsTupleConsExpr() *TupleConsExpr {
+	if e.wrapped == nil {
+		return nil
+	}
+
+	if tuple, ok := e.wrapped.content.(*TupleConsExpr); ok {
+		return tuple
+	}
+
+	return nil
+}
+
+// variableNodes returns the nodes of the absolute traversals in the
+// expression, in source order, including those inside a wrapped
+// object-construct, function call or tuple-construct expression.
+//
+func (e *Expression) variableNodes() []*node {
+	nodes := e.absTraversals.List()
+	if object := e.AsObjectConsExpr(); object != nil {
+		nodes = append(nodes, object.variableNodes()...)
+	}
+	if call := e.AsFunctionCallExpr(); call != nil {
+		nodes = append(nodes, call.variableNodes()...)
+	}
+	if tuple := e.AsTupleConsExpr(); tuple != nil {
+		nodes = append(nodes, tuple.variableNodes()...)
+	}
+	return nodes
 }
 
 func (e *Expression) asQuoted() *quoted {
@@ -7459,96 +7492,316 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 )
 
 func TestExpressionVariablesObjectCons(t *testing.T) {
-	tests := map[string]struct {
-		src         string
-		wantVars    []string
-		wantRenamed string
+	tests := []struct {
+		src     string
+		vars    []string
+		renamed string
 	}{
-		"value": {
-			src:         "a = { k = old.x }\n",
-			wantVars:    []string{"old.x"},
-			wantRenamed: "a = { k = new.x }\n",
+		{
+			src:     "a = { k = old.x }\n",
+			vars:    []string{"old.x"},
+			renamed: "a = { k = new.x }\n",
 		},
-		"several items in source order": {
-			src:         "a = { k = old.x, j = other.y, l = old.z }\n",
-			wantVars:    []string{"old.x", "other.y", "old.z"},
-			wantRenamed: "a = { k = new.x, j = other.y, l = new.z }\n",
+		{
+			src:     "a = { k = { j = old.x } }\n",
+			vars:    []string{"old.x"},
+			renamed: "a = { k = { j = new.x } }\n",
 		},
-		"nested object": {
-			src:         "a = { k = { j = old.x } }\n",
-			wantVars:    []string{"old.x"},
-			wantRenamed: "a = { k = { j = new.x } }\n",
+		{
+			src:     "a = { k = [old.x] }\n",
+			vars:    []string{"old.x"},
+			renamed: "a = { k = [new.x] }\n",
 		},
-		"tuple value": {
-			src:         "a = { k = [old.x] }\n",
-			wantVars:    []string{"old.x"},
-			wantRenamed: "a = { k = [new.x] }\n",
+		{
+			src:     "a = { k = f(old.x) }\n",
+			vars:    []string{"old.x"},
+			renamed: "a = { k = f(new.x) }\n",
 		},
-		"function call value": {
-			src:         "a = { k = f(old.x) }\n",
-			wantVars:    []string{"old.x"},
-			wantRenamed: "a = { k = f(new.x) }\n",
+		{
+			src:     "a = { k = \"${old.x}\" }\n",
+			vars:    []string{"old.x"},
+			renamed: "a = { k = \"${new.x}\" }\n",
 		},
-		"naked identifier key": {
-			src:         "a = { old = 1 }\n",
-			wantVars:    nil,
-			wantRenamed: "a = { old = 1 }\n",
+		{
+			// A naked identifier key is a literal name, not a variable.
+			src:     "a = { old = 1 }\n",
+			vars:    nil,
+			renamed: "a = { old = 1 }\n",
 		},
-		"naked identifier key with value": {
-			src:         "a = { old = old.x }\n",
-			wantVars:    []string{"old.x"},
-			wantRenamed: "a = { old = new.x }\n",
+		{
+			src:     "a = { old = old.x }\n",
+			vars:    []string{"old.x"},
+			renamed: "a = { old = new.x }\n",
 		},
-		"parenthesized key": {
-			src:         "a = { (old.x) = 1 }\n",
-			wantVars:    []string{"old.x"},
-			wantRenamed: "a = { (new.x) = 1 }\n",
+		{
+			// A parenthesized key is an expression.
+			src:     "a = { (old.x) = 1 }\n",
+			vars:    []string{"old.x"},
+			renamed: "a = { (new.x) = 1 }\n",
 		},
-		"parenthesized key and value": {
-			src:         "a = { (old.x) = old.y }\n",
-			wantVars:    []string{"old.x", "old.y"},
-			wantRenamed: "a = { (new.x) = new.y }\n",
+		{
+			src:     "a = { \"k\" = old.x }\n",
+			vars:    []string{"old.x"},
+			renamed: "a = { \"k\" = new.x }\n",
 		},
-		"quoted key": {
-			src:         "a = { \"k\" = old.x }\n",
-			wantVars:    []string{"old.x"},
-			wantRenamed: "a = { \"k\" = new.x }\n",
+		{
+			src:     "a = { (old.a) = old.b, k = { j = old.c }, l = other.d }\n",
+			vars:    []string{"old.a", "old.b", "old.c", "other.d"},
+			renamed: "a = { (new.a) = new.b, k = { j = new.c }, l = other.d }\n",
+		},
+		{
+			src:     "a = {}\n",
+			vars:    nil,
+			renamed: "a = {}\n",
 		},
 	}
 
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.src, func(t *testing.T) {
 			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
 			if diags.HasErrors() {
-				t.Fatalf("unexpected diagnostics: %s", diags)
+				t.Fatalf("unexpected diagnostics: %s", diags.Error())
 			}
 			expr := f.Body().GetAttribute("a").Expr()
 
-			var gotVars []string
+			var got []string
 			for _, traversal := range expr.Variables() {
-				gotVars = append(gotVars, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
+				got = append(got, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
 			}
-			if diff := cmp.Diff(test.wantVars, gotVars); diff != "" {
+			if diff := cmp.Diff(test.vars, got); diff != "" {
 				t.Errorf("wrong variables\n%s", diff)
 			}
 
 			nativeFile, diags := hclsyntax.ParseConfig([]byte(test.src), "", hcl.InitialPos)
 			if diags.HasErrors() {
-				t.Fatalf("unexpected hclsyntax diagnostics: %s", diags)
+				t.Fatalf("unexpected hclsyntax diagnostics: %s", diags.Error())
 			}
-			nativeExpr := nativeFile.Body.(*hclsyntax.Body).Attributes["a"].Expr
-			if got, want := len(gotVars), len(nativeExpr.Variables()); got != want {
-				t.Errorf("got %d variables, but hclsyntax reports %d", got, want)
+			nativeAttrs, _ := nativeFile.Body.JustAttributes()
+			if want := len(nativeAttrs["a"].Expr.Variables()); len(got) != want {
+				t.Errorf("got %d variables, but hclsyntax reports %d", len(got), want)
 			}
 
 			expr.RenameVariablePrefix([]string{"old"}, []string{"new"})
-			if diff := cmp.Diff(test.wantRenamed, string(f.Bytes())); diff != "" {
+			if diff := cmp.Diff(test.renamed, string(f.Bytes())); diff != "" {
 				t.Errorf("wrong result after rename\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestExpressionVariablesFunctionCallAndTupleCons(t *testing.T) {
+	tests := []struct {
+		src     string
+		vars    []string
+		renamed string
+	}{
+		{
+			src:     "a = f(old.x, old.y)\n",
+			vars:    []string{"old.x", "old.y"},
+			renamed: "a = f(new.x, new.y)\n",
+		},
+		{
+			src:     "a = [old.x, other.y]\n",
+			vars:    []string{"old.x", "other.y"},
+			renamed: "a = [new.x, other.y]\n",
+		},
+		{
+			src:     "a = f(old.a, [old.b, g(old.c)], { k = old.d }, old.e...)\n",
+			vars:    []string{"old.a", "old.b", "old.c", "old.d", "old.e"},
+			renamed: "a = f(new.a, [new.b, g(new.c)], { k = new.d }, new.e...)\n",
+		},
+		{
+			src:     "a = { k = f(old.x, [old.y]), l = [g(old.z)] }\n",
+			vars:    []string{"old.x", "old.y", "old.z"},
+			renamed: "a = { k = f(new.x, [new.y]), l = [g(new.z)] }\n",
+		},
+		{
+			src:     "a = f(\"${old.x}\", old.y + 1)\n",
+			vars:    []string{"old.x", "old.y"},
+			renamed: "a = f(\"${new.x}\", new.y + 1)\n",
+		},
+		{
+			src:     "a = f()\n",
+			vars:    nil,
+			renamed: "a = f()\n",
+		},
+		{
+			src:     "a = []\n",
+			vars:    nil,
+			renamed: "a = []\n",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.src, func(t *testing.T) {
+			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
+			if diags.HasErrors() {
+				t.Fatalf("unexpected diagnostics: %s", diags.Error())
+			}
+			expr := f.Body().GetAttribute("a").Expr()
+
+			var got []string
+			for _, traversal := range expr.Variables() {
+				got = append(got, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
+			}
+			if diff := cmp.Diff(test.vars, got); diff != "" {
+				t.Errorf("wrong variables\n%s", diff)
+			}
+
+			expr.RenameVariablePrefix([]string{"old"}, []string{"new"})
+			if diff := cmp.Diff(test.renamed, string(f.Bytes())); diff != "" {
+				t.Errorf("wrong result after rename\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestExpressionAsFunctionCallExprAndTupleConsExpr(t *testing.T) {
+	tests := []struct {
+		src       string
+		wantCall  bool
+		wantTuple bool
+	}{
+		{src: "a = f(x)\n", wantCall: true},
+		{src: "a = [x]\n", wantTuple: true},
+		{src: "a = f(x) + 1\n"},
+		{src: "a = [for x in y : x]\n"},
+		{src: "a = { k = [x] }\n"},
+		{src: "a = x\n"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.src, func(t *testing.T) {
+			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
+			if diags.HasErrors() {
+				t.Fatalf("unexpected diagnostics: %s", diags.Error())
+			}
+			expr := f.Body().GetAttribute("a").Expr()
+			if got := expr.AsFunctionCallExpr() != nil; got != test.wantCall {
+				t.Errorf("AsFunctionCallExpr returned a call: %t, want %t", got, test.wantCall)
+			}
+			if got := expr.AsTupleConsExpr() != nil; got != test.wantTuple {
+				t.Errorf("AsTupleConsExpr returned a tuple: %t, want %t", got, test.wantTuple)
+			}
+		})
+	}
+}
+
+```
+
+#### y/ast_function_call_expr.go
+
+```go
+// Copyright IBM Corp. 2014, 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package hclwrite
+
+import (
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+)
+
+// FunctionCallExpr represents a function call expression such as
+// join(" ", list). Get one from an expression with
+// Expression.AsFunctionCallExpr.
+//
+// Each argument is an Expression of its own. The function name, the
+// parentheses, the commas and a final "..." stay as tokens of the call.
+type FunctionCallExpr struct {
+	inTree
+
+	args nodeSet
+}
+
+func newFunctionCallExpr() *FunctionCallExpr {
+	return &FunctionCallExpr{
+		inTree: newInTree(),
+		args:   newNodeSet(),
+	}
+}
+
+// Name returns the name of the called function. A namespaced name keeps its
+// namespaces, as in "provider::example::upper".
+func (call *FunctionCallExpr) Name() string {
+	// The parser puts the name and the opening parenthesis in the first run
+	// of tokens.
+	var name []byte
+	done := false
+	call.walkChildNodes(func(n *node) {
+		tokens, ok := n.content.(Tokens)
+		if done || !ok {
+			done = true
+			return
+		}
+		for _, tok := range tokens {
+			switch tok.Type {
+			case hclsyntax.TokenOParen:
+				done = true
+				return
+			case hclsyntax.TokenIdent, hclsyntax.TokenDoubleColon:
+				name = append(name, tok.Bytes...)
+			}
+		}
+	})
+	return string(name)
+}
+
+// variableNodes returns the traversal nodes in the arguments, in source
+// order.
+//
+func (call *FunctionCallExpr) variableNodes() []*node {
+	var ret []*node
+	for _, n := range call.args.List() {
+		ret = append(ret, n.content.(*Expression).variableNodes()...)
+	}
+	return ret
+}
+
+```
+
+#### y/ast_function_call_expr_test.go
+
+```go
+// Copyright IBM Corp. 2014, 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package hclwrite
+
+import (
+	"testing"
+
+	"github.com/hashicorp/hcl/v2"
+)
+
+func TestFunctionCallExprName(t *testing.T) {
+	tests := []struct {
+		src  string
+		want string
+	}{
+		{src: "a = join(\" \", [\"fedora\", \"fez\"])\n", want: "join"},
+		{src: "a = timestamp()\n", want: "timestamp"},
+		{src: "a = provider::example::upper(\"x\")\n", want: "provider::example::upper"},
+		{src: "a = f(g(x))\n", want: "f"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.src, func(t *testing.T) {
+			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
+			if diags.HasErrors() {
+				t.Fatalf("unexpected diagnostics: %s", diags.Error())
+			}
+			call := f.Body().GetAttribute("a").Expr().AsFunctionCallExpr()
+			if call == nil {
+				t.Fatal("not parsed as a function call expression")
+			}
+			if got := call.Name(); got != test.want {
+				t.Errorf("wrong name\ngot:  %s\nwant: %s", got, test.want)
 			}
 		})
 	}
@@ -7565,7 +7818,7 @@ func TestExpressionVariablesObjectCons(t *testing.T) {
 package hclwrite
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -7573,8 +7826,13 @@ import (
 )
 
 // ObjectConsExpr is an object-construct expression, such as
-// { hat = "derby", (cat) = "calico" }. Get one from an expression with
+// { hat = "derby" }. Get one from an expression with
 // Expression.AsObjectConsExpr.
+//
+// Its methods find an item by its key only when the key is an identifier or
+// a quoted string literal. The two forms are equivalent: the key "hat" finds
+// both hat = ... and "hat" = .... A key that is taken from a variable or from
+// another expression, such as (hat), is never found.
 type ObjectConsExpr struct {
 	inTree
 
@@ -7590,9 +7848,10 @@ func newObjectConsExpr() *ObjectConsExpr {
 
 // Items returns the items of the object, in source order.
 func (o *ObjectConsExpr) Items() []*ObjectConsItem {
-	var ret []*ObjectConsItem
-	for _, n := range o.items.List() {
-		ret = append(ret, n.content.(*ObjectConsItem))
+	nodes := o.items.List()
+	ret := make([]*ObjectConsItem, len(nodes))
+	for i, n := range nodes {
+		ret[i] = n.content.(*ObjectConsItem)
 	}
 	return ret
 }
@@ -7600,14 +7859,11 @@ func (o *ObjectConsExpr) Items() []*ObjectConsItem {
 // ItemFor returns the first item whose key is the given string, or nil if
 // there is none.
 //
-// Only an item whose key is an identifier or a quoted string literal can be
-// found, and the two forms are equivalent: "hat" finds both hat = ... and
-// "hat" = .... A quoted key is compared after its escape sequences are
-// decoded. A key that is taken from a variable or another expression, such
-// as (hat), hat.band or "${hat}", is never found.
+// A quoted key is compared by its value after its escape sequences are
+// decoded, so ItemFor("${hat}") finds the key "$${hat}".
 func (o *ObjectConsExpr) ItemFor(key string) *ObjectConsItem {
 	for _, item := range o.Items() {
-		if name, ok := item.KeyExpr().literalName(); ok && name == key {
+		if name, ok := item.KeyExpr().staticName(); ok && name == key {
 			return item
 		}
 	}
@@ -7625,36 +7881,35 @@ func (o *ObjectConsExpr) ValueExprFor(key string) *ObjectConsValue {
 }
 
 // SetItem either replaces the value of the item that ItemFor finds for the
-// given key, leaving its key as written, or adds a new item to the end of
+// given key, leaving its key as written, or adds a new item at the end of
 // the object.
 //
-// A new key is written as an identifier when it is a valid one, and as a
-// quoted string literal otherwise. A new item follows the layout of the
-// object: on the same line after a comma in a single-line object, and on
-// its own line before the closing brace in a multi-line one.
+// A new key is written as an identifier when it is a valid identifier other
+// than "for", and otherwise as a quoted string literal that evaluates to the
+// given key.
 //
-// SetItem panics if the given expression is already part of a syntax tree,
-// since two items would then share it.
+// SetItem panics if the expression is already part of a syntax tree, such as
+// one returned by Attribute.Expr or ObjectConsValue.Expr. Two items sharing
+// one expression would change together.
 //
 // The return values are the key and the value of the item that was either
-// modified in-place or created.
+// modified in place or created.
 func (o *ObjectConsExpr) SetItem(key string, expr *Expression) (*ObjectConsKeyExpr, *ObjectConsValue) {
-	if expr.inList() {
-		panic("SetItem called with an expression that is already part of a syntax tree")
-	}
+	expr.assertUnattached()
 
 	item := o.ItemFor(key)
 	if item != nil {
-		value := item.ValueExpr()
-		value.expr = value.expr.ReplaceWith(expr)
+		item.setValueExpr(expr)
 	} else {
-		item = o.appendItem(key, expr)
+		item = newObjectConsItem()
+		item.init(key, expr)
+		o.appendItem(item)
 	}
 	return item.KeyExpr(), item.ValueExpr()
 }
 
 // SetItemRaw is like SetItem, but uses the given tokens verbatim as the
-// value.
+// value expression.
 //
 // The same caveats apply to this function as for NewExpressionRaw on which
 // it is based. If possible, prefer to use SetItemValue or SetItemTraversal.
@@ -7662,140 +7917,136 @@ func (o *ObjectConsExpr) SetItemRaw(key string, tokens Tokens) (*ObjectConsKeyEx
 	return o.SetItem(key, NewExpressionRaw(tokens))
 }
 
-// SetItemValue is like SetItem, but the value is given as a cty.Value, and
-// must therefore be a literal, as for NewExpressionLiteral. To set a
-// variable reference or other traversal, use SetItemTraversal.
+// SetItemValue is like SetItem, but sets the value to the given literal, as
+// NewExpressionLiteral does. To set a variable reference or other traversal,
+// use SetItemTraversal.
 func (o *ObjectConsExpr) SetItemValue(key string, val cty.Value) (*ObjectConsKeyExpr, *ObjectConsValue) {
 	return o.SetItem(key, NewExpressionLiteral(val))
 }
 
-// SetItemTraversal is like SetItem, but the value is given as a
-// hcl.Traversal, which must be absolute, as for NewExpressionAbsTraversal.
-// To set a literal value, use SetItemValue.
+// SetItemTraversal is like SetItem, but sets the value to the given
+// traversal, as NewExpressionAbsTraversal does. The traversal must be
+// absolute. To set a literal value, use SetItemValue.
 func (o *ObjectConsExpr) SetItemTraversal(key string, traversal hcl.Traversal) (*ObjectConsKeyExpr, *ObjectConsValue) {
 	return o.SetItem(key, NewExpressionAbsTraversal(traversal))
 }
 
-// itemExpressions returns the key and value expressions of each item, in
-// source order.
+// variableNodes returns the traversal nodes in the keys and values of the
+// items, in source order. A key that is a literal name contributes none.
 //
-func (o *ObjectConsExpr) itemExpressions() []*Expression {
-	var ret []*Expression
+func (o *ObjectConsExpr) variableNodes() []*node {
+	var ret []*node
 	for _, n := range o.items.List() {
 		item := n.content.(*ObjectConsItem)
 		key := item.key.content.(*ObjectConsKeyExpr)
-		ret = append(ret, key.wrapped.content.(*Expression), item.value.content.(*ObjectConsValue).Expr())
+		if !key.literalName {
+			ret = append(ret, key.wrapped.content.(*Expression).variableNodes()...)
+		}
+		value := item.value.content.(*ObjectConsValue)
+		ret = append(ret, value.expr.content.(*Expression).variableNodes()...)
 	}
 	return ret
 }
 
-// appendItem adds a new item with the given key and value after the last
-// item of the object, laid out as the object already is.
-//
-// The tokens after the last item are split in two. A comma or a line comment
-// that follows the last item on its line stays with that item. The rest,
-// which ends with the closing brace, stays after the new item.
-func (o *ObjectConsExpr) appendItem(key string, expr *Expression) *ObjectConsItem {
-	rest := o.detachTrailingTokens()
-	multiLine := o.hasLineBreak(rest)
-
-	cut, lineEnded, hasComma := 0, false, false
-	for i, tok := range rest {
-		if tokenIsNewline(tok) {
-			cut, lineEnded = i+1, true
-			break
-		}
-		if tok.Type == hclsyntax.TokenComma {
-			// Keep a trailing comma with the last item, and anything after
-			// it on the line, such as an inline comment, with the closing
-			// brace.
-			cut, hasComma = i+1, true
+// appendItem adds the item after the last one, laid out as the object
+// already is: on the same line after a comma when the object is written on
+// one line, and otherwise on a line of its own before the closing brace.
+func (o *ObjectConsExpr) appendItem(item *ObjectConsItem) {
+	// The parser leaves everything after the last item, up to and including
+	// the closing brace, in one run of tokens at the end of the children.
+	var closing *node
+	o.walkChildNodes(func(n *node) { closing = n })
+	closingTokens, ok := closing.content.(Tokens)
+	if !ok || len(closingTokens) == 0 || closingTokens[len(closingTokens)-1].Type != hclsyntax.TokenCBrace {
+		panic(fmt.Sprintf("object-construct expression does not end with a closing brace, but with %T", closing.content))
+	}
+	// Each use gets its own token, since formatting changes tokens in place.
+	newline := func() *Token {
+		return &Token{
+			Type:  hclsyntax.TokenNewline,
+			Bytes: []byte{'\n'},
 		}
 	}
-	head, tail := rest[:cut], append(Tokens(nil), rest[cut:]...)
 
-	var lead Tokens
+	multiline := o.isMultiline()
+	kept, rest := o.splitClosing(closingTokens)
+	// Copy kept, since appending to it would overwrite the start of rest.
+	separator := append(Tokens(nil), kept...)
+	var afterItem Tokens
 	switch {
-	case multiLine && !lineEnded:
-		// The closing brace shares a line with the last item, so the new
-		// item starts a line of its own.
-		lead = Tokens{{Type: hclsyntax.TokenNewline, Bytes: []byte{'\n'}}}
-	case !multiLine && len(o.items) > 0 && !hasComma:
-		lead = Tokens{{Type: hclsyntax.TokenComma, Bytes: []byte{','}}}
+	case multiline:
+		if len(kept) == 0 || !o.tokenEndsLine(kept[len(kept)-1]) {
+			separator = append(separator, newline())
+		}
+		afterItem = Tokens{newline()}
+	case len(o.items) > 0 && len(kept) == 0:
+		separator = append(separator, &Token{
+			Type:  hclsyntax.TokenComma,
+			Bytes: []byte{','},
+		})
 	}
-	if multiLine {
-		tail = append(Tokens{{Type: hclsyntax.TokenNewline, Bytes: []byte{'\n'}}}, tail...)
-	} else if len(tail) > 0 && tail[0].SpacesBefore == 0 {
-		spaced := *tail[0]
-		spaced.SpacesBefore = 1
-		tail[0] = &spaced
-	}
+	afterItem = append(afterItem, rest...)
 
-	item := newObjectConsItem()
-	item.init(key, expr, lead)
-
-	o.children.AppendUnstructuredTokens(head)
+	closing.Detach()
+	o.children.AppendUnstructuredTokens(separator)
 	o.items.Add(o.children.Append(item))
-	o.children.AppendUnstructuredTokens(tail)
-	return item
+	o.children.AppendUnstructuredTokens(afterItem)
 }
 
-// detachTrailingTokens removes and returns the tokens after the last item,
-// or after the opening brace if the object has no items.
-func (o *ObjectConsExpr) detachTrailingTokens() Tokens {
-	var trailing []*node
-	o.walkChildNodes(func(n *node) {
-		if _, ok := n.content.(Tokens); ok {
-			trailing = append(trailing, n)
-		} else {
-			trailing = nil
-		}
-	})
-
-	var rest Tokens
-	for _, n := range trailing {
-		rest = append(rest, n.content.(Tokens)...)
-		n.Detach()
-	}
-
-	if len(o.items) == 0 {
-		for i, tok := range rest {
-			if tok.Type == hclsyntax.TokenOBrace {
-				o.children.AppendUnstructuredTokens(rest[:i+1])
-				return rest[i+1:]
+// isMultiline reports whether the object is written on several lines. Line
+// breaks inside the keys and values of its items do not count.
+func (o *ObjectConsExpr) isMultiline() bool {
+	multiline := false
+	checkTokens := func(n *node) {
+		if tokens, ok := n.content.(Tokens); ok {
+			for _, tok := range tokens {
+				multiline = multiline || o.tokenEndsLine(tok)
 			}
 		}
 	}
-	return rest
-}
-
-// hasLineBreak reports whether the object is written on several lines. Only
-// the tokens between its items count, along with the given tokens that were
-// detached from it, and not those inside an item's key or value.
-func (o *ObjectConsExpr) hasLineBreak(detached Tokens) bool {
-	layout := append(Tokens(nil), detached...)
 	o.walkChildNodes(func(n *node) {
-		switch c := n.content.(type) {
-		case Tokens:
-			layout = append(layout, c...)
-		case *ObjectConsItem:
-			c.walkChildNodes(func(in *node) {
-				if toks, ok := in.content.(Tokens); ok {
-					layout = append(layout, toks...)
-				}
-			})
+		checkTokens(n)
+		if item, ok := n.content.(*ObjectConsItem); ok {
+			item.walkChildNodes(checkTokens)
 		}
 	})
-	for _, tok := range layout {
-		if tokenIsNewline(tok) {
-			return true
+	return multiline
+}
+
+// splitClosing splits the tokens after the last item into those that stay
+// with that item and the rest, which end with the closing brace. The item
+// keeps a comma that follows it, and the comments up to the end of its line
+// when the closing brace is not on that line.
+func (o *ObjectConsExpr) splitClosing(tokens Tokens) (kept, rest Tokens) {
+	afterComma := 0
+	if tokens[0].Type == hclsyntax.TokenComma {
+		afterComma = 1
+	}
+	for i := afterComma; i < len(tokens); i++ {
+		if o.tokenEndsLine(tokens[i]) {
+			return tokens[:i+1], tokens[i+1:]
 		}
+		if tokens[i].Type != hclsyntax.TokenComment {
+			break
+		}
+	}
+	return tokens[:afterComma], tokens[afterComma:]
+}
+
+// tokenEndsLine reports whether the token is a newline, or a line comment,
+// which includes its newline.
+func (o *ObjectConsExpr) tokenEndsLine(tok *Token) bool {
+	switch tok.Type {
+	case hclsyntax.TokenNewline:
+		return true
+	case hclsyntax.TokenComment:
+		return len(tok.Bytes) > 0 && tok.Bytes[len(tok.Bytes)-1] == '\n'
 	}
 	return false
 }
 
-// ObjectConsItem is one item of an object-construct expression: a key and
-// its value.
+// ObjectConsItem is one item of an object-construct expression: a key and a
+// value, as in hat = "derby".
 type ObjectConsItem struct {
 	inTree
 	key   *node
@@ -7818,84 +8069,107 @@ func (item *ObjectConsItem) ValueExpr() *ObjectConsValue {
 	return item.value.content.(*ObjectConsValue)
 }
 
-// init fills a new item with the given key and value, after the given tokens
-// that separate it from what comes before it.
-//
-// The key is written as an identifier if it is a valid one, and as a quoted
-// string literal otherwise, escaped so that it evaluates back to the key.
-// The identifier for is quoted too, since an object that starts with it
-// would be read as a for expression.
-func (item *ObjectConsItem) init(key string, expr *Expression, lead Tokens) {
+// init builds a new item from the key and the value expression, which must
+// not be attached yet. The key is written as an identifier when it is a
+// valid one, and otherwise as a quoted string literal.
+func (item *ObjectConsItem) init(key string, expr *Expression) {
+	// A naked "for" as the first key would start a for expression.
+	literalName := hclsyntax.ValidIdentifier(key) && key != "for"
 	var keyTokens Tokens
-	if hclsyntax.ValidIdentifier(key) && key != "for" {
+	if literalName {
 		keyTokens = TokensForIdentifier(key)
 	} else {
 		keyTokens = TokensForValue(cty.StringVal(key))
 	}
-	keyTokens[0].SpacesBefore = 1
-
-	item.children.AppendUnstructuredTokens(lead)
-	item.key = item.children.Append(newObjectConsKeyExpr(newNode(NewExpressionRaw(keyTokens))))
+	item.key = item.children.Append(newObjectConsKeyExpr(newNode(NewExpressionRaw(keyTokens)), literalName))
 	item.children.AppendUnstructuredTokens(Tokens{
 		{
-			Type:         hclsyntax.TokenEqual,
-			Bytes:        []byte{'='},
-			SpacesBefore: 1,
+			Type:  hclsyntax.TokenEqual,
+			Bytes: []byte{'='},
 		},
 	})
-	value := newObjectConsValue()
-	value.expr = value.children.Append(expr)
-	item.value = item.children.Append(value)
+
+	item.value = item.children.Append(newObjectConsValue())
+	item.setValueExpr(expr)
 }
 
-// ObjectConsKeyExpr is the key of an item of an object-construct
-// expression. It is an identifier, a quoted string, or another expression
-// whose value is the key.
+// setValueExpr makes the given expression, which must not be attached yet,
+// the expression of the item's value. The expression it replaces is
+// detached.
+func (item *ObjectConsItem) setValueExpr(expr *Expression) {
+	value := item.ValueExpr()
+	if value.expr != nil {
+		value.Expr().setParent(nil)
+	}
+	// The value has no children other than its expression.
+	value.children.Clear()
+	value.expr = value.children.Append(expr)
+	expr.setParent(item.value)
+}
+
+// ObjectConsKeyExpr is the key of an item in an object-construct
+// expression. Get one from ObjectConsItem.KeyExpr.
 type ObjectConsKeyExpr struct {
 	inTree
 
 	wrapped *node
+
+	// literalName is true when the key is a naked name, such as "k" in
+	// { k = v }. As in hclsyntax, such a key is a literal string, not a
+	// reference, so it has no variables.
+	literalName bool
 }
 
-func newObjectConsKeyExpr(wrapped *node) *ObjectConsKeyExpr {
+func newObjectConsKeyExpr(wrapped *node, literalName bool) *ObjectConsKeyExpr {
 	expr := &ObjectConsKeyExpr{
-		inTree:  newInTree(),
-		wrapped: wrapped,
+		inTree:      newInTree(),
+		wrapped:     wrapped,
+		literalName: literalName,
 	}
 	expr.children.AppendNode(wrapped)
 
 	return expr
 }
 
-// literalName returns the key as a string, if it is an identifier or a
-// quoted string literal. A quoted key has its escape sequences decoded.
-func (k *ObjectConsKeyExpr) literalName() (string, bool) {
-	toks := k.wrapped.BuildTokens(nil)
-	if len(toks) == 1 && toks[0].Type == hclsyntax.TokenIdent {
-		return string(toks[0].Bytes), true
-	}
-
-	last := len(toks) - 1
-	if last < 1 || toks[0].Type != hclsyntax.TokenOQuote || toks[last].Type != hclsyntax.TokenCQuote {
+// staticName returns the string that the key stands for, and true, when the
+// key is an identifier or a quoted string literal. Otherwise it returns false.
+//
+// It reads the key from its tokens as hclsyntax does, so that a quoted key
+// is compared by its value after its escape sequences are decoded.
+func (k *ObjectConsKeyExpr) staticName() (string, bool) {
+	tokens := k.BuildTokens(nil)
+	if len(tokens) == 0 {
 		return "", false
 	}
-	var b strings.Builder
-	for _, tok := range toks[1:last] {
-		if tok.Type != hclsyntax.TokenQuotedLit {
-			// A template interpolation or directive.
-			return "", false
-		}
-		s, diags := hclsyntax.ParseStringLiteralToken(hclsyntax.Token{Type: tok.Type, Bytes: tok.Bytes})
-		if diags.HasErrors() {
-			return "", false
-		}
-		b.WriteString(s)
+	native, diags := hclsyntax.ParseExpression(tokens.Bytes(), "", hcl.InitialPos)
+	if diags.HasErrors() {
+		return "", false
 	}
-	return b.String(), true
+
+	// As in hclsyntax, a naked identifier is a literal name. A parenthesized
+	// one is a ParenthesesExpr, which this does not unwrap.
+	if name := hcl.ExprAsKeyword(native); name != "" {
+		return name, true
+	}
+
+	template, ok := native.(*hclsyntax.TemplateExpr)
+	if !ok || tokens[0].Type != hclsyntax.TokenOQuote {
+		return "", false
+	}
+	for _, part := range template.Parts {
+		if _, ok := part.(*hclsyntax.LiteralValueExpr); !ok {
+			return "", false
+		}
+	}
+	val, diags := template.Value(nil)
+	if diags.HasErrors() || !val.IsKnown() || val.IsNull() || val.Type() != cty.String {
+		return "", false
+	}
+	return val.AsString(), true
 }
 
-// ObjectConsValue is the value of an item of an object-construct
-// expression.
+// ObjectConsValue is the value of an item in an object-construct
+// expression. Get one from ObjectConsItem.ValueExpr.
 type ObjectConsValue struct {
 	inTree
 	expr *node
@@ -7926,43 +8200,61 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/google/go-cmp/cmp"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/hashicorp/hcl/v2"
 )
 
 func TestObjectConsExprItemFor(t *testing.T) {
-	tests := map[string]struct {
-		src       string
-		key       string
-		wantValue string // the value's source, or "" for no match
+	src := `a = {
+  hat         = "derby"
+  "cat"       = "calico"
+  "$${dog}"   = "beagle"
+  "a hat"     = "fedora"
+  "say \"hi\"" = "hello"
+  true        = "yes"
+  ""          = "empty"
+  (band)      = "variable"
+  hat.band    = "traversal"
+  "${hat}"    = "template"
+  "x${y}"     = "mixed"
+}
+`
+	tests := []struct {
+		key  string
+		want string // the value's source, or "" when no item is found
 	}{
-		"identifier":                    {`a = { hat = 1 }`, "hat", "1"},
-		"quoted":                        {`a = { "hat" = 1 }`, "hat", "1"},
-		"quoted with escaped template":  {`a = { "$${hat}" = 1 }`, "${hat}", "1"},
-		"quoted with escaped directive": {`a = { "%%{hat}" = 1 }`, "%{hat}", "1"},
-		"quoted with space":             {`a = { "a hat" = 1 }`, "a hat", "1"},
-		"quoted with escapes":           {`a = { "say \"hi\"\\" = 1 }`, `say "hi"\`, "1"},
-		"quoted empty":                  {`a = { "" = 1 }`, "", "1"},
-		"colon":                         {`a = { hat: 1 }`, "hat", "1"},
-		"second item":                   {`a = { cat = 1, hat = 2 }`, "hat", "2"},
-		"first of duplicates":           {`a = { hat = 1, "hat" = 2 }`, "hat", "1"},
-		"other key":                     {`a = { cat = 1 }`, "hat", ""},
-		"empty object":                  {`a = {}`, "hat", ""},
-		"parenthesized variable":        {`a = { (hat) = 1 }`, "hat", ""},
-		"traversal":                     {`a = { hat.band = 1 }`, "hat.band", ""},
-		"template":                      {`a = { "${hat}" = 1 }`, "hat", ""},
-		"template matched literally":    {`a = { "${hat}" = 1 }`, "${hat}", ""},
-		"escaped template not decoded":  {`a = { "$${hat}" = 1 }`, "$${hat}", ""},
+		{key: "hat", want: `"derby"`},
+		{key: "cat", want: `"calico"`},
+		{key: "${dog}", want: `"beagle"`},
+		{key: "$${dog}", want: ""},
+		{key: "a hat", want: `"fedora"`},
+		{key: `say "hi"`, want: `"hello"`},
+		{key: "true", want: `"yes"`},
+		{key: "", want: `"empty"`},
+		{key: "band", want: ""},
+		{key: "(band)", want: ""},
+		{key: "hat.band", want: ""},
+		{key: "${hat}", want: ""},
+		{key: "x${y}", want: ""},
+		{key: "missing", want: ""},
 	}
 
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			obj := parseObjectConsExprForTest(t, test.src+"\n")
+	f, diags := ParseConfig([]byte(src), "", hcl.InitialPos)
+	if diags.HasErrors() {
+		t.Fatal(diags)
+	}
+	object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
+	if got := len(object.Items()); got != 11 {
+		t.Fatalf("got %d items, want 11", got)
+	}
 
-			item := obj.ItemFor(test.key)
-			value := obj.ValueExprFor(test.key)
-			if test.wantValue == "" {
+	for _, test := range tests {
+		t.Run(test.key, func(t *testing.T) {
+			item := object.ItemFor(test.key)
+			value := object.ValueExprFor(test.key)
+			if test.want == "" {
 				if item != nil || value != nil {
 					t.Fatalf("found an item for %q, want none", test.key)
 				}
@@ -7972,866 +8264,483 @@ func TestObjectConsExprItemFor(t *testing.T) {
 				t.Fatalf("found no item for %q", test.key)
 			}
 			if value != item.ValueExpr() {
-				t.Errorf("ValueExprFor and ItemFor disagree")
+				t.Error("ValueExprFor returned a different value than ItemFor")
 			}
 			got := strings.TrimSpace(string(value.Expr().BuildTokens(nil).Bytes()))
-			if got != test.wantValue {
-				t.Errorf("wrong value\ngot:  %s\nwant: %s", got, test.wantValue)
+			if got != test.want {
+				t.Errorf("wrong value\ngot:  %s\nwant: %s", got, test.want)
 			}
 		})
 	}
 }
 
 func TestObjectConsExprItems(t *testing.T) {
-	obj := parseObjectConsExprForTest(t, "a = { hat = 1, (cat) = 2, \"dog\" = 3 }\n")
+	f, diags := ParseConfig([]byte("a = { b = 1, (c) = 2, \"d\" = 3 }\n"), "", hcl.InitialPos)
+	if diags.HasErrors() {
+		t.Fatal(diags)
+	}
+	object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
 
 	var got []string
-	for _, item := range obj.Items() {
+	for _, item := range object.Items() {
 		got = append(got, strings.TrimSpace(string(item.KeyExpr().BuildTokens(nil).Bytes())))
 	}
-	want := []string{"hat", "(cat)", `"dog"`}
-	if strings.Join(got, " ") != strings.Join(want, " ") {
-		t.Errorf("wrong keys\ngot:  %q\nwant: %q", got, want)
+	want := []string{"b", "(c)", `"d"`}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("wrong keys\n%s", diff)
 	}
 }
 
 func TestObjectConsExprSetItemKey(t *testing.T) {
-	tests := map[string]struct {
+	tests := []struct {
 		key  string
 		want string
 	}{
-		"identifier":       {"dog", `dog`},
-		"identifier dash":  {"dog-1", `dog-1`},
-		"space":            {"a hat", `"a hat"`},
-		"traversal":        {"hat.band", `"hat.band"`},
-		"leading digit":    {"1hat", `"1hat"`},
-		"quotes":           {`say "hi"`, `"say \"hi\""`},
-		"backslash":        {`a\b`, `"a\\b"`},
-		"template":         {"${hat}", `"$${hat}"`},
-		"directive":        {"%{hat}", `"%%{hat}"`},
-		"lone dollar":      {"$hat", `"$hat"`},
-		"empty":            {"", `""`},
-		"newline":          {"a\nb", `"a\nb"`},
-		"for keyword":      {"for", `"for"`},
-		"unicode":          {"日本", `日本`},
-		"unicode with gap": {"日 本", `"日 本"`},
+		{key: "hat", want: `hat`},
+		{key: "hat_band-2", want: `hat_band-2`},
+		{key: "a hat", want: `"a hat"`},
+		{key: "hat.band", want: `"hat.band"`},
+		{key: "1hat", want: `"1hat"`},
+		{key: `say "hi"`, want: `"say \"hi\""`},
+		{key: `a\b`, want: `"a\\b"`},
+		{key: "${hat}", want: `"$${hat}"`},
+		{key: "%{hat}", want: `"%%{hat}"`},
+		{key: "$hat", want: `"$hat"`},
+		{key: "line\nbreak", want: `"line\nbreak"`},
+		{key: "", want: `""`},
+		// A naked "for" as the first key would start a for expression.
+		{key: "for", want: `"for"`},
 	}
 
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			f, obj := parseFileObjectConsExprForTest(t, "a = {}\n")
+	for _, test := range tests {
+		t.Run(test.key, func(t *testing.T) {
+			f, diags := ParseConfig([]byte("a = {}\n"), "", hcl.InitialPos)
+			if diags.HasErrors() {
+				t.Fatal(diags)
+			}
+			object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
 
-			key, _ := obj.SetItemValue(test.key, cty.True)
-			got := strings.TrimSpace(string(key.BuildTokens(nil).Bytes()))
-			if got != test.want {
+			key, value := object.SetItemValue(test.key, cty.StringVal("bowler"))
+			if got := string(key.BuildTokens(nil).Bytes()); got != test.want {
 				t.Errorf("wrong key\ngot:  %s\nwant: %s", got, test.want)
 			}
-			if obj.ItemFor(test.key) == nil {
-				t.Errorf("ItemFor(%q) does not find the key just set", test.key)
+			item := object.ItemFor(test.key)
+			if item == nil {
+				t.Fatalf("ItemFor(%q) found nothing after SetItemValue", test.key)
+			}
+			if item.KeyExpr() != key || item.ValueExpr() != value {
+				t.Error("ItemFor found a different item than SetItemValue returned")
 			}
 
-			// The key must evaluate back to the original string.
-			src := f.Bytes()
-			native, diags := hclsyntax.ParseConfig(src, "", hcl.InitialPos)
+			// The result evaluates to an object with the original key.
+			out := f.Bytes()
+			reparsed, diags := ParseConfig(out, "", hcl.InitialPos)
 			if diags.HasErrors() {
-				t.Fatalf("result is not valid HCL: %s\n%s", diags, src)
+				t.Fatalf("invalid result:\n%s\n%s", out, diags)
 			}
-			attrs, _ := native.Body.JustAttributes()
-			val, diags := attrs["a"].Expr.Value(nil)
-			if diags.HasErrors() {
-				t.Fatalf("result does not evaluate: %s\n%s", diags, src)
+			if reparsed.Body().GetAttribute("a").Expr().AsObjectConsExpr().ItemFor(test.key) == nil {
+				t.Errorf("ItemFor(%q) found nothing after reparsing:\n%s", test.key, out)
 			}
-			if !val.Type().IsObjectType() || !val.Type().HasAttribute(test.key) {
-				t.Errorf("result has no key %q: %#v\n%s", test.key, val, src)
-			}
-			assertObjectConsExprFormatted(t, src)
 		})
 	}
 }
 
-func TestObjectConsExprSetItemReplaces(t *testing.T) {
-	tests := map[string]struct {
-		src  string
-		key  string
-		want string
-	}{
-		"identifier": {
-			"a = { hat = \"derby\", cat = \"calico\" }\n",
-			"hat",
-			"a = { hat = \"bowler\", cat = \"calico\" }\n",
-		},
-		"quoted key stays quoted": {
-			"a = { \"hat\" = \"derby\" }\n",
-			"hat",
-			"a = { \"hat\" = \"bowler\" }\n",
-		},
-		"escaped key stays as written": {
-			"a = { \"$${hat}\" = \"derby\" }\n",
-			"${hat}",
-			"a = { \"$${hat}\" = \"bowler\" }\n",
-		},
-		"multi-line value": {
-			"a = {\n  hat = {\n    b = 1\n  }\n  cat = 2\n}\n",
-			"hat",
-			"a = {\n  hat = \"bowler\"\n  cat = 2\n}\n",
-		},
-		"variable key is not replaced": {
-			"a = { (hat) = \"derby\" }\n",
-			"hat",
-			"a = { (hat) = \"derby\", hat = \"bowler\" }\n",
-		},
+func TestObjectConsExprSetItemExisting(t *testing.T) {
+	src := "a = { \"hat\" = \"derby\", cat = \"calico\" }\n"
+	f, diags := ParseConfig([]byte(src), "", hcl.InitialPos)
+	if diags.HasErrors() {
+		t.Fatal(diags)
+	}
+	object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
+	oldItem := object.ItemFor("hat")
+
+	key, value := object.SetItemValue("hat", cty.StringVal("bowler"))
+	if key != oldItem.KeyExpr() || value != oldItem.ValueExpr() {
+		t.Error("SetItemValue did not return the existing item's key and value")
+	}
+	if got := len(object.Items()); got != 2 {
+		t.Errorf("got %d items, want 2", got)
 	}
 
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			f, obj := parseFileObjectConsExprForTest(t, test.src)
-			before := len(obj.Items())
-
-			_, value := obj.SetItemValue(test.key, cty.StringVal("bowler"))
-			if value != obj.ValueExprFor(test.key) {
-				t.Errorf("SetItemValue did not return the value that ValueExprFor finds")
-			}
-			got := string(f.Bytes())
-			if got != test.want {
-				t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, test.want)
-			}
-			if !strings.Contains(name, "not replaced") && len(obj.Items()) != before {
-				t.Errorf("item count changed from %d to %d", before, len(obj.Items()))
-			}
-			assertObjectConsExprFormatted(t, f.Bytes())
-		})
-	}
-}
-
-func TestObjectConsExprSetItemLayout(t *testing.T) {
-	tests := map[string]struct {
-		src  string
-		keys []string
-		want string
-	}{
-		"single line": {
-			src:  "a = { hat = \"derby\" }\n",
-			keys: []string{"dog"},
-			want: "a = { hat = \"derby\", dog = \"bowler\" }\n",
-		},
-		"empty": {
-			src:  "a = {}\n",
-			keys: []string{"dog"},
-			want: "a = { dog = \"bowler\" }\n",
-		},
-		"empty, two items": {
-			src:  "a = {}\n",
-			keys: []string{"dog", "cat"},
-			want: "a = { dog = \"bowler\", cat = \"bowler\" }\n",
-		},
-		"single line, two items": {
-			src:  "a = { hat = \"derby\" }\n",
-			keys: []string{"dog", "cat"},
-			want: "a = { hat = \"derby\", dog = \"bowler\", cat = \"bowler\" }\n",
-		},
-		"single line, trailing comma": {
-			src:  "a = { hat = \"derby\", }\n",
-			keys: []string{"dog"},
-			want: "a = { hat = \"derby\", dog = \"bowler\" }\n",
-		},
-		"single line, inline comment before brace": {
-			src:  "a = { hat = \"derby\" /* end of a */ }\n",
-			keys: []string{"dog"},
-			want: "a = { hat = \"derby\", dog = \"bowler\" /* end of a */ }\n",
-		},
-		"single line, comma and inline comment before brace": {
-			src:  "a = { hat = \"derby\", /* end of a */ }\n",
-			keys: []string{"dog"},
-			want: "a = { hat = \"derby\", dog = \"bowler\" /* end of a */ }\n",
-		},
-		"single line, line comment after object": {
-			src:  "a = { hat = \"derby\" } # about a\n",
-			keys: []string{"dog"},
-			want: "a = { hat = \"derby\", dog = \"bowler\" } # about a\n",
-		},
-		"single line, multi-line value": {
-			src:  "a = { hat = {\n  b = 1\n} }\n",
-			keys: []string{"dog"},
-			want: "a = { hat = {\n  b = 1\n}, dog = \"bowler\" }\n",
-		},
-		"multi-line": {
-			src:  "a = {\n  hat = \"derby\"\n}\n",
-			keys: []string{"dog"},
-			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n}\n",
-		},
-		"multi-line, two items": {
-			src:  "a = {\n  hat = \"derby\"\n}\n",
-			keys: []string{"dog", "cat"},
-			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n  cat = \"bowler\"\n}\n",
-		},
-		"multi-line empty": {
-			src:  "a = {\n}\n",
-			keys: []string{"dog"},
-			want: "a = {\n  dog = \"bowler\"\n}\n",
-		},
-		"multi-line, commas": {
-			src:  "a = {\n  hat = \"derby\",\n}\n",
-			keys: []string{"dog"},
-			want: "a = {\n  hat = \"derby\",\n  dog = \"bowler\"\n}\n",
-		},
-		"multi-line, brace on last line": {
-			src:  "a = {\n  hat = \"derby\", cat = \"calico\" }\n",
-			keys: []string{"dog"},
-			want: "a = {\n  hat = \"derby\", cat = \"calico\"\n  dog = \"bowler\"\n}\n",
-		},
-		"multi-line, brace on last line, two items": {
-			src:  "a = {\n  hat = \"derby\" }\n",
-			keys: []string{"dog", "cat"},
-			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n  cat = \"bowler\"\n}\n",
-		},
-		"multi-line, brace on last line after comma": {
-			src:  "a = {\n  hat = \"derby\", }\n",
-			keys: []string{"dog"},
-			want: "a = {\n  hat = \"derby\",\n  dog = \"bowler\"\n}\n",
-		},
-		"multi-line, inline comment before brace": {
-			src:  "a = {\n  hat = \"derby\" /* end of a */ }\n",
-			keys: []string{"dog"},
-			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n/* end of a */ }\n",
-		},
-		"multi-line, line comment after last item": {
-			src:  "a = {\n  hat = \"derby\" # a hat\n}\n",
-			keys: []string{"dog"},
-			want: "a = {\n  hat = \"derby\" # a hat\n  dog = \"bowler\"\n}\n",
-		},
-		"multi-line, comma and line comment after last item": {
-			src:  "a = {\n  hat = \"derby\", # a hat\n}\n",
-			keys: []string{"dog"},
-			want: "a = {\n  hat = \"derby\", # a hat\n  dog = \"bowler\"\n}\n",
-		},
-		"multi-line, comments before brace": {
-			src:  "a = {\n  hat = \"derby\"\n\n  # more to come\n  // and more\n}\n",
-			keys: []string{"dog"},
-			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n\n  # more to come\n  // and more\n}\n",
-		},
-		"multi-line empty, comment": {
-			src:  "a = { # nothing yet\n}\n",
-			keys: []string{"dog"},
-			want: "a = { # nothing yet\n  dog = \"bowler\"\n}\n",
-		},
-		"multi-line, nested in block": {
-			src:  "b {\n  a = {\n    hat = \"derby\"\n  }\n}\n",
-			keys: []string{"dog"},
-			want: "b {\n  a = {\n    hat = \"derby\"\n    dog = \"bowler\"\n  }\n}\n",
-		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			f, obj := parseFileObjectConsExprForTest(t, test.src)
-
-			for _, key := range test.keys {
-				gotKey, gotValue := obj.SetItemValue(key, cty.StringVal("bowler"))
-				item := obj.ItemFor(key)
-				if item == nil {
-					t.Fatalf("ItemFor(%q) does not find the new item", key)
-				}
-				if gotKey != item.KeyExpr() || gotValue != item.ValueExpr() {
-					t.Errorf("SetItemValue(%q) did not return the new item's key and value", key)
-				}
-			}
-
-			got := string(f.Bytes())
-			if got != test.want {
-				t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, test.want)
-			}
-			if _, diags := hclsyntax.ParseConfig(f.Bytes(), "", hcl.InitialPos); diags.HasErrors() {
-				t.Errorf("result is not valid HCL: %s", diags)
-			}
-			assertObjectConsExprFormatted(t, f.Bytes())
-		})
-	}
-}
-
-func TestObjectConsExprSetItemHelpers(t *testing.T) {
-	f, obj := parseFileObjectConsExprForTest(t, "a = {}\n")
-
-	obj.SetItemRaw("raw", Tokens{{Type: hclsyntax.TokenIdent, Bytes: []byte("whatever")}})
-	obj.SetItemValue("value", cty.NumberIntVal(1))
-	obj.SetItemTraversal("traversal", hcl.Traversal{
-		hcl.TraverseRoot{Name: "var"},
-		hcl.TraverseAttr{Name: "hat"},
-	})
-	obj.SetItem("expr", NewExpressionLiteral(cty.StringVal("derby")))
-
-	want := "a = { raw = whatever, value = 1, traversal = var.hat, expr = \"derby\" }\n"
-	if got := string(f.Bytes()); got != want {
-		t.Errorf("wrong result\ngot:  %s\nwant: %s", got, want)
-	}
-
-	vars := obj.ValueExprFor("traversal").Expr().Variables()
-	if len(vars) != 1 || strings.TrimSpace(string(vars[0].BuildTokens(nil).Bytes())) != "var.hat" {
-		t.Errorf("wrong variables in the traversal value: %#v", vars)
-	}
-}
-
-func TestObjectConsExprSetItemPanics(t *testing.T) {
-	t.Run("expression attached by the parser", func(t *testing.T) {
-		f, obj := parseFileObjectConsExprForTest(t, "a = { hat = \"derby\" }\nb = c.d\n")
-		expr := f.Body().GetAttribute("b").Expr()
-		assertObjectConsExprPanics(t, func() { obj.SetItem("dog", expr) })
-	})
-	t.Run("item value attached by the parser", func(t *testing.T) {
-		_, obj := parseFileObjectConsExprForTest(t, "a = { hat = c.d }\n")
-		expr := obj.ValueExprFor("hat").Expr()
-		assertObjectConsExprPanics(t, func() { obj.SetItem("dog", expr) })
-	})
-	t.Run("expression attached by SetItem", func(t *testing.T) {
-		_, obj := parseFileObjectConsExprForTest(t, "a = {}\n")
-		expr := NewExpressionAbsTraversal(hcl.Traversal{hcl.TraverseRoot{Name: "c"}})
-		obj.SetItem("hat", expr)
-		assertObjectConsExprPanics(t, func() { obj.SetItem("dog", expr) })
-		assertObjectConsExprPanics(t, func() { obj.SetItem("hat", expr) })
-	})
-	t.Run("replaced expression may be reused", func(t *testing.T) {
-		_, obj := parseFileObjectConsExprForTest(t, "a = {}\n")
-		expr := NewExpressionAbsTraversal(hcl.Traversal{hcl.TraverseRoot{Name: "c"}})
-		obj.SetItem("hat", expr)
-		obj.SetItemValue("hat", cty.True)
-		obj.SetItem("dog", expr)
-	})
-}
-
-// TestObjectConsExprSetItemExample checks the example from the API's
-// proposal: the key is kept as written and the value is replaced.
-func TestObjectConsExprSetItemExample(t *testing.T) {
-	f, obj := parseFileObjectConsExprForTest(t, "a = {\n    hat = \"derby\", (cat) = \"calico\" }\n")
-
-	key, value := obj.SetItemRaw("hat", TokensForValue(cty.StringVal("bowler")))
-	if got := strings.TrimSpace(string(key.BuildTokens(nil).Bytes())); got != "hat" {
-		t.Errorf("wrong key: %s", got)
-	}
-	if got := strings.TrimSpace(string(value.BuildTokens(nil).Bytes())); got != `"bowler"` {
-		t.Errorf("wrong value: %s", got)
-	}
-	want := "a = {\nhat = \"bowler\", (cat) = \"calico\" }\n"
+	want := "a = { \"hat\" = \"bowler\", cat = \"calico\" }\n"
 	if got := string(f.Bytes()); got != want {
 		t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, want)
 	}
 }
 
-func parseFileObjectConsExprForTest(t *testing.T, src string) (*File, *ObjectConsExpr) {
-	t.Helper()
+func TestObjectConsExprSetItemKinds(t *testing.T) {
+	f, diags := ParseConfig([]byte("a = {}\n"), "", hcl.InitialPos)
+	if diags.HasErrors() {
+		t.Fatal(diags)
+	}
+	object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
+
+	object.SetItemRaw("raw", TokensForFunctionCall("upper", TokensForValue(cty.StringVal("x"))))
+	object.SetItemValue("value", cty.NumberIntVal(5))
+	_, value := object.SetItemTraversal("traversal", hcl.Traversal{
+		hcl.TraverseRoot{Name: "var"},
+		hcl.TraverseAttr{Name: "hat"},
+	})
+	object.SetItem("expr", NewExpressionLiteral(cty.True))
+
+	want := "a = { raw = upper(\"x\"), value = 5, traversal = var.hat, expr = true }\n"
+	if got := string(f.Bytes()); got != want {
+		t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, want)
+	}
+
+	// The traversal is a variable of the object, so it can be renamed.
+	vars := value.Expr().Variables()
+	if len(vars) != 1 {
+		t.Fatalf("got %d variables in the traversal value, want 1", len(vars))
+	}
+	f.Body().GetAttribute("a").Expr().RenameVariablePrefix([]string{"var"}, []string{"local"})
+	want = "a = { raw = upper(\"x\"), value = 5, traversal = local.hat, expr = true }\n"
+	if got := string(f.Bytes()); got != want {
+		t.Errorf("wrong result after renaming\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestObjectConsExprSetItemPanics(t *testing.T) {
+	src := "a = { hat = \"derby\" }\nb = \"bowler\"\n"
 	f, diags := ParseConfig([]byte(src), "", hcl.InitialPos)
 	if diags.HasErrors() {
-		t.Fatalf("invalid source: %s", diags)
+		t.Fatal(diags)
 	}
-	body := f.Body()
-	if blocks := body.Blocks(); len(blocks) > 0 {
-		body = blocks[0].Body()
+	object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
+	attached := NewExpressionLiteral(cty.StringVal("bowler"))
+	object.SetItem("cat", attached)
+
+	tests := map[string]*Expression{
+		"attribute expression from the parser": f.Body().GetAttribute("b").Expr(),
+		"item value from the parser":           object.ValueExprFor("hat").Expr(),
+		"expression attached by SetItem":       attached,
 	}
-	obj := body.GetAttribute("a").Expr().AsObjectConsExpr()
-	if obj == nil {
-		t.Fatalf("a is not an object-construct expression")
+	for name, expr := range tests {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Error("SetItem did not panic")
+				}
+			}()
+			object.SetItem("dog", expr)
+		})
 	}
-	return f, obj
+
+	// A replaced expression is no longer attached, so it can be reused.
+	replaced := object.ValueExprFor("cat").Expr()
+	object.SetItemValue("cat", cty.StringVal("calico"))
+	object.SetItem("dog", replaced)
+
+	want := "a = { hat = \"derby\", cat = \"calico\", dog = \"bowler\" }\nb = \"bowler\"\n"
+	if got := string(f.Bytes()); got != want {
+		t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, want)
+	}
 }
 
-func parseObjectConsExprForTest(t *testing.T, src string) *ObjectConsExpr {
-	t.Helper()
-	_, obj := parseFileObjectConsExprForTest(t, src)
-	return obj
-}
-
-func assertObjectConsExprFormatted(t *testing.T, src []byte) {
-	t.Helper()
-	if formatted := Format(src); string(formatted) != string(src) {
-		t.Errorf("result is not in canonical form\ngot:\n%s\nformatted:\n%s", src, formatted)
+func TestObjectConsExprSetItemLayout(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		keys []string
+		want string
+	}{
+		{
+			name: "single line",
+			src:  "a = { hat = \"derby\" }\n",
+			keys: []string{"dog"},
+			want: "a = { hat = \"derby\", dog = \"bowler\" }\n",
+		},
+		{
+			name: "empty",
+			src:  "a = {}\n",
+			keys: []string{"dog"},
+			want: "a = { dog = \"bowler\" }\n",
+		},
+		{
+			name: "empty, two items",
+			src:  "a = {}\n",
+			keys: []string{"dog", "cat"},
+			want: "a = { dog = \"bowler\", cat = \"bowler\" }\n",
+		},
+		{
+			name: "single line, trailing comma",
+			src:  "a = { hat = \"derby\", }\n",
+			keys: []string{"dog"},
+			want: "a = { hat = \"derby\", dog = \"bowler\" }\n",
+		},
+		{
+			name: "single line, inline comment before the brace",
+			src:  "a = { hat = \"derby\" /* end of a */ }\n",
+			keys: []string{"dog"},
+			want: "a = { hat = \"derby\", dog = \"bowler\" /* end of a */ }\n",
+		},
+		{
+			name: "single line, multi-line value",
+			src:  "a = { hat = {\n  band = \"red\"\n} }\n",
+			keys: []string{"dog"},
+			want: "a = { hat = {\n  band = \"red\"\n}, dog = \"bowler\" }\n",
+		},
+		{
+			name: "single line, multi-line key",
+			src:  "a = { (\n  hat\n) = \"derby\" }\n",
+			keys: []string{"dog"},
+			want: "a = { (\n  hat\n) = \"derby\", dog = \"bowler\" }\n",
+		},
+		{
+			name: "multi-line",
+			src:  "a = {\n  hat = \"derby\"\n}\n",
+			keys: []string{"dog", "cat"},
+			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n  cat = \"bowler\"\n}\n",
+		},
+		{
+			name: "multi-line, empty",
+			src:  "a = {\n}\n",
+			keys: []string{"dog"},
+			want: "a = {\n  dog = \"bowler\"\n}\n",
+		},
+		{
+			name: "multi-line, brace on the last item's line",
+			src:  "a = {\n  hat = \"derby\" }\n",
+			keys: []string{"dog"},
+			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n}\n",
+		},
+		{
+			name: "multi-line, brace on the first item's line",
+			src:  "a = { hat = \"derby\"\n  cat = \"calico\" }\n",
+			keys: []string{"dog"},
+			want: "a = { hat = \"derby\"\n  cat = \"calico\"\n  dog = \"bowler\"\n}\n",
+		},
+		{
+			name: "multi-line, comma and line comment after the last item",
+			src:  "a = {\n  hat = \"derby\", # a hat\n}\n",
+			keys: []string{"dog"},
+			want: "a = {\n  hat = \"derby\", # a hat\n  dog = \"bowler\"\n}\n",
+		},
+		{
+			name: "multi-line, inline comment after the last item",
+			src:  "a = {\n  hat = \"derby\" /* a hat */\n}\n",
+			keys: []string{"dog"},
+			want: "a = {\n  hat = \"derby\" /* a hat */\n  dog = \"bowler\"\n}\n",
+		},
+		{
+			name: "multi-line, comments before the brace",
+			src:  "a = {\n  hat = \"derby\"\n\n  # end of a\n  // really\n}\n",
+			keys: []string{"dog"},
+			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n\n  # end of a\n  // really\n}\n",
+		},
+		{
+			name: "multi-line, inline comment directly before the brace",
+			src:  "a = {\n  hat = \"derby\"\n/* end of a */ }\n",
+			keys: []string{"dog"},
+			want: "a = {\n  hat = \"derby\"\n  dog = \"bowler\"\n/* end of a */ }\n",
+		},
+		{
+			name: "multi-line, line comment after the opening brace",
+			src:  "a = { # no items\n}\n",
+			keys: []string{"dog"},
+			want: "a = { # no items\n  dog = \"bowler\"\n}\n",
+		},
+		{
+			name: "multi-line, aligned with existing items",
+			src:  "a = {\n  hat = \"derby\"\n}\n",
+			keys: []string{"a hat"},
+			want: "a = {\n  hat     = \"derby\"\n  \"a hat\" = \"bowler\"\n}\n",
+		},
 	}
-}
 
-func assertObjectConsExprPanics(t *testing.T, f func()) {
-	t.Helper()
-	defer func() {
-		t.Helper()
-		if recover() == nil {
-			t.Errorf("did not panic")
-		}
-	}()
-	f()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
+			if diags.HasErrors() {
+				t.Fatal(diags)
+			}
+			object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
+			for _, key := range test.keys {
+				object.SetItemValue(key, cty.StringVal("bowler"))
+			}
+
+			got := f.Bytes()
+			if string(got) != test.want {
+				t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, test.want)
+			}
+			if formatted := Format(got); string(formatted) != string(got) {
+				t.Errorf("result is not in canonical form\ngot:\n%s\nformatted:\n%s", got, formatted)
+			}
+			if _, diags := ParseConfig(got, "", hcl.InitialPos); diags.HasErrors() {
+				t.Errorf("result is invalid: %s", diags)
+			}
+		})
+	}
 }
 
 ```
 
-#### y/format.go
+#### y/ast_tuple_cons_expr.go
+
+```go
+// Copyright IBM Corp. 2014, 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package hclwrite
+
+// TupleConsExpr represents a tuple-construct expression such as
+// ["fedora", "fez"]. Get one from an expression with
+// Expression.AsTupleConsExpr.
+//
+// Each element is an Expression of its own. The brackets and the commas stay
+// as tokens of the tuple.
+type TupleConsExpr struct {
+	inTree
+
+	elems nodeSet
+}
+
+func newTupleConsExpr() *TupleConsExpr {
+	return &TupleConsExpr{
+		inTree: newInTree(),
+		elems:  newNodeSet(),
+	}
+}
+
+// variableNodes returns the traversal nodes in the elements, in source
+// order.
+//
+func (tuple *TupleConsExpr) variableNodes() []*node {
+	var ret []*node
+	for _, n := range tuple.elems.List() {
+		ret = append(ret, n.content.(*Expression).variableNodes()...)
+	}
+	return ret
+}
+
+```
+
+#### y/examples_test.go
 
 ```go
 // Copyright IBM Corp. 2014, 2025
 // SPDX-License-Identifier: MPL-2.0
 
-package hclwrite
+package hclwrite_test
 
 import (
-	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"fmt"
+
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclwrite"
+	"github.com/zclconf/go-cty/cty"
 )
 
-// format rewrites tokens within the given sequence, in-place, to adjust the
-// whitespace around their content to achieve canonical formatting.
-func format(tokens Tokens) {
-	// Formatting is a multi-pass process. More details on the passes below,
-	// but this is the overview:
-	// - adjust the leading space on each line to create appropriate
-	//   indentation
-	// - adjust spaces between tokens in a single cell using a set of rules
-	// - adjust the leading space in the "assign" and "comment" cells on each
-	//   line to vertically align with neighboring lines.
-	// All of these steps operate in-place on the given tokens, so a caller
-	// may collect a flat sequence of all of the tokens underlying an AST
-	// and pass it here and we will then indirectly modify the AST itself.
-	// Formatting must change only whitespace. Specifically, that means
-	// changing the SpacesBefore attribute on a token while leaving the
-	// other token attributes unchanged.
+func Example_generateFromScratch() {
+	f := hclwrite.NewEmptyFile()
+	rootBody := f.Body()
+	rootBody.SetAttributeValue("string", cty.StringVal("bar")) // this is overwritten later
+	rootBody.AppendNewline()
+	rootBody.SetAttributeValue("object", cty.ObjectVal(map[string]cty.Value{
+		"foo": cty.StringVal("foo"),
+		"bar": cty.NumberIntVal(5),
+		"baz": cty.True,
+	}))
+	rootBody.SetAttributeValue("string", cty.StringVal("foo"))
+	rootBody.SetAttributeValue("bool", cty.False)
+	rootBody.SetAttributeTraversal("path", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "env",
+		},
+		hcl.TraverseAttr{
+			Name: "PATH",
+		},
+	})
+	rootBody.AppendNewline()
+	fooBlock := rootBody.AppendNewBlock("foo", nil)
+	fooBody := fooBlock.Body()
+	rootBody.AppendNewBlock("empty", nil)
+	rootBody.AppendNewline()
+	barBlock := rootBody.AppendNewBlock("bar", []string{"a", "b"})
+	barBody := barBlock.Body()
 
-	lines := linesForFormat(tokens)
-	formatIndent(lines)
-	formatSpaces(lines)
-	formatCells(lines)
+	fooBody.SetAttributeValue("hello", cty.StringVal("world"))
+
+	bazBlock := barBody.AppendNewBlock("baz", nil)
+	bazBody := bazBlock.Body()
+	bazBody.SetAttributeValue("foo", cty.NumberIntVal(10))
+	bazBody.SetAttributeValue("beep", cty.StringVal("boop"))
+	bazBody.SetAttributeValue("baz", cty.ListValEmpty(cty.String))
+
+	fmt.Printf("%s", f.Bytes())
+	// Output:
+	// string = "foo"
+	//
+	// object = {
+	//   bar = 5
+	//   baz = true
+	//   foo = "foo"
+	// }
+	// bool = false
+	// path = env.PATH
+	//
+	// foo {
+	//   hello = "world"
+	// }
+	// empty {
+	// }
+	//
+	// bar "a" "b" {
+	//   baz {
+	//     foo  = 10
+	//     beep = "boop"
+	//     baz  = []
+	//   }
+	// }
 }
 
-func formatIndent(lines []formatLine) {
-	// Our methodology for indents is to take the input one line at a time
-	// and count the bracketing delimiters on each line. If a line has a net
-	// increase in open brackets, we increase the indent level by one and
-	// remember how many new openers we had. If the line has a net _decrease_,
-	// we'll compare it to the most recent number of openers and decrease the
-	// dedent level by one each time we pass an indent level remembered
-	// earlier.
-	// The "indent stack" used here allows for us to recognize degenerate
-	// input where brackets are not symmetrical within lines and avoid
-	// pushing things too far left or right, creating confusion.
-
-	// We'll start our indent stack at a reasonable capacity to minimize the
-	// chance of us needing to grow it; 10 here means 10 levels of indent,
-	// which should be more than enough for reasonable HCL uses.
-	indents := make([]int, 0, 10)
-
-	for i := range lines {
-		line := &lines[i]
-		if len(line.lead) == 0 {
-			continue
-		}
-
-		if line.lead[0].Type == hclsyntax.TokenNewline {
-			// Never place spaces before a newline
-			line.lead[0].SpacesBefore = 0
-			continue
-		}
-
-		netBrackets := 0
-		for _, token := range line.lead {
-			netBrackets += tokenBracketChange(token)
-			if token.Type == hclsyntax.TokenOHeredoc {
-				break
-			}
-		}
-
-		for _, token := range line.assign {
-			netBrackets += tokenBracketChange(token)
-		}
-
-		switch {
-		case netBrackets > 0:
-			line.lead[0].SpacesBefore = 2 * len(indents)
-			indents = append(indents, netBrackets)
-		case netBrackets < 0:
-			closed := -netBrackets
-			for closed > 0 && len(indents) > 0 {
-				switch {
-
-				case closed > indents[len(indents)-1]:
-					closed -= indents[len(indents)-1]
-					indents = indents[:len(indents)-1]
-
-				case closed < indents[len(indents)-1]:
-					indents[len(indents)-1] -= closed
-					closed = 0
-
-				default:
-					indents = indents[:len(indents)-1]
-					closed = 0
-				}
-			}
-			line.lead[0].SpacesBefore = 2 * len(indents)
-		default:
-			line.lead[0].SpacesBefore = 2 * len(indents)
-		}
+func ExampleExpression_RenameVariablePrefix() {
+	src := []byte(
+		"foo = a.x + a.y * b.c\n" +
+			"bar = max(a.z, b.c)\n",
+	)
+	f, diags := hclwrite.ParseConfig(src, "", hcl.Pos{Line: 1, Column: 1})
+	if diags.HasErrors() {
+		fmt.Printf("errors: %s", diags)
+		return
 	}
+
+	// Rename references of variable "a" to "z"
+	for _, attr := range f.Body().Attributes() {
+		attr.Expr().RenameVariablePrefix(
+			[]string{"a"},
+			[]string{"z"},
+		)
+	}
+
+	fmt.Printf("%s", f.Bytes())
+	// Output:
+	// foo = z.x + z.y * b.c
+	// bar = max(z.z, b.c)
 }
 
-func formatSpaces(lines []formatLine) {
-	// placeholder token used when we don't have a token but we don't want
-	// to pass a real "nil" and complicate things with nil pointer checks
-	nilToken := &Token{
-		Type:         hclsyntax.TokenNil,
-		Bytes:        []byte{},
-		SpacesBefore: 0,
+func ExampleObjectConsExpr_SetItemRaw() {
+	src := []byte("a = {\n    hat = \"derby\", (cat) = \"calico\" }\n")
+	f, diags := hclwrite.ParseConfig(src, "", hcl.Pos{Line: 1, Column: 1})
+	if diags.HasErrors() {
+		fmt.Printf("errors: %s", diags)
+		return
 	}
 
-	for _, line := range lines {
-		for i, token := range line.lead {
-			var before, after *Token
-			if i > 0 {
-				before = line.lead[i-1]
-			} else {
-				before = nilToken
-			}
-			if i < (len(line.lead) - 1) {
-				after = line.lead[i+1]
-			} else {
-				continue
-			}
-			if spaceAfterToken(token, before, after) {
-				after.SpacesBefore = 1
-			} else {
-				after.SpacesBefore = 0
-			}
-		}
-		for i, token := range line.assign {
-			if i == 0 {
-				// first token in "assign" always has one space before to
-				// separate the equals sign from what it's assigning.
-				token.SpacesBefore = 1
-			}
+	object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
+	bowler := hclwrite.TokensForValue(cty.StringVal("bowler"))
 
-			var before, after *Token
-			if i > 0 {
-				before = line.assign[i-1]
-			} else {
-				before = nilToken
-			}
-			if i < (len(line.assign) - 1) {
-				after = line.assign[i+1]
-			} else {
-				continue
-			}
-			if spaceAfterToken(token, before, after) {
-				after.SpacesBefore = 1
-			} else {
-				after.SpacesBefore = 0
-			}
-		}
+	// "hat" is found and replaced. A key from an expression, such as (cat),
+	// is never found, so "cat" is added as a new item.
+	object.SetItemRaw("hat", bowler)
+	object.SetItemRaw("cat", bowler)
 
-	}
-}
-
-func formatCells(lines []formatLine) {
-	chainStart := -1
-	maxColumns := 0
-
-	// We'll deal with the "assign" cell first, since moving that will
-	// also impact the "comment" cell.
-	closeAssignChain := func(i int) {
-		for _, chainLine := range lines[chainStart:i] {
-			columns := chainLine.lead.Columns()
-			spaces := (maxColumns - columns) + 1
-			chainLine.assign[0].SpacesBefore = spaces
-		}
-		chainStart = -1
-		maxColumns = 0
-	}
-	for i, line := range lines {
-		if line.assign == nil {
-			if chainStart != -1 {
-				closeAssignChain(i)
-			}
-		} else {
-			if chainStart == -1 {
-				chainStart = i
-			}
-			columns := line.lead.Columns()
-			if columns > maxColumns {
-				maxColumns = columns
-			}
-		}
-	}
-	if chainStart != -1 {
-		closeAssignChain(len(lines))
-	}
-
-	// Now we'll deal with the comments
-	closeCommentChain := func(i int) {
-		for _, chainLine := range lines[chainStart:i] {
-			columns := chainLine.lead.Columns() + chainLine.assign.Columns()
-			spaces := (maxColumns - columns) + 1
-			chainLine.comment[0].SpacesBefore = spaces
-		}
-		chainStart = -1
-		maxColumns = 0
-	}
-	for i, line := range lines {
-		if line.comment == nil {
-			if chainStart != -1 {
-				closeCommentChain(i)
-			}
-		} else {
-			if chainStart == -1 {
-				chainStart = i
-			}
-			columns := line.lead.Columns() + line.assign.Columns()
-			if columns > maxColumns {
-				maxColumns = columns
-			}
-		}
-	}
-	if chainStart != -1 {
-		closeCommentChain(len(lines))
-	}
-}
-
-// spaceAfterToken decides whether a particular subject token should have a
-// space after it when surrounded by the given before and after tokens.
-// "before" can be TokenNil, if the subject token is at the start of a sequence.
-func spaceAfterToken(subject, before, after *Token) bool {
-	switch {
-
-	case after.Type == hclsyntax.TokenNewline || after.Type == hclsyntax.TokenNil:
-		// Never add spaces before a newline
-		return false
-
-	case subject.Type == hclsyntax.TokenIdent && after.Type == hclsyntax.TokenOParen:
-		// Don't split a function name from open paren in a call
-		return false
-
-	case (subject.Type == hclsyntax.TokenIdent && after.Type == hclsyntax.TokenDoubleColon) ||
-		(subject.Type == hclsyntax.TokenDoubleColon && after.Type == hclsyntax.TokenIdent):
-		// Don't split namespace segments in a function call
-		return false
-
-	case subject.Type == hclsyntax.TokenDot || after.Type == hclsyntax.TokenDot:
-		// Don't use spaces around attribute access dots
-		return false
-
-	case after.Type == hclsyntax.TokenComma || after.Type == hclsyntax.TokenEllipsis:
-		// No space right before a comma or ... in an argument list
-		return false
-
-	case subject.Type == hclsyntax.TokenComma:
-		// Always a space after a comma
-		return true
-
-	case subject.Type == hclsyntax.TokenQuotedLit || subject.Type == hclsyntax.TokenStringLit || subject.Type == hclsyntax.TokenOQuote || subject.Type == hclsyntax.TokenOHeredoc || after.Type == hclsyntax.TokenQuotedLit || after.Type == hclsyntax.TokenStringLit || after.Type == hclsyntax.TokenCQuote || after.Type == hclsyntax.TokenCHeredoc:
-		// No extra spaces within templates
-		return false
-
-	case hclsyntax.Keyword([]byte{'i', 'n'}).TokenMatches(subject.asHCLSyntax()) && before.Type == hclsyntax.TokenIdent:
-		// This is a special case for inside for expressions where a user
-		// might want to use a literal tuple constructor:
-		// [for x in [foo]: x]
-		// ... in that case, we would normally produce in[foo] thinking that
-		// in is a reference, but we'll recognize it as a keyword here instead
-		// to make the result less confusing.
-		return true
-
-	case after.Type == hclsyntax.TokenOBrack && (subject.Type == hclsyntax.TokenIdent || subject.Type == hclsyntax.TokenNumberLit || tokenBracketChange(subject) < 0):
-		return false
-
-	case subject.Type == hclsyntax.TokenBang:
-		// No space after a bang
-		return false
-
-	case subject.Type == hclsyntax.TokenMinus:
-		// Since a minus can either be subtraction or negation, and the latter
-		// should _not_ have a space after it, we need to use some heuristics
-		// to decide which case this is.
-		// We guess that we have a negation if the token before doesn't look
-		// like it could be the end of an expression.
-
-		switch before.Type {
-
-		case hclsyntax.TokenNil:
-			// Minus at the start of input must be a negation
-			return false
-
-		case hclsyntax.TokenOParen, hclsyntax.TokenOBrace, hclsyntax.TokenOBrack, hclsyntax.TokenEqual, hclsyntax.TokenColon, hclsyntax.TokenComma, hclsyntax.TokenQuestion:
-			// Minus immediately after an opening bracket or separator must be a negation.
-			return false
-
-		case hclsyntax.TokenPlus, hclsyntax.TokenStar, hclsyntax.TokenSlash, hclsyntax.TokenPercent, hclsyntax.TokenMinus:
-			// Minus immediately after another arithmetic operator must be negation.
-			return false
-
-		case hclsyntax.TokenEqualOp, hclsyntax.TokenNotEqual, hclsyntax.TokenGreaterThan, hclsyntax.TokenGreaterThanEq, hclsyntax.TokenLessThan, hclsyntax.TokenLessThanEq:
-			// Minus immediately after another comparison operator must be negation.
-			return false
-
-		case hclsyntax.TokenAnd, hclsyntax.TokenOr, hclsyntax.TokenBang:
-			// Minus immediately after logical operator doesn't make sense but probably intended as negation.
-			return false
-
-		default:
-			return true
-		}
-
-	case subject.Type == hclsyntax.TokenOBrace || after.Type == hclsyntax.TokenCBrace:
-		// Unlike other bracket types, braces have spaces on both sides of them,
-		// both in single-line nested blocks foo { bar = baz } and in object
-		// constructor expressions foo = { bar = baz }.
-		if subject.Type == hclsyntax.TokenOBrace && after.Type == hclsyntax.TokenCBrace {
-			// An open brace followed by a close brace is an exception, however.
-			// e.g. foo {} rather than foo { }
-			return false
-		}
-		return true
-
-	// In the unlikely event that an interpolation expression is just
-	// a single object constructor, we'll put a space between the ${ and
-	// the following { to make this more obvious, and then the same
-	// thing for the two braces at the end.
-	case (subject.Type == hclsyntax.TokenTemplateInterp || subject.Type == hclsyntax.TokenTemplateControl) && after.Type == hclsyntax.TokenOBrace:
-		return true
-	case subject.Type == hclsyntax.TokenCBrace && after.Type == hclsyntax.TokenTemplateSeqEnd:
-		return true
-
-	// Don't add spaces between interpolated items
-	case subject.Type == hclsyntax.TokenTemplateSeqEnd && (after.Type == hclsyntax.TokenTemplateInterp || after.Type == hclsyntax.TokenTemplateControl):
-		return false
-
-	case tokenBracketChange(subject) > 0:
-		// No spaces after open brackets
-		return false
-
-	case tokenBracketChange(after) < 0:
-		// No spaces before close brackets
-		return false
-
-	default:
-		// Most tokens are space-separated
-		return true
-
-	}
-}
-
-func linesForFormat(tokens Tokens) []formatLine {
-	if len(tokens) == 0 {
-		return make([]formatLine, 0)
-	}
-
-	// first we'll count our lines, so we can allocate the array for them in
-	// a single block. (We want to minimize memory pressure in this codepath,
-	// so it can be run somewhat-frequently by editor integrations.)
-	lineCount := 1 // if there are zero newlines then there is one line
-	for _, tok := range tokens {
-		if tokenIsNewline(tok) {
-			lineCount++
-		}
-	}
-
-	// To start, we'll just put everything in the "lead" cell on each line,
-	// and then do another pass over the lines afterwards to adjust.
-	lines := make([]formatLine, lineCount)
-	li := 0
-	lineStart := 0
-	for i, tok := range tokens {
-		if tok.Type == hclsyntax.TokenEOF {
-			// The EOF token doesn't belong to any line, and terminates the
-			// token sequence.
-			lines[li].lead = tokens[lineStart:i]
-			break
-		}
-
-		if tokenIsNewline(tok) {
-			lines[li].lead = tokens[lineStart : i+1]
-			lineStart = i + 1
-			li++
-		}
-	}
-
-	// If a set of tokens doesn't end in TokenEOF (e.g. because it's a
-	// fragment of tokens from the middle of a file) then we might fall
-	// out here with a line still pending.
-	if lineStart < len(tokens) {
-		lines[li].lead = tokens[lineStart:]
-		if lines[li].lead[len(lines[li].lead)-1].Type == hclsyntax.TokenEOF {
-			lines[li].lead = lines[li].lead[:len(lines[li].lead)-1]
-		}
-	}
-
-	// Now we'll pick off any trailing comments and attribute assignments
-	// to shuffle off into the "comment" and "assign" cells.
-	for i := range lines {
-		line := &lines[i]
-
-		if len(line.lead) == 0 {
-			// if the line is empty then there's nothing for us to do
-			// (this should happen only for the final line, because all other
-			// lines would have a newline token of some kind)
-			continue
-		}
-
-		if len(line.lead) > 1 && line.lead[len(line.lead)-1].Type == hclsyntax.TokenComment {
-			line.comment = line.lead[len(line.lead)-1:]
-			line.lead = line.lead[:len(line.lead)-1]
-		}
-
-		for i, tok := range line.lead {
-			if i > 0 && tok.Type == hclsyntax.TokenEqual {
-				// We only move the tokens into "assign" if the RHS seems to
-				// be a whole expression, which we determine by counting
-				// brackets. If there's a net positive number of brackets
-				// then that suggests we're introducing a multi-line expression.
-				netBrackets := 0
-				for _, token := range line.lead[i:] {
-					netBrackets += tokenBracketChange(token)
-				}
-
-				if netBrackets == 0 {
-					line.assign = line.lead[i:]
-					line.lead = line.lead[:i]
-				}
-				break
-			}
-		}
-	}
-
-	return lines
-}
-
-func tokenIsNewline(tok *Token) bool {
-	switch tok.Type {
-	case hclsyntax.TokenNewline:
-		return true
-	case hclsyntax.TokenComment:
-		// Single line tokens (# and //) consume their terminating newline,
-		// so we need to treat them as newline tokens as well.
-		if len(tok.Bytes) > 0 && tok.Bytes[len(tok.Bytes)-1] == '\n' {
-			return true
-		}
-	}
-	return false
-}
-
-func tokenBracketChange(tok *Token) int {
-	switch tok.Type {
-	case hclsyntax.TokenOBrace, hclsyntax.TokenOBrack, hclsyntax.TokenOParen, hclsyntax.TokenTemplateControl, hclsyntax.TokenTemplateInterp:
-		return 1
-	case hclsyntax.TokenCBrace, hclsyntax.TokenCBrack, hclsyntax.TokenCParen, hclsyntax.TokenTemplateSeqEnd:
-		return -1
-	default:
-		return 0
-	}
-}
-
-// formatLine represents a single line of source code for formatting purposes,
-// splitting its tokens into up to three "cells":
-//
-//   - lead: always present, representing everything up to one of the others
-//   - assign: if line contains an attribute assignment, represents the tokens
-//     starting at (and including) the equals symbol
-//   - comment: if line contains any non-comment tokens and ends with a
-//     single-line comment token, represents the comment.
-//
-// When formatting, the leading spaces of the first tokens in each of these
-// cells is adjusted to align vertically their occurences on consecutive
-// rows.
-type formatLine struct {
-	lead    Tokens
-	assign  Tokens
-	comment Tokens
+	fmt.Printf("%s", f.Bytes())
+	// Output:
+	// a = {
+	//   hat = "bowler", (cat) = "calico"
+	//   cat = "bowler"
+	// }
 }
 
 ```
@@ -8859,13 +8768,9 @@ type node struct {
 }
 
 func newNode(c nodeContent) *node {
-	n := &node{
+	return &node{
 		content: c,
 	}
-	if h, ok := c.(interface{ setHolder(*node) }); ok {
-		h.setHolder(n)
-	}
-	return n
 }
 
 func (n *node) Equal(other *node) bool {
@@ -8925,12 +8830,6 @@ func (n *node) ReplaceWith(c nodeContent) *node {
 	if after != nil {
 		after.before = nn
 	}
-	if list.first == n {
-		list.first = nn
-	}
-	if list.last == n {
-		list.last = nn
-	}
 	return nn
 }
 
@@ -8964,7 +8863,9 @@ func (ns *nodes) Clear() {
 }
 
 func (ns *nodes) Append(c nodeContent) *node {
-	n := newNode(c)
+	n := &node{
+		content: c,
+	}
 	ns.AppendNode(n)
 	n.list = ns
 	return n
@@ -8985,7 +8886,9 @@ func (ns *nodes) AppendNode(n *node) {
 // Insert inserts a nodeContent at a given position.
 // This is just a wrapper for InsertNode. See InsertNode for details.
 func (ns *nodes) Insert(pos *node, c nodeContent) *node {
-	n := newNode(c)
+	n := &node{
+		content: c,
+	}
 	ns.InsertNode(pos, n)
 	n.list = ns
 	return n
@@ -9110,9 +9013,6 @@ type internalWalkFunc func(*node)
 type inTree struct {
 	parent   *node
 	children *nodes
-
-	// holder is the node that most recently took this content, if any.
-	holder *node
 }
 
 func newInTree() inTree {
@@ -9127,11 +9027,12 @@ func (it *inTree) assertUnattached() {
 	}
 }
 
-// inList reports whether the content is held by a node that is part of a
-// list, and so part of a syntax tree.
+// setParent records the node that the content is attached under, so that a
+// later assertUnattached can tell that it is already part of a syntax tree.
+// A nil parent records that the content is no longer attached.
 //
-func (it *inTree) inList() bool {
-	return it.holder != nil && it.holder.list != nil
+func (it *inTree) setParent(parent *node) {
+	it.parent = parent
 }
 
 func (it *inTree) walkChildNodes(w internalWalkFunc) {
@@ -9145,11 +9046,6 @@ func (it *inTree) BuildTokens(to Tokens) Tokens {
 		to = n.BuildTokens(to)
 	}
 	return to
-}
-
-// setHolder records the node that holds the content.
-func (it *inTree) setHolder(n *node) {
-	it.holder = n
 }
 
 // leafNode can be embedded into a content struct to give it a do-nothing
@@ -9453,7 +9349,9 @@ func parseAttribute(nativeAttr *hclsyntax.Attribute, from, leadComments, lineCom
 	// Collect any stragglers, though there shouldn't be any
 	children.AppendUnstructuredTokens(from.Tokens())
 
-	return newNode(attr)
+	attrNode := newNode(attr)
+	attr.Expr().setParent(attrNode)
+	return attrNode
 }
 
 func parseBlock(nativeBlock *hclsyntax.Block, from, leadComments, lineComments, newline inputTokens) *node {
@@ -9552,6 +9450,14 @@ func parseExpression(nativeExpr hclsyntax.Expression, from inputTokens) *node {
 	case *hclsyntax.ObjectConsKeyExpr:
 		return parseObjectConsKeyExpr(tNativeExpr, from)
 
+	// Function call expression
+	case *hclsyntax.FunctionCallExpr:
+		return parseFunctionCallExpr(tNativeExpr, from)
+
+	// Tuple-construct expression
+	case *hclsyntax.TupleConsExpr:
+		return parseTupleConsExpr(tNativeExpr, from)
+
 	case *hclsyntax.TemplateExpr:
 		return parseTemplateExpr(tNativeExpr, from)
 
@@ -9615,6 +9521,7 @@ func parseObjectConsExpr(nativeExpr *hclsyntax.ObjectConsExpr, from inputTokens)
 		value.expr = parseExpression(nativeItem.ValueExpr, valueTokens)
 		value.children.AppendNode(value.expr)
 		item.value = item.children.Append(value)
+		value.Expr().setParent(item.value)
 
 		node := expr.children.Append(item)
 		expr.items.Add(node)
@@ -9634,13 +9541,76 @@ func parseObjectConsExpr(nativeExpr *hclsyntax.ObjectConsExpr, from inputTokens)
 // literal is functionally equivalent to an Identifier.
 func parseObjectConsKeyExpr(nativeExpr *hclsyntax.ObjectConsKeyExpr, from inputTokens) *node {
 	expr := parseExpression(nativeExpr.Wrapped, from)
-	if len(nativeExpr.Variables()) == 0 {
-		// A naked identifier is a literal name, not a variable, so its
-		// traversal must not be reported or renamed.
-		expr.content.(*Expression).absTraversals.Clear()
-	}
-	wrapExpr := newObjectConsKeyExpr(expr)
+	// hclsyntax reads the key as a literal name by the same test.
+	literalName := hcl.ExprAsKeyword(nativeExpr.Wrapped) != ""
+	wrapExpr := newObjectConsKeyExpr(expr, literalName)
 
+	return newNode(wrapExpr)
+}
+
+// parseFunctionCallExpr parses a function call expression, defined as:
+//
+//	FunctionCall = Identifier ("::" Identifier)* "(" Arguments ")";
+//	Arguments = (
+//	    () ||
+//	    (Expression ("," Expression)* ("," | "...")?)
+//	);
+//
+// Each argument becomes an Expression of its own. The tokens around the
+// arguments, comments included, stay as unstructured tokens of the call.
+//
+func parseFunctionCallExpr(nativeExpr *hclsyntax.FunctionCallExpr, from inputTokens) *node {
+	expr := newFunctionCallExpr()
+	children := expr.children
+
+	var before, argTokens inputTokens
+	for _, nativeArg := range nativeExpr.Args {
+		before, argTokens, from = from.Partition(nativeArg.Range())
+		children.AppendUnstructuredTokens(before.writerTokens)
+		arg := parseExpression(nativeArg, argTokens)
+		children.AppendNode(arg)
+		expr.args.Add(arg)
+	}
+	children.AppendUnstructuredTokens(from.writerTokens)
+
+	// Wrap in an Expression
+	wrapExpr := newExpression()
+	wrapExpr.wrap(expr)
+	for _, arg := range expr.args.List() {
+		arg.content.(*Expression).setParent(wrapExpr.wrapped)
+	}
+	return newNode(wrapExpr)
+}
+
+// parseTupleConsExpr parses a tuple-construct expression, defined as:
+//
+//	tuple = "[" (
+//	    (Expression ("," Expression)* ","?)?
+//	) "]";
+//
+// Each element becomes an Expression of its own. The tokens around the
+// elements, comments included, stay as unstructured tokens of the tuple.
+//
+func parseTupleConsExpr(nativeExpr *hclsyntax.TupleConsExpr, from inputTokens) *node {
+	expr := newTupleConsExpr()
+	children := expr.children
+
+	var before, elemTokens inputTokens
+	for _, nativeElem := range nativeExpr.Exprs {
+		before, elemTokens, from = from.Partition(nativeElem.Range())
+		children.AppendUnstructuredTokens(before.writerTokens)
+		elem := parseExpression(nativeElem, elemTokens)
+		children.AppendNode(elem)
+		expr.elems.Add(elem)
+	}
+	children.AppendUnstructuredTokens(from.writerTokens)
+
+	// Wrap in an Expression
+	wrapExpr := newExpression()
+	wrapExpr.wrap(expr)
+	for _, elem := range expr.elems.List() {
+		elem.content.(*Expression).setParent(wrapExpr.wrapped)
+	}
 	return newNode(wrapExpr)
 }
 
@@ -9900,6 +9870,2320 @@ func partitionLineEndTokens(toks hclsyntax.Tokens) (afterComment, afterNewline i
 func lexConfig(src []byte) Tokens {
 	mainTokens, _ := hclsyntax.LexConfig(src, "", hcl.Pos{Byte: 0, Line: 1, Column: 1})
 	return writerTokens(mainTokens)
+}
+
+```
+
+#### y/parser_test.go
+
+```go
+// Copyright IBM Corp. 2014, 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package hclwrite
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
+
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+)
+
+func TestParse(t *testing.T) {
+	tests := []struct {
+		src  string
+		want TestTreeNode
+	}{
+		{
+			"",
+			TestTreeNode{
+				Type: "Body",
+			},
+		},
+		{
+			"a = 1\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Tokens",
+										Val:  " 1",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"# aye aye aye\na = 1\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+								Val:  "# aye aye aye\n",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Tokens",
+										Val:  " 1",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = 1 # because it is\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Tokens",
+										Val:  " 1",
+									},
+								},
+							},
+							{
+								Type: "comments",
+								Val:  " # because it is\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"# bee bee bee\n\nb = 1\n", // two newlines separate the comment from the attribute
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Tokens", // Only lead/line comments attached to an object have type "comments"
+						Val:  "# bee bee bee\n\n",
+					},
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "b",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Tokens",
+										Val:  " 1",
+									},
+								},
+							},
+							{
+								Type: "comments",
+								Val:  "",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = (\n  1 + 2\n)\nb = 3\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{Type: "comments"},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Tokens",
+										Val:  " (\n  1 + 2\n)",
+									},
+								},
+							},
+							{Type: "comments"},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{Type: "comments"},
+							{
+								Type: "identifier",
+								Val:  "b",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Tokens",
+										Val:  " 3",
+									},
+								},
+							},
+							{Type: "comments"},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"b {}\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Block",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "b",
+							},
+							{
+								Type: "blockLabels",
+							},
+							{
+								Type: "Tokens",
+								Val:  " {",
+							},
+							{
+								Type: "Body",
+							},
+							{
+								Type: "Tokens",
+								Val:  "}",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"b label {}\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Block",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "b",
+							},
+							{
+								Type: "blockLabels",
+								Children: []TestTreeNode{
+									{
+										Type: "identifier",
+										Val:  " label",
+									},
+								},
+							},
+							{
+								Type: "Tokens",
+								Val:  " {",
+							},
+							{
+								Type: "Body",
+							},
+							{
+								Type: "Tokens",
+								Val:  "}",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"b \"label\" {}\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Block",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "b",
+							},
+							{
+								Type: "blockLabels",
+								Children: []TestTreeNode{
+									{
+										Type: "quoted",
+										Val:  ` "label"`,
+									},
+								},
+							},
+							{
+								Type: "Tokens",
+								Val:  " {",
+							},
+							{
+								Type: "Body",
+							},
+							{
+								Type: "Tokens",
+								Val:  "}",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"b \"label1\" /* foo */ \"label2\" {}\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Block",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "b",
+							},
+							{
+								Type: "blockLabels",
+								Children: []TestTreeNode{
+									{
+										Type: "quoted",
+										Val:  ` "label1"`,
+									},
+									{
+										// The comment between the labels just
+										// becomes an "unstructured tokens"
+										// node, because this isn't a place
+										// where we expect comments to attach
+										// to a particular object as
+										// documentation.
+										Type: "Tokens",
+										Val:  ` /* foo */`,
+									},
+									{
+										Type: "quoted",
+										Val:  ` "label2"`,
+									},
+								},
+							},
+							{
+								Type: "Tokens",
+								Val:  " {",
+							},
+							{
+								Type: "Body",
+							},
+							{
+								Type: "Tokens",
+								Val:  "}",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"b {\n  a = 1\n}\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Block",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "b",
+							},
+							{
+								Type: "blockLabels",
+							},
+							{
+								Type: "Tokens",
+								Val:  " {",
+							},
+							{
+								Type: "Body",
+								Children: []TestTreeNode{
+									{
+										Type: "Tokens",
+										Val:  "\n",
+									},
+									{
+										Type: "Attribute",
+										Children: []TestTreeNode{
+											{
+												Type: "comments",
+											},
+											{
+												Type: "identifier",
+												Val:  "  a",
+											},
+											{
+												Type: "Tokens",
+												Val:  " =",
+											},
+											{
+												Type: "Expression",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  " 1",
+													},
+												},
+											},
+											{
+												Type: "comments",
+											},
+											{
+												Type: "Tokens",
+												Val:  "\n",
+											},
+										},
+									},
+								},
+							},
+							{
+								Type: "Tokens",
+								Val:  "}",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo.bar\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  ".",
+													},
+													{
+														Type: "identifier",
+														Val:  "bar",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo[0]\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+											{
+												Type: "TraverseIndex",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  "[",
+													},
+													{
+														Type: "number",
+														Val:  "0",
+													},
+													{
+														Type: "Tokens",
+														Val:  "]",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo.0\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+											{
+												Type: "TraverseIndex",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  ".",
+													},
+													{
+														Type: "number",
+														Val:  "0",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo.*\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  ".*",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo.*.bar\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  ".*.bar",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo[*]\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  "[*]",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo[*].bar\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  "[*].bar",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo[bar]\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  "[",
+									},
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  "bar",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  "]",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo[bar.baz]\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  "[",
+									},
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  "bar",
+													},
+												},
+											},
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  ".",
+													},
+													{
+														Type: "identifier",
+														Val:  "baz",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  "]",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"a = foo[bar].baz\n",
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  " foo",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  "[",
+									},
+									{
+										Type: "Traversal",
+										Children: []TestTreeNode{
+											{
+												Type: "TraverseName",
+												Children: []TestTreeNode{
+													{
+														Type: "identifier",
+														Val:  "bar",
+													},
+												},
+											},
+										},
+									},
+									{
+										Type: "Tokens",
+										Val:  "].baz",
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+							{
+								Type: "Tokens",
+								Val:  "\n",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			`a = {
+				hat = "derby", (cat) = "calico" }`,
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "ObjectConsExpr",
+										Children: []TestTreeNode{
+											{
+												Type: "Tokens",
+												Val:  " {",
+											},
+											{
+												Type: "ObjectConsItem",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  "\n",
+													},
+													{
+														Type: "ObjectConsKeyExpr",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+
+																	{
+																		Type: "Traversal",
+																		Children: []TestTreeNode{
+																			{
+																				Type: "TraverseName",
+																				Children: []TestTreeNode{
+																					{
+																						Type: "identifier",
+																						Val:  "    hat",
+																					},
+																				},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+													{
+														Type: "Tokens",
+														Val:  " =",
+													},
+													{
+														Type: "ObjectConsValue",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+																	{
+																		Type: "quoted",
+																		Val:  ` "derby"`,
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+											{
+												Type: "ObjectConsItem",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  ",",
+													},
+													{
+														Type: "ObjectConsKeyExpr",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+																	{
+																		Type: "Tokens",
+																		Val:  " (",
+																	},
+																	{
+																		Type: "Traversal",
+																		Children: []TestTreeNode{
+																			{
+																				Type: "TraverseName",
+																				Children: []TestTreeNode{
+																					{
+																						Type: "identifier",
+																						Val:  "cat",
+																					},
+																				},
+																			},
+																		},
+																	},
+																	{
+																		Type: "Tokens",
+																		Val:  ")",
+																	},
+																},
+															},
+														},
+													},
+													{
+														Type: "Tokens",
+														Val:  " =",
+													},
+													{
+														Type: "ObjectConsValue",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+																	{
+																		Type: "quoted",
+																		Val:  ` "calico"`,
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+											{
+												Type: "Tokens",
+												Val:  " }",
+											},
+										},
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			`a = {
+				hat = "derby" // a fancy hat
+		   	    (cat) = "calico"
+			}`,
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "a",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "ObjectConsExpr",
+										Children: []TestTreeNode{
+											{
+												Type: "Tokens",
+												Val:  " {",
+											},
+											{
+												Type: "ObjectConsItem",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  "\n",
+													},
+													{
+														Type: "ObjectConsKeyExpr",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+
+																	{
+																		Type: "Traversal",
+																		Children: []TestTreeNode{
+																			{
+																				Type: "TraverseName",
+																				Children: []TestTreeNode{
+																					{
+																						Type: "identifier",
+																						Val:  "    hat",
+																					},
+																				},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+													{
+														Type: "Tokens",
+														Val:  " =",
+													},
+													{
+														Type: "ObjectConsValue",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+																	{
+																		Type: "quoted",
+																		Val:  ` "derby"`,
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+											{
+												Type: "ObjectConsItem",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  " // a fancy hat\n",
+													},
+													{
+														Type: "ObjectConsKeyExpr",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+																	{
+																		Type: "Tokens",
+																		Val:  "          (",
+																	},
+																	{
+																		Type: "Traversal",
+																		Children: []TestTreeNode{
+																			{
+																				Type:     "TraverseName",
+																				Children: []TestTreeNode{{Type: "identifier", Val: "cat"}},
+																			},
+																		},
+																	},
+																	{
+																		Type: "Tokens",
+																		Val:  ")",
+																	},
+																},
+															},
+														},
+													},
+													{
+														Type: "Tokens",
+														Val:  " =",
+													},
+													{
+														Type: "ObjectConsValue",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+																	{
+																		Type: "quoted",
+																		Val:  ` "calico"`,
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+											{
+												Type: "Tokens",
+												Val:  "\n   }",
+											},
+										},
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			`a = {
+  hat = {
+	style = "derby",
+	color = (variable)
+  },
+  cat = "calico"
+}`,
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{{
+					Type: "Attribute",
+					Children: []TestTreeNode{
+						{Type: "comments"},
+						{Type: "identifier", Val: "a"},
+						{Type: "Tokens", Val: " ="},
+						{
+							Type: "Expression",
+							Children: []TestTreeNode{{
+								Type: "ObjectConsExpr",
+								Children: []TestTreeNode{
+									{Type: "Tokens", Val: " {"},
+									{
+										Type: "ObjectConsItem",
+										Children: []TestTreeNode{
+											{Type: "Tokens", Val: "\n"},
+											{
+												Type: "ObjectConsKeyExpr",
+												Children: []TestTreeNode{{
+													Type: "Expression",
+													Children: []TestTreeNode{{
+														Type: "Traversal",
+														Children: []TestTreeNode{
+															{
+																Type:     "TraverseName",
+																Children: []TestTreeNode{{Type: "identifier", Val: "  hat"}},
+															},
+														},
+													}},
+												}},
+											},
+											{Type: "Tokens", Val: " ="},
+											{
+												Type: "ObjectConsValue",
+												Children: []TestTreeNode{{
+													Type: "Expression",
+													Children: []TestTreeNode{{
+														Type: "ObjectConsExpr",
+														Children: []TestTreeNode{
+															{Type: "Tokens", Val: " {"},
+															{
+																Type: "ObjectConsItem",
+																Children: []TestTreeNode{
+																	{Type: "Tokens", Val: "\n"},
+																	{
+																		Type: "ObjectConsKeyExpr",
+																		Children: []TestTreeNode{
+																			{
+																				Type: "Expression",
+																				Children: []TestTreeNode{
+																					{
+																						Type: "Traversal",
+																						Children: []TestTreeNode{
+																							{
+																								Type: "TraverseName",
+																								Children: []TestTreeNode{
+																									{Type: "identifier", Val: " style"},
+																								},
+																							},
+																						},
+																					},
+																				},
+																			},
+																		},
+																	},
+																	{Type: "Tokens", Val: " ="},
+																	{
+																		Type: "ObjectConsValue",
+																		Children: []TestTreeNode{
+																			{
+																				Type:     "Expression",
+																				Children: []TestTreeNode{{Type: "quoted", Val: ` "derby"`}},
+																			},
+																		},
+																	},
+																},
+															},
+															{
+																Type: "ObjectConsItem",
+																Children: []TestTreeNode{
+																	{Type: "Tokens", Val: ",\n"},
+																	{
+																		Type: "ObjectConsKeyExpr",
+																		Children: []TestTreeNode{{
+																			Type: "Expression",
+																			Children: []TestTreeNode{{
+																				Type: "Traversal", Children: []TestTreeNode{{
+																					Type:     "TraverseName",
+																					Children: []TestTreeNode{{Type: "identifier", Val: " color"}},
+																				}},
+																			}},
+																		}},
+																	},
+																	{Type: "Tokens", Val: " ="},
+																	{
+																		Type: "ObjectConsValue",
+																		Children: []TestTreeNode{{
+																			Type: "Expression",
+																			Children: []TestTreeNode{
+																				{Type: "Tokens", Val: " ("},
+																				{
+																					Type: "Traversal",
+																					Children: []TestTreeNode{{
+																						Type:     "TraverseName",
+																						Children: []TestTreeNode{{Type: "identifier", Val: "variable"}},
+																					}},
+																				},
+																				{Type: "Tokens", Val: ")"},
+																			},
+																		}},
+																	},
+																},
+															},
+															{Type: "Tokens", Val: "\n  }"},
+														},
+													}},
+												}},
+											},
+										},
+									},
+									{
+										Type: "ObjectConsItem",
+										Children: []TestTreeNode{
+											{Type: "Tokens", Val: ",\n"},
+											{
+												Type: "ObjectConsKeyExpr",
+												Children: []TestTreeNode{{
+													Type: "Expression",
+													Children: []TestTreeNode{
+														{
+															Type: "Traversal",
+															Children: []TestTreeNode{{
+																Type: "TraverseName",
+																Children: []TestTreeNode{
+																	{Type: "identifier", Val: "  cat"},
+																},
+															}},
+														},
+													},
+												}},
+											},
+											{Type: "Tokens", Val: " ="},
+											{
+												Type: "ObjectConsValue",
+												Children: []TestTreeNode{{
+													Type: "Expression",
+													Children: []TestTreeNode{
+														{Type: "quoted", Val: ` "calico"`},
+													},
+												}},
+											},
+										},
+									},
+									{Type: "Tokens", Val: "\n}"},
+								},
+							}},
+						},
+						{Type: "comments"},
+					},
+				}},
+			},
+		},
+		{
+			`zzz = {
+				"hat" = "derby" }`,
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{
+					{
+						Type: "Attribute",
+						Children: []TestTreeNode{
+							{
+								Type: "comments",
+							},
+							{
+								Type: "identifier",
+								Val:  "zzz",
+							},
+							{
+								Type: "Tokens",
+								Val:  " =",
+							},
+							{
+								Type: "Expression",
+								Children: []TestTreeNode{
+									{
+										Type: "ObjectConsExpr",
+										Children: []TestTreeNode{
+											{
+												Type: "Tokens",
+												Val:  " {",
+											},
+											{
+												Type: "ObjectConsItem",
+												Children: []TestTreeNode{
+													{
+														Type: "Tokens",
+														Val:  "\n",
+													},
+													{
+														Type: "ObjectConsKeyExpr",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+																	{
+																		Type: "quoted",
+																		Val:  `    "hat"`,
+																	},
+																},
+															},
+														},
+													},
+													{
+														Type: "Tokens",
+														Val:  " =",
+													},
+													{
+														Type: "ObjectConsValue",
+														Children: []TestTreeNode{
+															{
+																Type: "Expression",
+																Children: []TestTreeNode{
+																	{
+																		Type: "quoted",
+																		Val:  ` "derby"`,
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+											{
+												Type: "Tokens",
+												Val:  " }",
+											},
+										},
+									},
+								},
+							},
+							{
+								Type: "comments",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			`a = join(" ", ["fedora", "fez"])`,
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{{
+					Type: "Attribute",
+					Children: []TestTreeNode{
+						{Type: "comments"},
+						{Type: "identifier", Val: "a"},
+						{Type: "Tokens", Val: " ="},
+						{
+							Type: "Expression",
+							Children: []TestTreeNode{{
+								Type: "FunctionCallExpr",
+								Children: []TestTreeNode{
+									{Type: "Tokens", Val: " join("},
+									{
+										Type:     "Expression",
+										Children: []TestTreeNode{{Type: "quoted", Val: `" "`}},
+									},
+									{Type: "Tokens", Val: ","},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type: "TupleConsExpr",
+											Children: []TestTreeNode{
+												{Type: "Tokens", Val: " ["},
+												{
+													Type:     "Expression",
+													Children: []TestTreeNode{{Type: "quoted", Val: `"fedora"`}},
+												},
+												{Type: "Tokens", Val: ","},
+												{
+													Type:     "Expression",
+													Children: []TestTreeNode{{Type: "quoted", Val: ` "fez"`}},
+												},
+												{Type: "Tokens", Val: "]"},
+											},
+										}},
+									},
+									{Type: "Tokens", Val: ")"},
+								},
+							}},
+						},
+						{Type: "comments"},
+					},
+				}},
+			},
+		},
+		{
+			`a = [f(), {}, [], provider::ex::g(x...),]`,
+			TestTreeNode{
+				Type: "Body",
+				Children: []TestTreeNode{{
+					Type: "Attribute",
+					Children: []TestTreeNode{
+						{Type: "comments"},
+						{Type: "identifier", Val: "a"},
+						{Type: "Tokens", Val: " ="},
+						{
+							Type: "Expression",
+							Children: []TestTreeNode{{
+								Type: "TupleConsExpr",
+								Children: []TestTreeNode{
+									{Type: "Tokens", Val: " ["},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type:     "FunctionCallExpr",
+											Children: []TestTreeNode{{Type: "Tokens", Val: "f()"}},
+										}},
+									},
+									{Type: "Tokens", Val: ","},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type: "ObjectConsExpr",
+											Children: []TestTreeNode{
+												{Type: "Tokens", Val: " {"},
+												{Type: "Tokens", Val: "}"},
+											},
+										}},
+									},
+									{Type: "Tokens", Val: ","},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type:     "TupleConsExpr",
+											Children: []TestTreeNode{{Type: "Tokens", Val: " []"}},
+										}},
+									},
+									{Type: "Tokens", Val: ","},
+									{
+										Type: "Expression",
+										Children: []TestTreeNode{{
+											Type: "FunctionCallExpr",
+											Children: []TestTreeNode{
+												{Type: "Tokens", Val: " provider::ex::g("},
+												{
+													Type: "Expression",
+													Children: []TestTreeNode{{
+														Type: "Traversal",
+														Children: []TestTreeNode{{
+															Type:     "TraverseName",
+															Children: []TestTreeNode{{Type: "identifier", Val: "x"}},
+														}},
+													}},
+												},
+												{Type: "Tokens", Val: "...)"},
+											},
+										}},
+									},
+									{Type: "Tokens", Val: ",]"},
+								},
+							}},
+						},
+						{Type: "comments"},
+					},
+				}},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.src, func(t *testing.T) {
+			file, diags := parse([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+			if len(diags) > 0 {
+				for _, diag := range diags {
+					t.Logf(" - %s", diag.Error())
+				}
+				t.Fatalf("unexpected diagnostics")
+			}
+
+			got := makeTestTree(file.body)
+
+			if !cmp.Equal(got, test.want) {
+				diff := cmp.Diff(got, test.want)
+				t.Errorf(
+					"wrong result\ninput:\n%s\n\ngot:\n%s\nwant:%s\n\ndiff:\n%s",
+					test.src,
+					spew.Sdump(got),
+					spew.Sdump(test.want),
+					diff,
+				)
+			}
+		})
+	}
+}
+
+func TestPartitionTokens(t *testing.T) {
+	tests := []struct {
+		tokens    hclsyntax.Tokens
+		rng       hcl.Range
+		wantStart int
+		wantEnd   int
+	}{
+		{
+			hclsyntax.Tokens{},
+			hcl.Range{
+				Start: hcl.Pos{Byte: 0},
+				End:   hcl.Pos{Byte: 0},
+			},
+			0,
+			0,
+		},
+		{
+			hclsyntax.Tokens{
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 0},
+						End:   hcl.Pos{Byte: 4},
+					},
+				},
+			},
+			hcl.Range{
+				Start: hcl.Pos{Byte: 0},
+				End:   hcl.Pos{Byte: 4},
+			},
+			0,
+			1,
+		},
+		{
+			hclsyntax.Tokens{
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 0},
+						End:   hcl.Pos{Byte: 4},
+					},
+				},
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 4},
+						End:   hcl.Pos{Byte: 8},
+					},
+				},
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 8},
+						End:   hcl.Pos{Byte: 12},
+					},
+				},
+			},
+			hcl.Range{
+				Start: hcl.Pos{Byte: 4},
+				End:   hcl.Pos{Byte: 8},
+			},
+			1,
+			2,
+		},
+		{
+			hclsyntax.Tokens{
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 0},
+						End:   hcl.Pos{Byte: 4},
+					},
+				},
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 4},
+						End:   hcl.Pos{Byte: 8},
+					},
+				},
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 8},
+						End:   hcl.Pos{Byte: 12},
+					},
+				},
+			},
+			hcl.Range{
+				Start: hcl.Pos{Byte: 0},
+				End:   hcl.Pos{Byte: 8},
+			},
+			0,
+			2,
+		},
+		{
+			hclsyntax.Tokens{
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 0},
+						End:   hcl.Pos{Byte: 4},
+					},
+				},
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 4},
+						End:   hcl.Pos{Byte: 8},
+					},
+				},
+				{
+					Type: hclsyntax.TokenIdent,
+					Range: hcl.Range{
+						Start: hcl.Pos{Byte: 8},
+						End:   hcl.Pos{Byte: 12},
+					},
+				},
+			},
+			hcl.Range{
+				Start: hcl.Pos{Byte: 4},
+				End:   hcl.Pos{Byte: 12},
+			},
+			1,
+			3,
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
+			gotStart, gotEnd := partitionTokens(test.tokens, test.rng)
+
+			if gotStart != test.wantStart || gotEnd != test.wantEnd {
+				t.Errorf(
+					"wrong result\ntokens: %s\nrange: %#v\ngot:   %d, %d\nwant:  %d, %d",
+					spew.Sdump(test.tokens), test.rng,
+					gotStart, test.wantStart,
+					gotEnd, test.wantEnd,
+				)
+			}
+		})
+	}
+}
+
+func TestPartitionLeadCommentTokens(t *testing.T) {
+	tests := []struct {
+		tokens    hclsyntax.Tokens
+		wantStart int
+	}{
+		{
+			hclsyntax.Tokens{},
+			0,
+		},
+		{
+			hclsyntax.Tokens{
+				{
+					Type: hclsyntax.TokenComment,
+				},
+			},
+			0,
+		},
+		{
+			hclsyntax.Tokens{
+				{
+					Type: hclsyntax.TokenComment,
+				},
+				{
+					Type: hclsyntax.TokenComment,
+				},
+			},
+			0,
+		},
+		{
+			hclsyntax.Tokens{
+				{
+					Type: hclsyntax.TokenComment,
+				},
+				{
+					Type: hclsyntax.TokenNewline,
+				},
+			},
+			2,
+		},
+		{
+			hclsyntax.Tokens{
+				{
+					Type: hclsyntax.TokenComment,
+				},
+				{
+					Type: hclsyntax.TokenNewline,
+				},
+				{
+					Type: hclsyntax.TokenComment,
+				},
+			},
+			2,
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
+			gotStart := partitionLeadCommentTokens(test.tokens)
+
+			if gotStart != test.wantStart {
+				t.Errorf(
+					"wrong result\ntokens: %s\ngot:   %d\nwant:  %d",
+					spew.Sdump(test.tokens),
+					gotStart, test.wantStart,
+				)
+			}
+		})
+	}
+}
+
+func TestLexConfig(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Tokens
+	}{
+		{
+			`a  b `,
+			Tokens{
+				{
+					Type:         hclsyntax.TokenIdent,
+					Bytes:        []byte(`a`),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenIdent,
+					Bytes:        []byte(`b`),
+					SpacesBefore: 2,
+				},
+				{
+					Type:         hclsyntax.TokenEOF,
+					Bytes:        []byte{},
+					SpacesBefore: 1,
+				},
+			},
+		},
+		{
+			`
+foo "bar" "baz" {
+    pizza = " cheese "
+}
+`,
+			Tokens{
+				{
+					Type:         hclsyntax.TokenNewline,
+					Bytes:        []byte{'\n'},
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenIdent,
+					Bytes:        []byte(`foo`),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenOQuote,
+					Bytes:        []byte(`"`),
+					SpacesBefore: 1,
+				},
+				{
+					Type:         hclsyntax.TokenQuotedLit,
+					Bytes:        []byte(`bar`),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenCQuote,
+					Bytes:        []byte(`"`),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenOQuote,
+					Bytes:        []byte(`"`),
+					SpacesBefore: 1,
+				},
+				{
+					Type:         hclsyntax.TokenQuotedLit,
+					Bytes:        []byte(`baz`),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenCQuote,
+					Bytes:        []byte(`"`),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenOBrace,
+					Bytes:        []byte(`{`),
+					SpacesBefore: 1,
+				},
+				{
+					Type:         hclsyntax.TokenNewline,
+					Bytes:        []byte("\n"),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenIdent,
+					Bytes:        []byte(`pizza`),
+					SpacesBefore: 4,
+				},
+				{
+					Type:         hclsyntax.TokenEqual,
+					Bytes:        []byte(`=`),
+					SpacesBefore: 1,
+				},
+				{
+					Type:         hclsyntax.TokenOQuote,
+					Bytes:        []byte(`"`),
+					SpacesBefore: 1,
+				},
+				{
+					Type:         hclsyntax.TokenQuotedLit,
+					Bytes:        []byte(` cheese `),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenCQuote,
+					Bytes:        []byte(`"`),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenNewline,
+					Bytes:        []byte("\n"),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenCBrace,
+					Bytes:        []byte(`}`),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenNewline,
+					Bytes:        []byte("\n"),
+					SpacesBefore: 0,
+				},
+				{
+					Type:         hclsyntax.TokenEOF,
+					Bytes:        []byte{},
+					SpacesBefore: 0,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			got := lexConfig([]byte(test.input))
+
+			diff := cmp.Diff(test.want, got)
+			if diff != "" {
+				t.Errorf(
+					"wrong result\ninput: %s\ndiff:\n%s",
+					test.input, diff,
+				)
+			}
+		})
+	}
+}
+
+func TestParseFunctionCallAndTupleConsRoundTrip(t *testing.T) {
+	tests := []string{
+		"a = f()\n",
+		"a = f(x...)\n",
+		"a = f(x, y,)\n",
+		"a = f( # c\n  x, // d\n  /* e */ y\n)\n",
+		"a = f(<<EOT\nhello ${x}\nEOT\n, y)\n",
+		"a = f(\"${x}\", (y), z ? 1 : 2, -1, !b)\n",
+		"a = [<<EOT\nhello\nEOT\n]\n",
+		"a = [\n  1, # one\n  [2, {k = f(old.x)}],\n]\n",
+		"a = [for x in y : x]\n",
+		"a = { k = f(old.x, [old.y]) }\n",
+	}
+
+	for _, src := range tests {
+		t.Run(src, func(t *testing.T) {
+			file, diags := parse([]byte(src), "", hcl.InitialPos)
+			if diags.HasErrors() {
+				t.Fatalf("unexpected diagnostics: %s", diags.Error())
+			}
+			// Bytes formats its result, so read the tokens as parsed.
+			if got := string(file.BuildTokens(nil).Bytes()); got != src {
+				t.Errorf("wrong result\ngot:  %q\nwant: %q", got, src)
+			}
+		})
+	}
 }
 
 ```

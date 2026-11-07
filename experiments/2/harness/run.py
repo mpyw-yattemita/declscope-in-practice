@@ -238,6 +238,9 @@ def prompt_for(task_dir, step, arm, task):
     checks = ["go vet ./...", f"go test ./{pkg}"]
     if arm in GUARDED:
         checks += ["declscope ./...", "declscope shrink ./..."]
+    # Nobody answers during a run. Without this, an agent that the skill told
+    # to ask the owner and wait stopped before writing any code (hcl, M', step 3).
+    parts.append((PROMPTS / "autonomy.md").read_text().strip())
     parts.append(
         (PROMPTS / "self-review.md").read_text().strip()
         + "\n\n```bash\n" + "\n".join(checks) + "\n```"
@@ -361,6 +364,10 @@ def escapes(cmd, ws, start, carry=None):
     workspace and is fine.
     """
     cmd = strip_heredocs(cmd)
+    # A Markdown link target, such as ](../../http/middlewares/retry.md) in a
+    # sed expression that fixes a document's links, is text, not a path the
+    # command reaches.
+    cmd = re.sub(r"\]\(\.\.?/[^)\s'\"]*", "](", cmd)
     cwd, out = Path(start), []
     for part in re.split(r"(?=(?:^|[;&|(\n]\s*|&&\s*)cd\s)", cmd, flags=re.M):
         m = CD.search(part)
@@ -386,7 +393,10 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
     # path (background output, saved tool results); those belong to the run.
     session_tag = "-" + str(ws).strip("/").replace("/", "-").replace(".", "-")
     allowed = [str(ws), str(mod_cache()), str(Path(mod_cache()).parent), str(go_root()),
-               "/dev/null", "/tmp/go-build", "/private/var/folders"]
+               "/dev/null", "/tmp/go-build", "/private/var/folders",
+               # The same per-user temporary area, by its symlinked path. mktemp -d
+               # prints it so on macOS.
+               "/var/folders"]
     allowed += [str(a) for a in allowed_extra]
     issues = []
     # The Bash tool keeps the working directory from one call to the next,

@@ -4,7 +4,7 @@
 package hclwrite
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -12,8 +12,13 @@ import (
 )
 
 // ObjectConsExpr is an object-construct expression, such as
-// { hat = "derby", (cat) = "calico" }. Get one from an expression with
+// { hat = "derby" }. Get one from an expression with
 // Expression.AsObjectConsExpr.
+//
+// Its methods find an item by its key only when the key is an identifier or
+// a quoted string literal. The two forms are equivalent: the key "hat" finds
+// both hat = ... and "hat" = .... A key that is taken from a variable or from
+// another expression, such as (hat), is never found.
 type ObjectConsExpr struct {
 	inTree
 
@@ -29,9 +34,10 @@ func newObjectConsExpr() *ObjectConsExpr {
 
 // Items returns the items of the object, in source order.
 func (o *ObjectConsExpr) Items() []*ObjectConsItem {
-	var ret []*ObjectConsItem
-	for _, n := range o.items.List() {
-		ret = append(ret, n.content.(*ObjectConsItem))
+	nodes := o.items.List()
+	ret := make([]*ObjectConsItem, len(nodes))
+	for i, n := range nodes {
+		ret[i] = n.content.(*ObjectConsItem)
 	}
 	return ret
 }
@@ -39,14 +45,11 @@ func (o *ObjectConsExpr) Items() []*ObjectConsItem {
 // ItemFor returns the first item whose key is the given string, or nil if
 // there is none.
 //
-// Only an item whose key is an identifier or a quoted string literal can be
-// found, and the two forms are equivalent: "hat" finds both hat = ... and
-// "hat" = .... A quoted key is compared after its escape sequences are
-// decoded. A key that is taken from a variable or another expression, such
-// as (hat), hat.band or "${hat}", is never found.
+// A quoted key is compared by its value after its escape sequences are
+// decoded, so ItemFor("${hat}") finds the key "$${hat}".
 func (o *ObjectConsExpr) ItemFor(key string) *ObjectConsItem {
 	for _, item := range o.Items() {
-		if name, ok := item.KeyExpr().literalName(); ok && name == key {
+		if name, ok := item.KeyExpr().staticName(); ok && name == key {
 			return item
 		}
 	}
@@ -64,36 +67,35 @@ func (o *ObjectConsExpr) ValueExprFor(key string) *ObjectConsValue {
 }
 
 // SetItem either replaces the value of the item that ItemFor finds for the
-// given key, leaving its key as written, or adds a new item to the end of
+// given key, leaving its key as written, or adds a new item at the end of
 // the object.
 //
-// A new key is written as an identifier when it is a valid one, and as a
-// quoted string literal otherwise. A new item follows the layout of the
-// object: on the same line after a comma in a single-line object, and on
-// its own line before the closing brace in a multi-line one.
+// A new key is written as an identifier when it is a valid identifier other
+// than "for", and otherwise as a quoted string literal that evaluates to the
+// given key.
 //
-// SetItem panics if the given expression is already part of a syntax tree,
-// since two items would then share it.
+// SetItem panics if the expression is already part of a syntax tree, such as
+// one returned by Attribute.Expr or ObjectConsValue.Expr. Two items sharing
+// one expression would change together.
 //
 // The return values are the key and the value of the item that was either
-// modified in-place or created.
+// modified in place or created.
 func (o *ObjectConsExpr) SetItem(key string, expr *Expression) (*ObjectConsKeyExpr, *ObjectConsValue) {
-	if expr.inList() {
-		panic("SetItem called with an expression that is already part of a syntax tree")
-	}
+	expr.assertUnattached()
 
 	item := o.ItemFor(key)
 	if item != nil {
-		value := item.ValueExpr()
-		value.expr = value.expr.ReplaceWith(expr)
+		item.setValueExpr(expr)
 	} else {
-		item = o.appendItem(key, expr)
+		item = newObjectConsItem()
+		item.init(key, expr)
+		o.appendItem(item)
 	}
 	return item.KeyExpr(), item.ValueExpr()
 }
 
 // SetItemRaw is like SetItem, but uses the given tokens verbatim as the
-// value.
+// value expression.
 //
 // The same caveats apply to this function as for NewExpressionRaw on which
 // it is based. If possible, prefer to use SetItemValue or SetItemTraversal.
@@ -101,140 +103,136 @@ func (o *ObjectConsExpr) SetItemRaw(key string, tokens Tokens) (*ObjectConsKeyEx
 	return o.SetItem(key, NewExpressionRaw(tokens))
 }
 
-// SetItemValue is like SetItem, but the value is given as a cty.Value, and
-// must therefore be a literal, as for NewExpressionLiteral. To set a
-// variable reference or other traversal, use SetItemTraversal.
+// SetItemValue is like SetItem, but sets the value to the given literal, as
+// NewExpressionLiteral does. To set a variable reference or other traversal,
+// use SetItemTraversal.
 func (o *ObjectConsExpr) SetItemValue(key string, val cty.Value) (*ObjectConsKeyExpr, *ObjectConsValue) {
 	return o.SetItem(key, NewExpressionLiteral(val))
 }
 
-// SetItemTraversal is like SetItem, but the value is given as a
-// hcl.Traversal, which must be absolute, as for NewExpressionAbsTraversal.
-// To set a literal value, use SetItemValue.
+// SetItemTraversal is like SetItem, but sets the value to the given
+// traversal, as NewExpressionAbsTraversal does. The traversal must be
+// absolute. To set a literal value, use SetItemValue.
 func (o *ObjectConsExpr) SetItemTraversal(key string, traversal hcl.Traversal) (*ObjectConsKeyExpr, *ObjectConsValue) {
 	return o.SetItem(key, NewExpressionAbsTraversal(traversal))
 }
 
-// itemExpressions returns the key and value expressions of each item, in
-// source order.
+// variableNodes returns the traversal nodes in the keys and values of the
+// items, in source order. A key that is a literal name contributes none.
 //
-func (o *ObjectConsExpr) itemExpressions() []*Expression {
-	var ret []*Expression
+func (o *ObjectConsExpr) variableNodes() []*node {
+	var ret []*node
 	for _, n := range o.items.List() {
 		item := n.content.(*ObjectConsItem)
 		key := item.key.content.(*ObjectConsKeyExpr)
-		ret = append(ret, key.wrapped.content.(*Expression), item.value.content.(*ObjectConsValue).Expr())
+		if !key.literalName {
+			ret = append(ret, key.wrapped.content.(*Expression).variableNodes()...)
+		}
+		value := item.value.content.(*ObjectConsValue)
+		ret = append(ret, value.expr.content.(*Expression).variableNodes()...)
 	}
 	return ret
 }
 
-// appendItem adds a new item with the given key and value after the last
-// item of the object, laid out as the object already is.
-//
-// The tokens after the last item are split in two. A comma or a line comment
-// that follows the last item on its line stays with that item. The rest,
-// which ends with the closing brace, stays after the new item.
-func (o *ObjectConsExpr) appendItem(key string, expr *Expression) *ObjectConsItem {
-	rest := o.detachTrailingTokens()
-	multiLine := o.hasLineBreak(rest)
-
-	cut, lineEnded, hasComma := 0, false, false
-	for i, tok := range rest {
-		if tokenIsNewline(tok) {
-			cut, lineEnded = i+1, true
-			break
-		}
-		if tok.Type == hclsyntax.TokenComma {
-			// Keep a trailing comma with the last item, and anything after
-			// it on the line, such as an inline comment, with the closing
-			// brace.
-			cut, hasComma = i+1, true
+// appendItem adds the item after the last one, laid out as the object
+// already is: on the same line after a comma when the object is written on
+// one line, and otherwise on a line of its own before the closing brace.
+func (o *ObjectConsExpr) appendItem(item *ObjectConsItem) {
+	// The parser leaves everything after the last item, up to and including
+	// the closing brace, in one run of tokens at the end of the children.
+	var closing *node
+	o.walkChildNodes(func(n *node) { closing = n })
+	closingTokens, ok := closing.content.(Tokens)
+	if !ok || len(closingTokens) == 0 || closingTokens[len(closingTokens)-1].Type != hclsyntax.TokenCBrace {
+		panic(fmt.Sprintf("object-construct expression does not end with a closing brace, but with %T", closing.content))
+	}
+	// Each use gets its own token, since formatting changes tokens in place.
+	newline := func() *Token {
+		return &Token{
+			Type:  hclsyntax.TokenNewline,
+			Bytes: []byte{'\n'},
 		}
 	}
-	head, tail := rest[:cut], append(Tokens(nil), rest[cut:]...)
 
-	var lead Tokens
+	multiline := o.isMultiline()
+	kept, rest := o.splitClosing(closingTokens)
+	// Copy kept, since appending to it would overwrite the start of rest.
+	separator := append(Tokens(nil), kept...)
+	var afterItem Tokens
 	switch {
-	case multiLine && !lineEnded:
-		// The closing brace shares a line with the last item, so the new
-		// item starts a line of its own.
-		lead = Tokens{{Type: hclsyntax.TokenNewline, Bytes: []byte{'\n'}}}
-	case !multiLine && len(o.items) > 0 && !hasComma:
-		lead = Tokens{{Type: hclsyntax.TokenComma, Bytes: []byte{','}}}
+	case multiline:
+		if len(kept) == 0 || !o.tokenEndsLine(kept[len(kept)-1]) {
+			separator = append(separator, newline())
+		}
+		afterItem = Tokens{newline()}
+	case len(o.items) > 0 && len(kept) == 0:
+		separator = append(separator, &Token{
+			Type:  hclsyntax.TokenComma,
+			Bytes: []byte{','},
+		})
 	}
-	if multiLine {
-		tail = append(Tokens{{Type: hclsyntax.TokenNewline, Bytes: []byte{'\n'}}}, tail...)
-	} else if len(tail) > 0 && tail[0].SpacesBefore == 0 {
-		spaced := *tail[0]
-		spaced.SpacesBefore = 1
-		tail[0] = &spaced
-	}
+	afterItem = append(afterItem, rest...)
 
-	item := newObjectConsItem()
-	item.init(key, expr, lead)
-
-	o.children.AppendUnstructuredTokens(head)
+	closing.Detach()
+	o.children.AppendUnstructuredTokens(separator)
 	o.items.Add(o.children.Append(item))
-	o.children.AppendUnstructuredTokens(tail)
-	return item
+	o.children.AppendUnstructuredTokens(afterItem)
 }
 
-// detachTrailingTokens removes and returns the tokens after the last item,
-// or after the opening brace if the object has no items.
-func (o *ObjectConsExpr) detachTrailingTokens() Tokens {
-	var trailing []*node
-	o.walkChildNodes(func(n *node) {
-		if _, ok := n.content.(Tokens); ok {
-			trailing = append(trailing, n)
-		} else {
-			trailing = nil
-		}
-	})
-
-	var rest Tokens
-	for _, n := range trailing {
-		rest = append(rest, n.content.(Tokens)...)
-		n.Detach()
-	}
-
-	if len(o.items) == 0 {
-		for i, tok := range rest {
-			if tok.Type == hclsyntax.TokenOBrace {
-				o.children.AppendUnstructuredTokens(rest[:i+1])
-				return rest[i+1:]
+// isMultiline reports whether the object is written on several lines. Line
+// breaks inside the keys and values of its items do not count.
+func (o *ObjectConsExpr) isMultiline() bool {
+	multiline := false
+	checkTokens := func(n *node) {
+		if tokens, ok := n.content.(Tokens); ok {
+			for _, tok := range tokens {
+				multiline = multiline || o.tokenEndsLine(tok)
 			}
 		}
 	}
-	return rest
-}
-
-// hasLineBreak reports whether the object is written on several lines. Only
-// the tokens between its items count, along with the given tokens that were
-// detached from it, and not those inside an item's key or value.
-func (o *ObjectConsExpr) hasLineBreak(detached Tokens) bool {
-	layout := append(Tokens(nil), detached...)
 	o.walkChildNodes(func(n *node) {
-		switch c := n.content.(type) {
-		case Tokens:
-			layout = append(layout, c...)
-		case *ObjectConsItem:
-			c.walkChildNodes(func(in *node) {
-				if toks, ok := in.content.(Tokens); ok {
-					layout = append(layout, toks...)
-				}
-			})
+		checkTokens(n)
+		if item, ok := n.content.(*ObjectConsItem); ok {
+			item.walkChildNodes(checkTokens)
 		}
 	})
-	for _, tok := range layout {
-		if tokenIsNewline(tok) {
-			return true
+	return multiline
+}
+
+// splitClosing splits the tokens after the last item into those that stay
+// with that item and the rest, which end with the closing brace. The item
+// keeps a comma that follows it, and the comments up to the end of its line
+// when the closing brace is not on that line.
+func (o *ObjectConsExpr) splitClosing(tokens Tokens) (kept, rest Tokens) {
+	afterComma := 0
+	if tokens[0].Type == hclsyntax.TokenComma {
+		afterComma = 1
+	}
+	for i := afterComma; i < len(tokens); i++ {
+		if o.tokenEndsLine(tokens[i]) {
+			return tokens[:i+1], tokens[i+1:]
 		}
+		if tokens[i].Type != hclsyntax.TokenComment {
+			break
+		}
+	}
+	return tokens[:afterComma], tokens[afterComma:]
+}
+
+// tokenEndsLine reports whether the token is a newline, or a line comment,
+// which includes its newline.
+func (o *ObjectConsExpr) tokenEndsLine(tok *Token) bool {
+	switch tok.Type {
+	case hclsyntax.TokenNewline:
+		return true
+	case hclsyntax.TokenComment:
+		return len(tok.Bytes) > 0 && tok.Bytes[len(tok.Bytes)-1] == '\n'
 	}
 	return false
 }
 
-// ObjectConsItem is one item of an object-construct expression: a key and
-// its value.
+// ObjectConsItem is one item of an object-construct expression: a key and a
+// value, as in hat = "derby".
 type ObjectConsItem struct {
 	inTree
 	key   *node
@@ -257,84 +255,107 @@ func (item *ObjectConsItem) ValueExpr() *ObjectConsValue {
 	return item.value.content.(*ObjectConsValue)
 }
 
-// init fills a new item with the given key and value, after the given tokens
-// that separate it from what comes before it.
-//
-// The key is written as an identifier if it is a valid one, and as a quoted
-// string literal otherwise, escaped so that it evaluates back to the key.
-// The identifier for is quoted too, since an object that starts with it
-// would be read as a for expression.
-func (item *ObjectConsItem) init(key string, expr *Expression, lead Tokens) {
+// init builds a new item from the key and the value expression, which must
+// not be attached yet. The key is written as an identifier when it is a
+// valid one, and otherwise as a quoted string literal.
+func (item *ObjectConsItem) init(key string, expr *Expression) {
+	// A naked "for" as the first key would start a for expression.
+	literalName := hclsyntax.ValidIdentifier(key) && key != "for"
 	var keyTokens Tokens
-	if hclsyntax.ValidIdentifier(key) && key != "for" {
+	if literalName {
 		keyTokens = TokensForIdentifier(key)
 	} else {
 		keyTokens = TokensForValue(cty.StringVal(key))
 	}
-	keyTokens[0].SpacesBefore = 1
-
-	item.children.AppendUnstructuredTokens(lead)
-	item.key = item.children.Append(newObjectConsKeyExpr(newNode(NewExpressionRaw(keyTokens))))
+	item.key = item.children.Append(newObjectConsKeyExpr(newNode(NewExpressionRaw(keyTokens)), literalName))
 	item.children.AppendUnstructuredTokens(Tokens{
 		{
-			Type:         hclsyntax.TokenEqual,
-			Bytes:        []byte{'='},
-			SpacesBefore: 1,
+			Type:  hclsyntax.TokenEqual,
+			Bytes: []byte{'='},
 		},
 	})
-	value := newObjectConsValue()
-	value.expr = value.children.Append(expr)
-	item.value = item.children.Append(value)
+
+	item.value = item.children.Append(newObjectConsValue())
+	item.setValueExpr(expr)
 }
 
-// ObjectConsKeyExpr is the key of an item of an object-construct
-// expression. It is an identifier, a quoted string, or another expression
-// whose value is the key.
+// setValueExpr makes the given expression, which must not be attached yet,
+// the expression of the item's value. The expression it replaces is
+// detached.
+func (item *ObjectConsItem) setValueExpr(expr *Expression) {
+	value := item.ValueExpr()
+	if value.expr != nil {
+		value.Expr().setParent(nil)
+	}
+	// The value has no children other than its expression.
+	value.children.Clear()
+	value.expr = value.children.Append(expr)
+	expr.setParent(item.value)
+}
+
+// ObjectConsKeyExpr is the key of an item in an object-construct
+// expression. Get one from ObjectConsItem.KeyExpr.
 type ObjectConsKeyExpr struct {
 	inTree
 
 	wrapped *node
+
+	// literalName is true when the key is a naked name, such as "k" in
+	// { k = v }. As in hclsyntax, such a key is a literal string, not a
+	// reference, so it has no variables.
+	literalName bool
 }
 
-func newObjectConsKeyExpr(wrapped *node) *ObjectConsKeyExpr {
+func newObjectConsKeyExpr(wrapped *node, literalName bool) *ObjectConsKeyExpr {
 	expr := &ObjectConsKeyExpr{
-		inTree:  newInTree(),
-		wrapped: wrapped,
+		inTree:      newInTree(),
+		wrapped:     wrapped,
+		literalName: literalName,
 	}
 	expr.children.AppendNode(wrapped)
 
 	return expr
 }
 
-// literalName returns the key as a string, if it is an identifier or a
-// quoted string literal. A quoted key has its escape sequences decoded.
-func (k *ObjectConsKeyExpr) literalName() (string, bool) {
-	toks := k.wrapped.BuildTokens(nil)
-	if len(toks) == 1 && toks[0].Type == hclsyntax.TokenIdent {
-		return string(toks[0].Bytes), true
-	}
-
-	last := len(toks) - 1
-	if last < 1 || toks[0].Type != hclsyntax.TokenOQuote || toks[last].Type != hclsyntax.TokenCQuote {
+// staticName returns the string that the key stands for, and true, when the
+// key is an identifier or a quoted string literal. Otherwise it returns false.
+//
+// It reads the key from its tokens as hclsyntax does, so that a quoted key
+// is compared by its value after its escape sequences are decoded.
+func (k *ObjectConsKeyExpr) staticName() (string, bool) {
+	tokens := k.BuildTokens(nil)
+	if len(tokens) == 0 {
 		return "", false
 	}
-	var b strings.Builder
-	for _, tok := range toks[1:last] {
-		if tok.Type != hclsyntax.TokenQuotedLit {
-			// A template interpolation or directive.
-			return "", false
-		}
-		s, diags := hclsyntax.ParseStringLiteralToken(hclsyntax.Token{Type: tok.Type, Bytes: tok.Bytes})
-		if diags.HasErrors() {
-			return "", false
-		}
-		b.WriteString(s)
+	native, diags := hclsyntax.ParseExpression(tokens.Bytes(), "", hcl.InitialPos)
+	if diags.HasErrors() {
+		return "", false
 	}
-	return b.String(), true
+
+	// As in hclsyntax, a naked identifier is a literal name. A parenthesized
+	// one is a ParenthesesExpr, which this does not unwrap.
+	if name := hcl.ExprAsKeyword(native); name != "" {
+		return name, true
+	}
+
+	template, ok := native.(*hclsyntax.TemplateExpr)
+	if !ok || tokens[0].Type != hclsyntax.TokenOQuote {
+		return "", false
+	}
+	for _, part := range template.Parts {
+		if _, ok := part.(*hclsyntax.LiteralValueExpr); !ok {
+			return "", false
+		}
+	}
+	val, diags := template.Value(nil)
+	if diags.HasErrors() || !val.IsKnown() || val.IsNull() || val.Type() != cty.String {
+		return "", false
+	}
+	return val.AsString(), true
 }
 
-// ObjectConsValue is the value of an item of an object-construct
-// expression.
+// ObjectConsValue is the value of an item in an object-construct
+// expression. Get one from ObjectConsItem.ValueExpr.
 type ObjectConsValue struct {
 	inTree
 	expr *node

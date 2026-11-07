@@ -3,164 +3,197 @@
   "rep": "1",
   "findings": [
     {
-      "file": "pkg/node.go",
-      "line": 283,
-      "problem": "The new `holder` field and `inList()` do the same job as the existing `inTree.assertUnattached`. That method checks `it.parent`, but nothing in the package ever sets `parent`. So `assertUnattached` never panics, and the check in `Attribute.init` (ast_attribute.go:26) does nothing. The package now has two attachment checks: one that works and one that is dead.",
-      "fix": "Remove the `parent` field. Rewrite `inTree.assertUnattached` to panic when `it.holder != nil && it.holder.list != nil`, and delete `inList`. Callers then share one check, and `Attribute.init` gets the protection it was meant to have."
-    },
-    {
-      "file": "pkg/ast_object_cons_expr.go",
-      "line": 81,
-      "problem": "`SetItem` writes its own attachment check (`if expr.inList() { panic(...) }`) instead of calling the package's `assertUnattached`, as `Attribute.init` does.",
-      "fix": "After `assertUnattached` is rewritten to use `holder`, replace the `if` block with `expr.assertUnattached()`."
-    },
-    {
-      "file": "pkg/parser.go",
-      "line": 487,
-      "problem": "`parseTemplateExpr` sets `expr.wrapped = expr.children.Append(quoted)` directly. The new code uses `Expression.wrap` for the same thing, so there are two ways to wrap content, and only `wrap` guards against wrapping twice.",
-      "fix": "Replace the line with `expr.wrap(quoted)`."
-    },
-    {
-      "file": "pkg/parser.go",
-      "line": 470,
-      "problem": "`parseObjectConsKeyExpr` first builds the key's traversals and then removes them with `expr.content.(*Expression).absTraversals.Clear()`. The traversal nodes are created and then dropped, and the code reaches into another constructor's private state.",
-      "fix": "Decide this before building the expression. When `len(nativeExpr.Variables()) == 0`, build the key with `parseAnyExpression` limited to the key's own variables (none), for example through a helper that takes the traversal list. Otherwise call `parseExpression(nativeExpr.Wrapped, from)`. Then remove the `Clear()` call."
-    },
-    {
-      "file": "pkg/ast_object_cons_expr.go",
-      "line": 119,
-      "problem": "`itemExpressions` repeats the type assertions that `Items`, `KeyExpr` and `ValueExpr` already do (`item.key.content.(*ObjectConsKeyExpr)`, `key.wrapped.content.(*Expression)`, `item.value.content.(*ObjectConsValue)`). Its doc comment also ends with a stray empty `//` line.",
-      "fix": "Loop over `o.Items()` and append `item.KeyExpr().wrapped.content.(*Expression)` and `item.ValueExpr().Expr()`. Better still, add `func (k *ObjectConsKeyExpr) expr() *Expression` and use it here. Remove the trailing `//`."
-    },
-    {
-      "file": "pkg/node.go",
-      "line": 290,
-      "problem": "The doc comment on `inList` ends with a stray empty `//` line.",
-      "fix": "Remove the trailing `//` line. If `inList` is merged into `assertUnattached` as suggested above, remove it together with the function."
-    },
-    {
-      "file": "pkg/ast_object_cons_expr.go",
-      "line": 161,
-      "problem": "`appendItem` writes the newline token literal `Tokens{{Type: hclsyntax.TokenNewline, Bytes: []byte{'\\n'}}}` twice (lines 161 and 166). `Body.AppendNewline` (ast_body.go:302) builds the same token a third way.",
-      "fix": "Add `func newNewlineToken() *Token` next to `newIdentToken` in tokens.go. Use it in `appendItem` and in `Body.AppendNewline`."
+      "file": "pkg/ast_expression.go",
+      "line": 244,
+      "problem": "variableNodes asks for each wrapped kind in turn (AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr). Every new composite expression type needs another branch here, and a missed branch silently drops its variables from Variables and RenameVariablePrefix.",
+      "fix": "Add an unexported interface `variableNodeser { variableNodes() []*node }`, which ObjectConsExpr, FunctionCallExpr and TupleConsExpr already satisfy. Reduce the method to `nodes := e.absTraversals.List(); if v, ok := e.wrapped.content.(variableNodeser); e.wrapped != nil && ok { nodes = append(nodes, v.variableNodes()...) }`."
     },
     {
       "file": "pkg/ast_expression.go",
-      "line": 209,
-      "problem": "`AsObjectConsExpr` and `asQuoted` are the same nil check plus type assertion on `e.wrapped`, written twice. `AsQuotedLiteral` also uses an `if ...; x == nil {} else {}` form with an unneeded `else`.",
-      "fix": "Write `AsObjectConsExpr` as `if e.wrapped == nil { return nil }; o, _ := e.wrapped.content.(*ObjectConsExpr); return o`, and `asQuoted` the same way. Write `AsQuotedLiteral` as `q := e.asQuoted(); if q == nil { return Tokens{} }; return q.tokens`. Also add a doc comment to the exported `AsObjectConsExpr`."
+      "line": 200,
+      "problem": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted (line 258) are four copies of the same nil-check plus type assertion on e.wrapped.",
+      "fix": "Add one generic helper, `func wrappedAs[T nodeContent](e *Expression) T { var zero T; if e.wrapped == nil { return zero }; v, _ := e.wrapped.content.(T); return v }`, and make each As* method a one-line call to it. Also add a doc comment to AsObjectConsExpr, which is the only As* method without one."
     },
     {
-      "file": "pkg/ast_object_cons_expr_test.go",
-      "line": 177,
-      "problem": "`TestObjectConsExprSetItemReplaces` decides whether to check the item count by matching the case name (`strings.Contains(name, \"not replaced\")`). Renaming a case silently changes what the test checks.",
-      "fix": "Add a `wantItems int` field (or `adds bool`) to the test struct, set it in each case, and compare `len(obj.Items())` against it."
+      "file": "pkg/ast_tuple_cons_expr.go",
+      "line": 28,
+      "problem": "TupleConsExpr.variableNodes is a line-for-line copy of FunctionCallExpr.variableNodes (ast_function_call_expr.go:58). Both loop over a nodeSet of *Expression and concatenate their variableNodes.",
+      "fix": "Add `func exprSetVariableNodes(set nodeSet) []*node` in ast_expression.go and make both methods `return exprSetVariableNodes(x.elems / call.args)`."
     },
     {
-      "file": "pkg/ast_object_cons_expr_test.go",
-      "line": 400,
-      "problem": "`parseFileObjectConsExprForTest` picks the body to search by checking whether the source has a block (`if blocks := body.Blocks(); len(blocks) > 0`). This hidden behavior exists for one case (\"multi-line, nested in block\") and changes what every other case means if its source ever gains a block.",
-      "fix": "In the nested-block case, look up the object directly through `f.Body().Blocks()[0].Body().GetAttribute(\"a\").Expr().AsObjectConsExpr()`, or give the helper an explicit `inBlock bool` parameter. Remove the automatic check."
+      "file": "pkg/parser.go",
+      "line": 531,
+      "problem": "parseTupleConsExpr is a copy of parseFunctionCallExpr (line 499). Each partitions the sub-expressions by range, appends the tokens between them, wraps the result and sets the parent of every child expression. Only the native slice (Args or Exprs) and the target nodeSet differ.",
+      "fix": "Extract `parseExprList(native []hclsyntax.Expression, from inputTokens, children *nodes, set nodeSet)`, which does the loop and the trailing tokens. Add a shared `wrapExpression(c nodeContent, set nodeSet) *node` that wraps the content and calls setParent on each member. Both functions then become a few lines each."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 561,
+      "problem": "parseTemplateExpr assigns `expr.wrapped = expr.children.Append(quoted)` directly. The other wrapping parsers go through the new Expression.wrap helper, so this path skips wrap's already-wrapped check, and wrapped expressions are built two different ways.",
+      "fix": "Replace it with `expr.wrap(quoted)`."
+    },
+    {
+      "file": "pkg/ast_attribute.go",
+      "line": 26,
+      "problem": "Parent tracking for assertUnattached is set only in the parser (parser.go:290, 461, 517, 549) and in ObjectConsItem.setValueExpr. Attribute.init asserts but never calls setParent, and Body.SetAttributeRaw/Value/Traversal (ast_body.go:218, 239, 260) swap expressions with ReplaceWith but neither set the new parent nor clear the old one. So an expression returned by Attribute.Expr after SetAttributeValue passes SetItem's assertUnattached, which contradicts SetItem's doc comment, and a replaced attribute expression keeps a stale parent.",
+      "fix": "Add `Attribute.setExpr(expr *Expression)`, modeled on ObjectConsItem.setValueExpr: clear the old expression's parent, append or ReplaceWith, then `expr.setParent(a.expr)`. Call it from init and from the three Body.SetAttribute* methods. In parseAttribute, use it instead of the separate setParent call."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 224,
+      "problem": "tokenEndsLine and splitClosing (line 206) are methods on *ObjectConsExpr but never use the receiver. The rule that a comment ending in a newline also ends the line is implemented again in partitionLineEndTokens (parser.go:796).",
+      "fix": "Make them package-level functions (`tokenEndsLine(tok *Token) bool`, `splitClosing(tokens Tokens)`) and update the call sites in appendItem and isMultiline. Put the comment-ends-with-newline test in one small helper that both tokenEndsLine and partitionLineEndTokens use."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 123,
+      "problem": "ObjectConsExpr.variableNodes reaches into private node contents (`item.key.content.(*ObjectConsKeyExpr)`, `key.wrapped.content.(*Expression)`, `value.expr.content.(*Expression)`) even though accessors for these already exist.",
+      "fix": "Give ObjectConsKeyExpr its own `variableNodes()`, which returns nil when literalName and otherwise the wrapped expression's nodes. Write the loop as `for _, item := range o.Items() { ret = append(ret, item.KeyExpr().variableNodes()...); ret = append(ret, item.ValueExpr().Expr().variableNodes()...) }`."
+    },
+    {
+      "file": "pkg/ast_function_call_expr.go",
+      "line": 31,
+      "problem": "Name walks every child with walkChildNodes and uses a `done` flag only to emulate an early break. It also depends on the parser putting the name in the first Tokens run, which is stated only in a comment.",
+      "fix": "Read only the first child: `tokens, _ := call.children.first.content.(Tokens)`, then loop until TokenOParen, guarding against `call.children.first == nil`. Alternatively, record the name tokens' node in a `name *node` field in parseFunctionCallExpr and build the name from that."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 243,
+      "problem": "Several new doc comments end with an empty `//` line just before the declaration: here, ast_function_call_expr.go:57, ast_tuple_cons_expr.go:27, ast_object_cons_expr.go:122, node.go:283, parser.go:498 and parser.go:530.",
+      "fix": "Delete the trailing `//` line in each of these comments."
+    },
+    {
+      "file": "pkg/ast_expression_test.go",
+      "line": 114,
+      "problem": "TestExpressionVariablesFunctionCallAndTupleCons repeats the table loop of TestExpressionVariablesObjectCons (line 81) but leaves out the cross-check against hclsyntax's Variables count. The function-call and tuple cases are therefore not checked against the native parser.",
+      "fix": "Combine the two tables into one TestExpressionVariables, with one loop that includes the hclsyntax count check. Alternatively, extract a `checkVariablesAndRename(t, src, vars, renamed)` helper that both tests call."
     }
   ],
   "kept": [
     {
-      "file": "pkg/node.go",
-      "line": 283,
-      "problem": "The new `holder` field and `inList()` do the same job as the existing `inTree.assertUnattached`. That method checks `it.parent`, but nothing in the package ever sets `parent`. So `assertUnattached` never panics, and the check in `Attribute.init` (ast_attribute.go:26) does nothing. The package now has two attachment checks: one that works and one that is dead.",
-      "fix": "Remove the `parent` field. Rewrite `inTree.assertUnattached` to panic when `it.holder != nil && it.holder.list != nil`, and delete `inList`. Callers then share one check, and `Attribute.init` gets the protection it was meant to have.",
-      "category": "dead",
-      "why": "Nothing in the package sets `inTree.parent`. Only node.go:270, 284 and 285 mention it. So `inTree.assertUnattached` can never panic, and the check in `Attribute.init` does nothing. `holder` and `inList` are now a second, working check for the same thing. Every caller of `Attribute.init` (ast_body.go:221/242/263) passes a newly built expression, so making `assertUnattached` check `holder` is safe. It leaves one check that works.",
-      "on_changed_lines": false
-    },
-    {
-      "file": "pkg/ast_object_cons_expr.go",
-      "line": 81,
-      "problem": "`SetItem` writes its own attachment check (`if expr.inList() { panic(...) }`) instead of calling the package's `assertUnattached`, as `Attribute.init` does.",
-      "fix": "After `assertUnattached` is rewritten to use `holder`, replace the `if` block with `expr.assertUnattached()`.",
+      "file": "pkg/ast_expression.go",
+      "line": 244,
+      "problem": "variableNodes asks for each wrapped kind in turn (AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr). Every new composite expression type needs another branch here, and a missed branch silently drops its variables from Variables and RenameVariablePrefix.",
+      "fix": "Add an unexported interface `variableNodeser { variableNodes() []*node }`, which ObjectConsExpr, FunctionCallExpr and TupleConsExpr already satisfy. Reduce the method to `nodes := e.absTraversals.List(); if v, ok := e.wrapped.content.(variableNodeser); e.wrapped != nil && ok { nodes = append(nodes, v.variableNodes()...) }`.",
       "category": "duplication",
-      "why": "This follows from finding 0. Once `assertUnattached` checks `holder`, the hand-written `if expr.inList() { panic }` in `SetItem` repeats it. `SetItem` should call the shared method, as `Attribute.init` does.",
-      "on_changed_lines": true
-    },
-    {
-      "file": "pkg/parser.go",
-      "line": 487,
-      "problem": "`parseTemplateExpr` sets `expr.wrapped = expr.children.Append(quoted)` directly. The new code uses `Expression.wrap` for the same thing, so there are two ways to wrap content, and only `wrap` guards against wrapping twice.",
-      "fix": "Replace the line with `expr.wrap(quoted)`.",
-      "category": "duplication",
-      "why": "`parseTemplateExpr` sets `expr.wrapped = expr.children.Append(quoted)` directly. `parseObjectConsExpr` (parser.go:461) uses `Expression.wrap`, which does the same work and also guards against wrapping twice. Changing the line to `expr.wrap(quoted)` gives the same result with one way of doing it.",
-      "on_changed_lines": false
-    },
-    {
-      "file": "pkg/ast_object_cons_expr.go",
-      "line": 119,
-      "problem": "`itemExpressions` repeats the type assertions that `Items`, `KeyExpr` and `ValueExpr` already do (`item.key.content.(*ObjectConsKeyExpr)`, `key.wrapped.content.(*Expression)`, `item.value.content.(*ObjectConsValue)`). Its doc comment also ends with a stray empty `//` line.",
-      "fix": "Loop over `o.Items()` and append `item.KeyExpr().wrapped.content.(*Expression)` and `item.ValueExpr().Expr()`. Better still, add `func (k *ObjectConsKeyExpr) expr() *Expression` and use it here. Remove the trailing `//`.",
-      "category": "duplication",
-      "why": "`itemExpressions` repeats the assertions that `Items()`, `KeyExpr()` and `ValueExpr()` already do (`item.key.content.(*ObjectConsKeyExpr)`, `item.value.content.(*ObjectConsValue)`). Looping over `o.Items()` removes them. Its doc comment also ends with a stray `//` line.",
-      "on_changed_lines": true
-    },
-    {
-      "file": "pkg/node.go",
-      "line": 290,
-      "problem": "The doc comment on `inList` ends with a stray empty `//` line.",
-      "fix": "Remove the trailing `//` line. If `inList` is merged into `assertUnattached` as suggested above, remove it together with the function.",
-      "category": "other",
-      "why": "The doc comment on `inList` really does end with an empty `//` line. It is a cheap fix, and the comment goes away anyway if `inList` is merged into `assertUnattached`.",
+      "why": "Confirmed: variableNodes has one branch per wrapped kind (object, call, tuple), and a kind that is left out silently loses its variables. All three types already have a variableNodes() method, so a small interface covers them. The proposed code is wrong as written: it reads e.wrapped.content before checking e.wrapped != nil, which panics when nothing is wrapped. Check for nil first, then do the type assertion.",
       "on_changed_lines": true
     },
     {
       "file": "pkg/ast_expression.go",
-      "line": 209,
-      "problem": "`AsObjectConsExpr` and `asQuoted` are the same nil check plus type assertion on `e.wrapped`, written twice. `AsQuotedLiteral` also uses an `if ...; x == nil {} else {}` form with an unneeded `else`.",
-      "fix": "Write `AsObjectConsExpr` as `if e.wrapped == nil { return nil }; o, _ := e.wrapped.content.(*ObjectConsExpr); return o`, and `asQuoted` the same way. Write `AsQuotedLiteral` as `q := e.asQuoted(); if q == nil { return Tokens{} }; return q.tokens`. Also add a doc comment to the exported `AsObjectConsExpr`.",
-      "category": "other",
-      "why": "The duplication claim is weak. Two short nil checks plus type assertions to different types, written in the same style as the existing `asQuoted`, are not shared logic. The `if/else` change is only style. One part is real: the exported `AsObjectConsExpr` has no doc comment, which public API should have.",
+      "line": 200,
+      "problem": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted (line 258) are four copies of the same nil-check plus type assertion on e.wrapped.",
+      "fix": "Add one generic helper, `func wrappedAs[T nodeContent](e *Expression) T { var zero T; if e.wrapped == nil { return zero }; v, _ := e.wrapped.content.(T); return v }`, and make each As* method a one-line call to it. Also add a doc comment to AsObjectConsExpr, which is the only As* method without one.",
+      "category": "duplication",
+      "why": "Confirmed: AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted are the same nil check plus type assertion. A generic wrappedAs[T] helper replaces all four. AsObjectConsExpr is the only exported As* method without a doc comment.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_tuple_cons_expr.go",
+      "line": 28,
+      "problem": "TupleConsExpr.variableNodes is a line-for-line copy of FunctionCallExpr.variableNodes (ast_function_call_expr.go:58). Both loop over a nodeSet of *Expression and concatenate their variableNodes.",
+      "fix": "Add `func exprSetVariableNodes(set nodeSet) []*node` in ast_expression.go and make both methods `return exprSetVariableNodes(x.elems / call.args)`.",
+      "category": "duplication",
+      "why": "Confirmed: TupleConsExpr.variableNodes and FunctionCallExpr.variableNodes are the same loop over a nodeSet of *Expression. Only the field differs (elems or args).",
       "on_changed_lines": true
     },
     {
-      "file": "pkg/ast_object_cons_expr_test.go",
-      "line": 177,
-      "problem": "`TestObjectConsExprSetItemReplaces` decides whether to check the item count by matching the case name (`strings.Contains(name, \"not replaced\")`). Renaming a case silently changes what the test checks.",
-      "fix": "Add a `wantItems int` field (or `adds bool`) to the test struct, set it in each case, and compare `len(obj.Items())` against it.",
-      "category": "other",
-      "why": "The test decides whether to check the item count with `strings.Contains(name, \"not replaced\")`. Renaming a case silently changes or drops that check. An explicit `wantItems` field makes the expected count clear.",
+      "file": "pkg/parser.go",
+      "line": 531,
+      "problem": "parseTupleConsExpr is a copy of parseFunctionCallExpr (line 499). Each partitions the sub-expressions by range, appends the tokens between them, wraps the result and sets the parent of every child expression. Only the native slice (Args or Exprs) and the target nodeSet differ.",
+      "fix": "Extract `parseExprList(native []hclsyntax.Expression, from inputTokens, children *nodes, set nodeSet)`, which does the loop and the trailing tokens. Add a shared `wrapExpression(c nodeContent, set nodeSet) *node` that wraps the content and calls setParent on each member. Both functions then become a few lines each.",
+      "category": "duplication",
+      "why": "Confirmed: parseFunctionCallExpr and parseTupleConsExpr do the same steps: split the tokens at each sub-expression, add the trailing tokens, wrap the result, and set the parent of each child. Only the native slice and the target nodeSet differ.",
       "on_changed_lines": true
     },
     {
-      "file": "pkg/ast_object_cons_expr_test.go",
-      "line": 400,
-      "problem": "`parseFileObjectConsExprForTest` picks the body to search by checking whether the source has a block (`if blocks := body.Blocks(); len(blocks) > 0`). This hidden behavior exists for one case (\"multi-line, nested in block\") and changes what every other case means if its source ever gains a block.",
-      "fix": "In the nested-block case, look up the object directly through `f.Body().Blocks()[0].Body().GetAttribute(\"a\").Expr().AsObjectConsExpr()`, or give the helper an explicit `inBlock bool` parameter. Remove the automatic check.",
+      "file": "pkg/parser.go",
+      "line": 561,
+      "problem": "parseTemplateExpr assigns `expr.wrapped = expr.children.Append(quoted)` directly. The other wrapping parsers go through the new Expression.wrap helper, so this path skips wrap's already-wrapped check, and wrapped expressions are built two different ways.",
+      "fix": "Replace it with `expr.wrap(quoted)`.",
       "category": "other",
-      "why": "The helper quietly picks which body to search based on whether the source has a block. This exists for one case, and it would change what other cases test if their source ever gains a block. The nested-block case should look up its object directly, or the helper should take an explicit parameter.",
+      "why": "Confirmed: parseTemplateExpr sets expr.wrapped = expr.children.Append(quoted) directly. Every other parser calls Expression.wrap, which also checks that the expression is not already wrapped. Calling expr.wrap(quoted) does the same work through the one shared path.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_attribute.go",
+      "line": 26,
+      "problem": "Parent tracking for assertUnattached is set only in the parser (parser.go:290, 461, 517, 549) and in ObjectConsItem.setValueExpr. Attribute.init asserts but never calls setParent, and Body.SetAttributeRaw/Value/Traversal (ast_body.go:218, 239, 260) swap expressions with ReplaceWith but neither set the new parent nor clear the old one. So an expression returned by Attribute.Expr after SetAttributeValue passes SetItem's assertUnattached, which contradicts SetItem's doc comment, and a replaced attribute expression keeps a stale parent.",
+      "fix": "Add `Attribute.setExpr(expr *Expression)`, modeled on ObjectConsItem.setValueExpr: clear the old expression's parent, append or ReplaceWith, then `expr.setParent(a.expr)`. Call it from init and from the three Body.SetAttribute* methods. In parseAttribute, use it instead of the separate setParent call.",
+      "category": "other",
+      "why": "Confirmed bug: Attribute.init never sets the expression's parent. Body.SetAttributeRaw, SetAttributeValue and SetAttributeTraversal call ReplaceWith without setting the new parent or clearing the old one. So an expression returned by Attribute.Expr after SetAttributeValue passes SetItem's assertUnattached, which breaks SetItem's documented panic. A replaced expression also keeps a stale parent. A setExpr method modeled on ObjectConsItem.setValueExpr fixes both cases.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 224,
+      "problem": "tokenEndsLine and splitClosing (line 206) are methods on *ObjectConsExpr but never use the receiver. The rule that a comment ending in a newline also ends the line is implemented again in partitionLineEndTokens (parser.go:796).",
+      "fix": "Make them package-level functions (`tokenEndsLine(tok *Token) bool`, `splitClosing(tokens Tokens)`) and update the call sites in appendItem and isMultiline. Put the comment-ends-with-newline test in one small helper that both tokenEndsLine and partitionLineEndTokens use.",
+      "category": "duplication",
+      "why": "Confirmed: splitClosing and tokenEndsLine never use their *ObjectConsExpr receiver. The check that a comment ending in a newline also ends the line (len(tok.Bytes) > 0 && last byte == '\\n') is written again in partitionLineEndTokens. That parsing rule should live in one place.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 123,
+      "problem": "ObjectConsExpr.variableNodes reaches into private node contents (`item.key.content.(*ObjectConsKeyExpr)`, `key.wrapped.content.(*Expression)`, `value.expr.content.(*Expression)`) even though accessors for these already exist.",
+      "fix": "Give ObjectConsKeyExpr its own `variableNodes()`, which returns nil when literalName and otherwise the wrapped expression's nodes. Write the loop as `for _, item := range o.Items() { ret = append(ret, item.KeyExpr().variableNodes()...); ret = append(ret, item.ValueExpr().Expr().variableNodes()...) }`.",
+      "category": "other",
+      "why": "Confirmed: ObjectConsExpr.variableNodes type-asserts private node contents (item.key, key.wrapped, value.expr) directly, although Items, KeyExpr, ValueExpr and Expr already exist. A variableNodes method on ObjectConsKeyExpr would keep the literalName rule inside the key type.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_function_call_expr.go",
+      "line": 31,
+      "problem": "Name walks every child with walkChildNodes and uses a `done` flag only to emulate an early break. It also depends on the parser putting the name in the first Tokens run, which is stated only in a comment.",
+      "fix": "Read only the first child: `tokens, _ := call.children.first.content.(Tokens)`, then loop until TokenOParen, guarding against `call.children.first == nil`. Alternatively, record the name tokens' node in a `name *node` field in parseFunctionCallExpr and build the name from that.",
+      "category": "other",
+      "why": "Confirmed: Name walks every child and uses a done flag in place of a break. It works only because the parser puts the name in the first token run, which only a comment states. Reading just the first child, or keeping a name node, makes that dependency explicit.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 243,
+      "problem": "Several new doc comments end with an empty `//` line just before the declaration: here, ast_function_call_expr.go:57, ast_tuple_cons_expr.go:27, ast_object_cons_expr.go:122, node.go:283, parser.go:498 and parser.go:530.",
+      "fix": "Delete the trailing `//` line in each of these comments.",
+      "category": "other",
+      "why": "Confirmed: only the 7 new doc comments listed end with an empty // line just before the declaration. No older code in the package does this. Deleting those lines is cheap and matches the existing style.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_expression_test.go",
+      "line": 114,
+      "problem": "TestExpressionVariablesFunctionCallAndTupleCons repeats the table loop of TestExpressionVariablesObjectCons (line 81) but leaves out the cross-check against hclsyntax's Variables count. The function-call and tuple cases are therefore not checked against the native parser.",
+      "fix": "Combine the two tables into one TestExpressionVariables, with one loop that includes the hclsyntax count check. Alternatively, extract a `checkVariablesAndRename(t, src, vars, renamed)` helper that both tests call.",
+      "category": "duplication",
+      "why": "Confirmed: TestExpressionVariablesFunctionCallAndTupleCons copies the table loop of TestExpressionVariablesObjectCons but leaves out the check against hclsyntax's Variables count. So the function-call and tuple cases are never compared with the native parser. Merging the two tables, or sharing one helper, restores that check.",
       "on_changed_lines": true
     }
   ],
-  "counted": 6,
-  "changed_lines": 876,
-  "per_kloc": 6.85,
+  "counted": 8,
+  "changed_lines": 1353,
+  "per_kloc": 5.91,
   "by_category": {
     "naming": 0,
-    "duplication": 2,
+    "duplication": 5,
     "over-abstraction": 0,
     "mixed-job": 0,
     "dead": 0,
-    "other": 4
+    "other": 3
   },
   "audit_ok": true,
   "reviewer_agent": {
     "exit_code": 0,
     "is_error": false,
     "num_turns": 3,
-    "tokens": 202857,
+    "tokens": 259278,
     "usage": {
       "input_tokens": 6,
-      "cache_creation_input_tokens": 56350,
-      "cache_read_input_tokens": 141921,
-      "output_tokens": 4580,
+      "cache_creation_input_tokens": 76081,
+      "cache_read_input_tokens": 178193,
+      "output_tokens": 4998,
       "output_tokens_details": {
-        "thinking_tokens": 2294
+        "thinking_tokens": 2032
       },
       "server_tool_use": {
         "web_search_requests": 0,
@@ -168,19 +201,19 @@
       },
       "service_tier": "standard",
       "cache_creation": {
-        "ephemeral_1h_input_tokens": 56350,
+        "ephemeral_1h_input_tokens": 76081,
         "ephemeral_5m_input_tokens": 0
       },
       "inference_geo": "global",
       "iterations": [
         {
           "input_tokens": 2,
-          "output_tokens": 1999,
-          "cache_read_input_tokens": 66625,
-          "cache_creation_input_tokens": 1482,
+          "output_tokens": 2523,
+          "cache_read_input_tokens": 85755,
+          "cache_creation_input_tokens": 2083,
           "cache_creation": {
             "ephemeral_5m_input_tokens": 0,
-            "ephemeral_1h_input_tokens": 1482
+            "ephemeral_1h_input_tokens": 2083
           },
           "type": "message"
         }
@@ -188,7 +221,7 @@
       "speed": "standard",
       "fallback_credit": null
     },
-    "cost_usd": 0.5708082000000001,
-    "duration_s": 50.3
+    "cost_usd": 0.7442706,
+    "duration_s": 54.6
   }
 }

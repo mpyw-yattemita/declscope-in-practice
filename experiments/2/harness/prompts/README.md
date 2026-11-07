@@ -8,6 +8,7 @@
 | [scope-minimal.md](scope-minimal.md) | 変更を課題に必要な範囲に留め、既存のコードをリファクタリングしない | M、M′ |
 | [scope-refactor.md](scope-refactor.md) | 課題の package を、変更にあわせてリファクタリングしてよい。振る舞いと export された API は変えない | R、R′ |
 | [guardrail.md](guardrail.md) | declscope の案内。skill を読むこと、baseline を触らないこと、終える前のチェック | M′、R′ |
+| [autonomy.md](autonomy.md) | 質問に答える人はいない。持ち主の判断が要る場面では、自分が勧める案で進める | すべて。実験の途中（traefik の R）から足した。経緯は [design.md](../../design.md#このルールの改訂) |
 
 各群に渡すものは、上のファイルを次の順につないで作る。`{package}` は課題の package のパスに置き換える。M′ はコードでは `MD`、R′ は `RD`。
 

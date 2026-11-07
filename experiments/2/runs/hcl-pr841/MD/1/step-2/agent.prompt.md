@@ -86,6 +86,8 @@ declscope shrink ./...
 
 Keep this change to what the task needs. Do not refactor existing code: do not move, rename or split existing declarations or files unless the task requires it.
 
+Nobody will answer questions while you work on this task. When a decision would normally go to the repository's owner, make the choice you would recommend, carry it out, and say in your final message what you chose and why.
+
 Before you finish, review the structure of your change and fix anything
 you would flag in code review. Then run the checks below until they pass.
 

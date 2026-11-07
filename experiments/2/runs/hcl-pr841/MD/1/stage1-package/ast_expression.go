@@ -140,7 +140,7 @@ func NewExpressionAbsTraversal(traversal hcl.Traversal) *Expression {
 // Variables returns the absolute traversals that exist within the receiving
 // expression.
 func (e *Expression) Variables() []*Traversal {
-	nodes := e.traversalNodes()
+	nodes := e.variableNodes()
 	ret := make([]*Traversal, len(nodes))
 	for i, node := range nodes {
 		ret[i] = node.content.(*Traversal)
@@ -165,7 +165,7 @@ func (e *Expression) RenameVariablePrefix(search, replacement []string) {
 		panic(fmt.Sprintf("search and replacement length mismatch (%d and %d)", len(search), len(replacement)))
 	}
 Traversals:
-	for _, node := range e.traversalNodes() {
+	for _, node := range e.variableNodes() {
 		traversal := node.content.(*Traversal)
 		if len(traversal.steps) < len(search) {
 			// If it's shorter then it can't have our prefix
@@ -197,22 +197,6 @@ Traversals:
 	}
 }
 
-// traversalNodes returns the nodes of the absolute traversals within the
-// receiving expression, in source order. An object-construct expression has
-// none of its own, so it reports those of its items' keys and values.
-func (e *Expression) traversalNodes() []*node {
-	object := e.AsObjectConsExpr()
-	if object == nil {
-		return e.absTraversals.List()
-	}
-
-	var ret []*node
-	for _, itemExpr := range object.itemExpressions() {
-		ret = append(ret, itemExpr.traversalNodes()...)
-	}
-	return ret
-}
-
 func (e *Expression) AsObjectConsExpr() *ObjectConsExpr {
 	if e.wrapped == nil {
 		return nil
@@ -223,6 +207,52 @@ func (e *Expression) AsObjectConsExpr() *ObjectConsExpr {
 	}
 
 	return nil
+}
+
+// AsFunctionCallExpr returns the wrapped function call expression, or nil if
+// this expression does not parse as a function call expression.
+func (e *Expression) AsFunctionCallExpr() *FunctionCallExpr {
+	if e.wrapped == nil {
+		return nil
+	}
+
+	if call, ok := e.wrapped.content.(*FunctionCallExpr); ok {
+		return call
+	}
+
+	return nil
+}
+
+// AsTupleConsExpr returns the wrapped tuple-construct expression, or nil if
+// this expression does not parse as a tuple-construct expression.
+func (e *Expression) AsTupleConsExpr() *TupleConsExpr {
+	if e.wrapped == nil {
+		return nil
+	}
+
+	if tuple, ok := e.wrapped.content.(*TupleConsExpr); ok {
+		return tuple
+	}
+
+	return nil
+}
+
+// variableNodes returns the nodes of the absolute traversals in the
+// expression, in source order, including those inside a wrapped
+// object-construct, function call or tuple-construct expression.
+//
+func (e *Expression) variableNodes() []*node {
+	nodes := e.absTraversals.List()
+	if object := e.AsObjectConsExpr(); object != nil {
+		nodes = append(nodes, object.variableNodes()...)
+	}
+	if call := e.AsFunctionCallExpr(); call != nil {
+		nodes = append(nodes, call.variableNodes()...)
+	}
+	if tuple := e.AsTupleConsExpr(); tuple != nil {
+		nodes = append(nodes, tuple.variableNodes()...)
+	}
+	return nodes
 }
 
 func (e *Expression) asQuoted() *quoted {
