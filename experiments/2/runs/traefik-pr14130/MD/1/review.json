@@ -1,0 +1,227 @@
+{
+  "arm": "MD",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/httproute.go",
+      "line": 29,
+      "problem": "loadHTTPRoute and loadGRPCRoute (grpcroute.go:24) are line-for-line copies. Both walk the parentRef/listener loop, build the Accepted/ResolvedRefs conditions, call attachedRoutes.Conflicts/Record, check servedRules.register and record the parent status. The only differences are the route kind, the config loader and the status recorder. Any fix to the attachment logic must be made twice.",
+      "fix": "Extract one helper, e.g. attachHTTPRoute(ctx, kind, meta, parentRefs, hostnames, loadConf func(listener, hostnames) ([]routeRouter, metav1.Condition), record func(gatev1.RouteParentStatus)). Call it from both loadHTTPRoute and loadGRPCRoute."
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 121,
+      "problem": "grpcRouteRouter, httpRouteRouter (httproute.go:126), tlsRouteRouter (tlsroute.go:134) and tcpRouteRouter (tcproute.go:118) are four identical {Name string; Conf *dynamic.Configuration} types.",
+      "fix": "Replace the four types with a single routeRouter type in kubernetes.go and use it in all four route files."
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 660,
+      "problem": "The BackendTLSPolicy handling is copied three times: in loadHTTPServers, loadGRPCServers (grpcroute.go:374) and loadTLSServers (tlsroute.go:361). Each copy sorts the policies, filters targetRefs by name and sectionName, builds the PolicyAncestorStatus, writes the conflict/accepted conditions and returns the route error condition. The new client-certificate injection was also added to each copy separately.",
+      "fix": "Extract a generic helper, e.g. resolveBackendTLSPolicy[T any](gatewayName, gatewayNamespace, namespace string, listener gatewayListener, backendName gatev1.ObjectName, svcPort corev1.ServicePort, route metav1.Object, load func(*gatev1.BackendTLSPolicy) (T, metav1.Condition), statusReport) (T, *metav1.Condition). It owns the sorting, ancestor statuses and error condition. The three loaders then only build the load balancer and apply listener.BackendClientCertificate."
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 486,
+      "problem": "loadTCPServersTransport duplicates loadServersTransport (httproute.go:789): the SAN mapping, the WellKnownCACertificates shortcut and the ConfigMap/Secret ca.crt resolution, with the same conditions. Only the target struct differs.",
+      "fix": "Extract resolveBackendTLSValidation(namespace, policy) (serverName string, sans []tls.SAN, insecureSkipVerify bool, rootCAs []types.FileOrContent, metav1.Condition). Make both functions thin wrappers that fill dynamic.ServersTransport or dynamic.TLSClientConfig from its result."
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 456,
+      "problem": "The Gateway and ListenerSet sorts (lines 456 and 465) inline the same creation-time/namespace/name comparator that compareRoutes (line 1758) already implements for any metav1.Object.",
+      "fix": "Rename compareRoutes to compareByCreation(a, b metav1.Object) int. Use it in both sorts, e.g. slices.SortStableFunc(gateways, func(a, b *gatev1.Gateway) int { return compareByCreation(a, b) })."
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 1907,
+      "problem": "gatewayForOwner and matchingGatewayListenersForParentRef (line 1885) repeat the same inline check that a listener belongs to a given ListenerSet owner (nil check plus namespace/name comparison).",
+      "fix": "Add a method func (o listenerOwner) declares(l gatewayListener) bool that covers both the Gateway case and the ListenerSet case. Use it in both functions."
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 629,
+      "problem": "loadGatewayListeners resolves the Gateway's frontend validations (default and per-port) on every call. Because it is now also called once per ListenerSet, the same ConfigMap and ReferenceGrant lookups run again for every ListenerSet of the Gateway. A function meant to load listeners also owns Gateway-level TLS resolution.",
+      "fix": "Resolve the default and per-port frontendValidation once per Gateway in loadConfigurationFromGateways, the same way resolveBackendClientCertificate is handled. Pass the result into loadGatewayListeners, for example as a field of listenerClaims or a dedicated parameter."
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 474,
+      "problem": "The expression that decides whether the listener is in Passthrough mode is repeated at tlsroute.go:164 and tlsroute.go:474. tcproute.go:149 uses a variant without the nil check on listener.TLS.",
+      "fix": "Add func (l gatewayListener) isTLSPassthrough() bool { return l.TLS != nil && ptr.Deref(l.TLS.Mode, gatev1.TLSModeTerminate) == gatev1.TLSModePassthrough } and use it at all three sites."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 843,
+      "problem": "withoutForeignConditions and mergeGatewayStatus (line 860) each hand-code the 'type not in gatewayConditionTypes/listenerConditionTypes' predicate. listenersStatusEqual (line 953) and listenerEntryStatusesEqual (line 976) are identical apart from the element type.",
+      "fix": "Add helpers isOwnedGatewayCondition(c) and isOwnedListenerCondition(c) and use them in both functions. Implement listenerEntryStatusesEqual by converting each entry with gatev1.ListenerStatus(entry), as makeListenerSetStatus already does in reverse, then delegating to listenersStatusEqual."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 601,
+      "problem": "UpdateGRPCRouteStatus formats its error as %q with route.Name only. The other Update*Status methods use namespace/name.",
+      "fix": "Change the call to fmt.Errorf(\"failed to update GRPCRoute %s/%s status: %w\", route.Namespace, route.Name, err)."
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 145,
+      "problem": "loadHTTPRouteConfiguration inlines about 30 lines that parse timeouts.request and timeouts.backendRequest into RouterRespondingTimeouts and ForwardingTimeouts. This makes the per-rule loop hard to follow. Retry parsing is already extracted (loadHTTPRouteRetry).",
+      "fix": "Extract loadHTTPRouteTimeouts(ctx, *gatev1.HTTPRouteTimeouts) (*dynamic.RouterRespondingTimeouts, *dynamic.ForwardingTimeouts) next to loadHTTPRouteRetry and call it once per rule."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/httproute.go",
+      "line": 29,
+      "problem": "loadHTTPRoute and loadGRPCRoute (grpcroute.go:24) are line-for-line copies. Both walk the parentRef/listener loop, build the Accepted/ResolvedRefs conditions, call attachedRoutes.Conflicts/Record, check servedRules.register and record the parent status. The only differences are the route kind, the config loader and the status recorder. Any fix to the attachment logic must be made twice.",
+      "fix": "Extract one helper, e.g. attachHTTPRoute(ctx, kind, meta, parentRefs, hostnames, loadConf func(listener, hostnames) ([]routeRouter, metav1.Condition), record func(gatev1.RouteParentStatus)). Call it from both loadHTTPRoute and loadGRPCRoute.",
+      "category": "duplication",
+      "why": "loadHTTPRoute (httproute.go:29-123) and loadGRPCRoute (grpcroute.go:24-118) are the same code apart from the log key, the kind constant, the config loader and the status recorder. A fix to attachment or conflict handling would have to be made twice.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 121,
+      "problem": "grpcRouteRouter, httpRouteRouter (httproute.go:126), tlsRouteRouter (tlsroute.go:134) and tcpRouteRouter (tcproute.go:118) are four identical {Name string; Conf *dynamic.Configuration} types.",
+      "fix": "Replace the four types with a single routeRouter type in kubernetes.go and use it in all four route files.",
+      "category": "duplication",
+      "why": "httpRouteRouter, grpcRouteRouter, tlsRouteRouter and tcpRouteRouter are each {Name string; Conf *dynamic.Configuration}. That is four names for one idea, and one shared type would do.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 660,
+      "problem": "The BackendTLSPolicy handling is copied three times: in loadHTTPServers, loadGRPCServers (grpcroute.go:374) and loadTLSServers (tlsroute.go:361). Each copy sorts the policies, filters targetRefs by name and sectionName, builds the PolicyAncestorStatus, writes the conflict/accepted conditions and returns the route error condition. The new client-certificate injection was also added to each copy separately.",
+      "fix": "Extract a generic helper, e.g. resolveBackendTLSPolicy[T any](gatewayName, gatewayNamespace, namespace string, listener gatewayListener, backendName gatev1.ObjectName, svcPort corev1.ServicePort, route metav1.Object, load func(*gatev1.BackendTLSPolicy) (T, metav1.Condition), statusReport) (T, *metav1.Condition). It owns the sorting, ancestor statuses and error condition. The three loaders then only build the load balancer and apply listener.BackendClientCertificate.",
+      "category": "duplication",
+      "why": "loadHTTPServers, loadGRPCServers and loadTLSServers each repeat the BackendTLSPolicy listing, sorting, targetRef/sectionName filtering, ancestor-status conflict and accepted conditions, and the route error condition. The client-certificate injection is also copied into each one.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 486,
+      "problem": "loadTCPServersTransport duplicates loadServersTransport (httproute.go:789): the SAN mapping, the WellKnownCACertificates shortcut and the ConfigMap/Secret ca.crt resolution, with the same conditions. Only the target struct differs.",
+      "fix": "Extract resolveBackendTLSValidation(namespace, policy) (serverName string, sans []tls.SAN, insecureSkipVerify bool, rootCAs []types.FileOrContent, metav1.Condition). Make both functions thin wrappers that fill dynamic.ServersTransport or dynamic.TLSClientConfig from its result.",
+      "category": "duplication",
+      "why": "loadTCPServersTransport repeats loadServersTransport's SAN mapping, WellKnownCACertificates shortcut and ConfigMap/Secret ca.crt resolution with the same conditions. Only the target struct differs (TCPServersTransport.TLS vs ServersTransport).",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 456,
+      "problem": "The Gateway and ListenerSet sorts (lines 456 and 465) inline the same creation-time/namespace/name comparator that compareRoutes (line 1758) already implements for any metav1.Object.",
+      "fix": "Rename compareRoutes to compareByCreation(a, b metav1.Object) int. Use it in both sorts, e.g. slices.SortStableFunc(gateways, func(a, b *gatev1.Gateway) int { return compareByCreation(a, b) }).",
+      "category": "duplication",
+      "why": "The Gateway and ListenerSet sorts inline the same cmp.Or comparator on creation time, namespace and name that compareRoutes already implements for metav1.Object. Renaming it to compareByCreation also fixes a name that is too narrow once Gateways and ListenerSets use it.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 1907,
+      "problem": "gatewayForOwner and matchingGatewayListenersForParentRef (line 1885) repeat the same inline check that a listener belongs to a given ListenerSet owner (nil check plus namespace/name comparison).",
+      "fix": "Add a method func (o listenerOwner) declares(l gatewayListener) bool that covers both the Gateway case and the ListenerSet case. Use it in both functions.",
+      "category": "duplication",
+      "why": "gatewayForOwner and matchingGatewayListenersForParentRef both hand-code the check 'listener.ListenerSet != nil && Namespace == owner.Namespace && Name == owner.Name' for whether a listener belongs to an owner.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 629,
+      "problem": "loadGatewayListeners resolves the Gateway's frontend validations (default and per-port) on every call. Because it is now also called once per ListenerSet, the same ConfigMap and ReferenceGrant lookups run again for every ListenerSet of the Gateway. A function meant to load listeners also owns Gateway-level TLS resolution.",
+      "fix": "Resolve the default and per-port frontendValidation once per Gateway in loadConfigurationFromGateways, the same way resolveBackendClientCertificate is handled. Pass the result into loadGatewayListeners, for example as a field of listenerClaims or a dedicated parameter.",
+      "category": "mixed-job",
+      "why": "loadGatewayListeners resolves the Gateway-level default and per-port frontend validation on every call, and loadListenerSetListeners calls it once per ListenerSet. So the CA lookups repeat for each ListenerSet, and a listener loader also owns Gateway TLS resolution, unlike resolveBackendClientCertificate, which runs once per Gateway.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 474,
+      "problem": "The expression that decides whether the listener is in Passthrough mode is repeated at tlsroute.go:164 and tlsroute.go:474. tcproute.go:149 uses a variant without the nil check on listener.TLS.",
+      "fix": "Add func (l gatewayListener) isTLSPassthrough() bool { return l.TLS != nil && ptr.Deref(l.TLS.Mode, gatev1.TLSModeTerminate) == gatev1.TLSModePassthrough } and use it at all three sites.",
+      "category": "duplication",
+      "why": "The Passthrough check is written out at tlsroute.go:164 and tlsroute.go:474, and again at tcproute.go:149. At tcproute.go:149 the nil check comes from the surrounding if. One isTLSPassthrough method would cover all three.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 843,
+      "problem": "withoutForeignConditions and mergeGatewayStatus (line 860) each hand-code the 'type not in gatewayConditionTypes/listenerConditionTypes' predicate. listenersStatusEqual (line 953) and listenerEntryStatusesEqual (line 976) are identical apart from the element type.",
+      "fix": "Add helpers isOwnedGatewayCondition(c) and isOwnedListenerCondition(c) and use them in both functions. Implement listenerEntryStatusesEqual by converting each entry with gatev1.ListenerStatus(entry), as makeListenerSetStatus already does in reverse, then delegating to listenersStatusEqual.",
+      "category": "duplication",
+      "why": "The owned-condition predicates are each written twice. listenerEntryStatusesEqual is identical to listenersStatusEqual apart from the element type, and the types convert directly (kubernetes.go:2194 already does gatev1.ListenerEntryStatus(...)), so one can delegate to the other.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 601,
+      "problem": "UpdateGRPCRouteStatus formats its error as %q with route.Name only. The other Update*Status methods use namespace/name.",
+      "fix": "Change the call to fmt.Errorf(\"failed to update GRPCRoute %s/%s status: %w\", route.Namespace, route.Name, err).",
+      "category": "other",
+      "why": "UpdateGRPCRouteStatus's final error uses %q with route.Name only. Every other Update*Status error, including the GRPCRoute namespace check just above it, uses namespace/name.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 145,
+      "problem": "loadHTTPRouteConfiguration inlines about 30 lines that parse timeouts.request and timeouts.backendRequest into RouterRespondingTimeouts and ForwardingTimeouts. This makes the per-rule loop hard to follow. Retry parsing is already extracted (loadHTTPRouteRetry).",
+      "fix": "Extract loadHTTPRouteTimeouts(ctx, *gatev1.HTTPRouteTimeouts) (*dynamic.RouterRespondingTimeouts, *dynamic.ForwardingTimeouts) next to loadHTTPRouteRetry and call it once per rule.",
+      "category": "mixed-job",
+      "why": "The per-rule loop in loadHTTPRouteConfiguration parses timeouts inline (about 30 lines) next to building routers. Retry parsing is already extracted to loadHTTPRouteRetry, so a loadHTTPRouteTimeouts helper would match that pattern.",
+      "on_changed_lines": false
+    }
+  ],
+  "counted": 1,
+  "changed_lines": 1644,
+  "per_kloc": 0.61,
+  "by_category": {
+    "naming": 0,
+    "duplication": 1,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 0
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 825943,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 400969,
+      "cache_read_input_tokens": 420942,
+      "output_tokens": 4028,
+      "output_tokens_details": {
+        "thinking_tokens": 1108
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 400969,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2503,
+          "cache_read_input_tokens": 409185,
+          "cache_creation_input_tokens": 3541,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3541
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 3.3725164,
+    "duration_s": 41.6
+  }
+}

@@ -1,0 +1,254 @@
+{
+  "arm": "M",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 24,
+      "problem": "loadGRPCRoute is a near copy of loadHTTPRoute (httproute.go:29). Both run the same parentRef and listener loop: Accepted/ResolvedRefs conditions, the allowRoute, hostname and attachedRoutes.Conflicts checks, the AttachedRoutes++ step, servedRules registration and the status record. Only the kind, the configuration loader and the status recorder differ. Any fix to the attachment logic has to be made twice.",
+      "fix": "Extract one helper, e.g. `p.attachHTTPRoute(ctx, gateways, routeMeta metav1.Object, kind string, hostnames []gatev1.Hostname, parentRefs, loadConf func(listener gatewayListener, hostnames) ([]routeRouter, metav1.Condition), record func(gatev1.RouteParentStatus))`. Make loadHTTPRoute and loadGRPCRoute thin wrappers around it."
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 121,
+      "problem": "grpcRouteRouter, httpRouteRouter (httproute.go:126) and tlsRouteRouter (tlsroute.go:134) are the same struct {Name string; Conf *dynamic.Configuration} declared three times.",
+      "fix": "Declare one `routeRouter` type in kubernetes.go and use it in all three loaders."
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 375,
+      "problem": "The BackendTLSPolicy block is copied three times: here, in loadHTTPServers (httproute.go:647) and in loadTLSServers (tlsroute.go:362). Each copy sorts the policies, filters targetRefs by name and sectionName, builds the PolicyAncestorStatus, records the conflict and Accepted conditions, and builds the route ResolvedRefs error. The copies have already drifted ('wen wrong' typo in httproute.go).",
+      "fix": "Extract a generic helper, e.g. `resolveBackendTLSPolicy[T any](p, gatewayName, gatewayNamespace, namespace, serviceName, svcPort, listener, route generation, statusReport, load func(ns string, policy *gatev1.BackendTLSPolicy) (T, metav1.Condition)) (T, *metav1.Condition)`. The HTTP/gRPC and TCP callers pass loadServersTransport and loadTCPServersTransport as `load`."
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 774,
+      "problem": "loadServersTransport and loadTCPServersTransport (tlsroute.go:485) duplicate the SAN conversion and the CA ConfigMap/Secret resolution with their error conditions. Only the target struct differs (ServersTransport vs TLSClientConfig).",
+      "fix": "Extract `p.resolveBackendTLSValidation(namespace, policy) (serverName string, insecure bool, sans []tls.SAN, rootCAs []types.FileOrContent, metav1.Condition)`. Build both transport types from its result."
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 428,
+      "problem": "loadHTTPBackendRef compares `*backendRef.Kind` with the literal \"TraefikService\" even though kindTraefikService exists. It also dereferences backendRef.Kind and backendRef.Group without nil checks, although loadService already computed the defaulted group and kind. A backendRef with a non-core Group and no Kind panics. tcproute.go:352 has the same pattern.",
+      "fix": "Pass the defaulted `group, kind` from loadService (and from the TCP/TLS callers) into loadHTTPBackendRef/loadTCPBackendRef. Compare against kindTraefikService instead of the pointers."
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 1047,
+      "problem": "createResponseHeaderModifier is identical to createRequestHeaderModifier apart from the middleware field it sets.",
+      "fix": "Add a helper `toHeaderModifier(filter *gatev1.HTTPHeaderFilter) *dynamic.HeaderModifier`. Both functions become one-line wrappers that set RequestHeaderModifier or ResponseHeaderModifier."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 527,
+      "problem": "UpdateHTTPRouteStatus, UpdateGRPCRouteStatus, UpdateTCPRouteStatus and UpdateTLSRouteStatus are four copies of the same retry, merge, compare and UpdateStatus body. They have already drifted: the GRPCRoute error at line 601 drops the namespace (`%q`, route.Name) while the others use `%s/%s`.",
+      "fix": "Extract a generic `updateRouteStatus[R any](ctx, kind string, route ktypes.NamespacedName, gateways, desired []gatev1.RouteParentStatus, get func() (R, error), parents func(R) []gatev1.RouteParentStatus, update func(R, []gatev1.RouteParentStatus) error) error` that does the retry, merge, equality check and error wrapping. The four methods pass lister/clientset closures and share one error format."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 893,
+      "problem": "policyAncestorStatusesEqual and routeParentStatusesEqual (line 923) use the same order-insensitive two-way ContainsFunc algorithm. The only difference is the element comparator.",
+      "fix": "Replace both with `unorderedEqualFunc[T any](a, b []T, eq func(T, T) bool) bool` and keep only policyAncestorStatusEqual and routeParentStatusEqual as comparators."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 976,
+      "problem": "The new listenerEntryStatusesEqual duplicates listenersStatusEqual (line 953). gatev1.ListenerEntryStatus mirrors gatev1.ListenerStatus field for field; makeListenerSetStatus already relies on that by converting between them.",
+      "fix": "Write one generic `listenerStatusesEqual[T gatev1.ListenerStatus | gatev1.ListenerEntryStatus]` that converts each element to ListenerStatus, or convert the entries before comparing. Delete the duplicate."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 843,
+      "problem": "withoutForeignConditions and mergeGatewayStatus (line 860) each repeat the inline ownership predicates `!slices.Contains(gatewayConditionTypes, c.Type)` and `!slices.Contains(listenerConditionTypes, c.Type)`. The rule 'which conditions Traefik owns' should live in one place.",
+      "fix": "Add `isOwnedGatewayCondition(c metav1.Condition) bool` and `isOwnedListenerCondition(c metav1.Condition) bool` and use them in both functions, e.g. with slices.DeleteFunc on the negation."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 813,
+      "problem": "mergeRouteParentStatuses builds a listenerOwner from a ParentReference with the same defaulting code as matchingGatewayListenersForParentRef (kubernetes.go:1889). The two can diverge, so status ownership would no longer match how routes attach.",
+      "fix": "Add `parentRefOwner(routeNamespace string, ref gatev1.ParentReference) listenerOwner` in kubernetes.go and call it from both places."
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 1911,
+      "problem": "The predicate 'this listener belongs to the ListenerSet named by owner' is written inline twice: here and in gatewayForOwner (line 1933).",
+      "fix": "Add a method `(l gatewayListener) declaredBy(owner listenerOwner) bool` that handles both the Gateway and the ListenerSet case. Use it in matchingGatewayListenersForParentRef and gatewayForOwner."
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 457,
+      "problem": "The Gateway sort comparator and the new ListenerSet sort comparator (line 466) both duplicate compareRoutes (line 1784): creation timestamp, then namespace, then name on metav1.Object.",
+      "fix": "Rename compareRoutes to compareObjects (it is not route-specific) and use `slices.SortStableFunc(gateways, func(a, b *gatev1.Gateway) int { return compareObjects(a, b) })` and the same for listenerSets."
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 469,
+      "problem": "loadTLSServers recomputes the passthrough expression that loadTLSRoute already computes at line 164. tcproute.go:149 has a third variant that skips the nil check on listener.TLS.",
+      "fix": "Add `func (l gatewayListener) isTLSPassthrough() bool` that does the nil checks and compares the mode to gatev1.TLSModePassthrough. Use it at all three sites."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 24,
+      "problem": "loadGRPCRoute is a near copy of loadHTTPRoute (httproute.go:29). Both run the same parentRef and listener loop: Accepted/ResolvedRefs conditions, the allowRoute, hostname and attachedRoutes.Conflicts checks, the AttachedRoutes++ step, servedRules registration and the status record. Only the kind, the configuration loader and the status recorder differ. Any fix to the attachment logic has to be made twice.",
+      "fix": "Extract one helper, e.g. `p.attachHTTPRoute(ctx, gateways, routeMeta metav1.Object, kind string, hostnames []gatev1.Hostname, parentRefs, loadConf func(listener gatewayListener, hostnames) ([]routeRouter, metav1.Condition), record func(gatev1.RouteParentStatus))`. Make loadHTTPRoute and loadGRPCRoute thin wrappers around it.",
+      "category": "duplication",
+      "why": "loadGRPCRoute (grpcroute.go:24-118) and loadHTTPRoute (httproute.go:29-123) are the same line for line. Only kindGRPCRoute/kindHTTPRoute, the configuration loader and RecordGRPCRouteStatus/RecordHTTPRouteStatus differ. The attachment rules (allowRoute, hostnames, Conflicts, AttachedRoutes++, servedRules, Accepted/ResolvedRefs) would need every fix twice.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 121,
+      "problem": "grpcRouteRouter, httpRouteRouter (httproute.go:126) and tlsRouteRouter (tlsroute.go:134) are the same struct {Name string; Conf *dynamic.Configuration} declared three times.",
+      "fix": "Declare one `routeRouter` type in kubernetes.go and use it in all three loaders.",
+      "category": "duplication",
+      "why": "grpcRouteRouter, httpRouteRouter and tlsRouteRouter are each declared as struct{Name string; Conf *dynamic.Configuration}. That is one concept with three names. Declaring a single routeRouter is trivial, and finding 0's helper needs it.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 375,
+      "problem": "The BackendTLSPolicy block is copied three times: here, in loadHTTPServers (httproute.go:647) and in loadTLSServers (tlsroute.go:362). Each copy sorts the policies, filters targetRefs by name and sectionName, builds the PolicyAncestorStatus, records the conflict and Accepted conditions, and builds the route ResolvedRefs error. The copies have already drifted ('wen wrong' typo in httproute.go).",
+      "fix": "Extract a generic helper, e.g. `resolveBackendTLSPolicy[T any](p, gatewayName, gatewayNamespace, namespace, serviceName, svcPort, listener, route generation, statusReport, load func(ns string, policy *gatev1.BackendTLSPolicy) (T, metav1.Condition)) (T, *metav1.Condition)`. The HTTP/gRPC and TCP callers pass loadServersTransport and loadTCPServersTransport as `load`.",
+      "category": "duplication",
+      "why": "The BackendTLSPolicy block in grpcroute.go, httproute.go and tlsroute.go is the same in all three: sorting, targetRef/sectionName filtering, PolicyAncestorStatus, the conflict conditions and the Accepted conditions. Only the transport type and the loader differ, so a generic helper with a load func fits. The copies have already drifted: httproute.go:727 says 'wen wrong' where the other two say 'went wrong'.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 774,
+      "problem": "loadServersTransport and loadTCPServersTransport (tlsroute.go:485) duplicate the SAN conversion and the CA ConfigMap/Secret resolution with their error conditions. Only the target struct differs (ServersTransport vs TLSClientConfig).",
+      "fix": "Extract `p.resolveBackendTLSValidation(namespace, policy) (serverName string, insecure bool, sans []tls.SAN, rootCAs []types.FileOrContent, metav1.Condition)`. Build both transport types from its result.",
+      "category": "duplication",
+      "why": "loadServersTransport and loadTCPServersTransport repeat the same SAN switch, WellKnownCACertificates shortcut, CA ref kind check and ConfigMap/Secret lookups with the same error conditions. Only the target fields differ (st.X vs st.TLS.X), so one shared resolver can feed both structs.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 428,
+      "problem": "loadHTTPBackendRef compares `*backendRef.Kind` with the literal \"TraefikService\" even though kindTraefikService exists. It also dereferences backendRef.Kind and backendRef.Group without nil checks, although loadService already computed the defaulted group and kind. A backendRef with a non-core Group and no Kind panics. tcproute.go:352 has the same pattern.",
+      "fix": "Pass the defaulted `group, kind` from loadService (and from the TCP/TLS callers) into loadHTTPBackendRef/loadTCPBackendRef. Compare against kindTraefikService instead of the pointers.",
+      "category": "other",
+      "why": "Confirmed bug. The caller (httproute.go:366, tcproute.go:279) branches on the defaulted group/kind. But loadHTTPBackendRef and loadTCPBackendRef then dereference *backendRef.Kind and *backendRef.Group directly. A ref with a non-core Group and a nil Kind gets kind defaulted to Service, passes the `group != groupCore` test and panics on the nil Kind. They also use the literal \"TraefikService\" although kindTraefikService (kubernetes.go:49) exists. Pass the defaulted group/kind in.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 1047,
+      "problem": "createResponseHeaderModifier is identical to createRequestHeaderModifier apart from the middleware field it sets.",
+      "fix": "Add a helper `toHeaderModifier(filter *gatev1.HTTPHeaderFilter) *dynamic.HeaderModifier`. Both functions become one-line wrappers that set RequestHeaderModifier or ResponseHeaderModifier.",
+      "category": "duplication",
+      "why": "createRequestHeaderModifier and createResponseHeaderModifier are byte-identical, doc comment included, except for the RequestHeaderModifier/ResponseHeaderModifier field. A shared toHeaderModifier is cheap and removes the copy.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 527,
+      "problem": "UpdateHTTPRouteStatus, UpdateGRPCRouteStatus, UpdateTCPRouteStatus and UpdateTLSRouteStatus are four copies of the same retry, merge, compare and UpdateStatus body. They have already drifted: the GRPCRoute error at line 601 drops the namespace (`%q`, route.Name) while the others use `%s/%s`.",
+      "fix": "Extract a generic `updateRouteStatus[R any](ctx, kind string, route ktypes.NamespacedName, gateways, desired []gatev1.RouteParentStatus, get func() (R, error), parents func(R) []gatev1.RouteParentStatus, update func(R, []gatev1.RouteParentStatus) error) error` that does the retry, merge, equality check and error wrapping. The four methods pass lister/clientset closures and share one error format.",
+      "category": "duplication",
+      "why": "The four Update*RouteStatus methods differ only in the lister, the clientset and the status struct type. The drift is real: the GRPCRoute error at client.go:601 uses %q with route.Name only, while the other three use %s/%s with the namespace. A generic helper with get/parents/update closures removes both the copies and the inconsistency.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 893,
+      "problem": "policyAncestorStatusesEqual and routeParentStatusesEqual (line 923) use the same order-insensitive two-way ContainsFunc algorithm. The only difference is the element comparator.",
+      "fix": "Replace both with `unorderedEqualFunc[T any](a, b []T, eq func(T, T) bool) bool` and keep only policyAncestorStatusEqual and routeParentStatusEqual as comparators.",
+      "category": "duplication",
+      "why": "policyAncestorStatusesEqual and routeParentStatusesEqual are the same length check plus a two-way ContainsFunc, differing only in the element comparator. A generic unorderedEqualFunc keeps the per-type comparators and removes about 20 duplicated lines.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 813,
+      "problem": "mergeRouteParentStatuses builds a listenerOwner from a ParentReference with the same defaulting code as matchingGatewayListenersForParentRef (kubernetes.go:1889). The two can diverge, so status ownership would no longer match how routes attach.",
+      "fix": "Add `parentRefOwner(routeNamespace string, ref gatev1.ParentReference) listenerOwner` in kubernetes.go and call it from both places.",
+      "category": "duplication",
+      "why": "mergeRouteParentStatuses (client.go:813) and matchingGatewayListenersForParentRef (kubernetes.go:1889) both build listenerOwner with the same Kind→Gateway and Namespace→routeNamespace defaults. Status ownership has to match how routes attach, so this defaulting belongs in one parentRefOwner function.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 1911,
+      "problem": "The predicate 'this listener belongs to the ListenerSet named by owner' is written inline twice: here and in gatewayForOwner (line 1933).",
+      "fix": "Add a method `(l gatewayListener) declaredBy(owner listenerOwner) bool` that handles both the Gateway and the ListenerSet case. Use it in matchingGatewayListenersForParentRef and gatewayForOwner.",
+      "category": "duplication",
+      "why": "The check 'listener.ListenerSet != nil && Namespace == owner.Namespace && Name == owner.Name' appears at kubernetes.go:1911 and again in gatewayForOwner:1933. A declaredBy(owner) method fits matchingGatewayListenersForParentRef directly. gatewayForOwner's Gateway case compares the gateway itself rather than its listeners, so it only shares the ListenerSet branch.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/kubernetes.go",
+      "line": 457,
+      "problem": "The Gateway sort comparator and the new ListenerSet sort comparator (line 466) both duplicate compareRoutes (line 1784): creation timestamp, then namespace, then name on metav1.Object.",
+      "fix": "Rename compareRoutes to compareObjects (it is not route-specific) and use `slices.SortStableFunc(gateways, func(a, b *gatev1.Gateway) int { return compareObjects(a, b) })` and the same for listenerSets.",
+      "category": "duplication",
+      "why": "The Gateway and ListenerSet sort comparators (kubernetes.go:457, 466) have the same cmp.Or body as compareRoutes, which takes metav1.Object and has nothing route-specific in it. Rename it to compareObjects and reuse it in both sorts.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 469,
+      "problem": "loadTLSServers recomputes the passthrough expression that loadTLSRoute already computes at line 164. tcproute.go:149 has a third variant that skips the nil check on listener.TLS.",
+      "fix": "Add `func (l gatewayListener) isTLSPassthrough() bool` that does the nil checks and compares the mode to gatev1.TLSModePassthrough. Use it at all three sites.",
+      "category": "duplication",
+      "why": "The passthrough expression appears three times (tlsroute.go:164, tlsroute.go:469, tcproute.go:149), so a gatewayListener.isTLSPassthrough() helper is worthwhile. The claim that tcproute.go skips the nil check is wrong, though: it sits inside `if ... && listener.TLS != nil`, so it does not panic. This is duplication only, not a bug.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 1,
+  "changed_lines": 1358,
+  "per_kloc": 0.74,
+  "by_category": {
+    "naming": 0,
+    "duplication": 1,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 0
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 3,
+    "tokens": 1234788,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 399853,
+      "cache_read_input_tokens": 830285,
+      "output_tokens": 4644,
+      "output_tokens_details": {
+        "thinking_tokens": 998
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 399853,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 3068,
+          "cache_read_input_tokens": 411132,
+          "cache_creation_input_tokens": 478,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 478
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 3.4577850000000003,
+    "duration_s": 59.7
+  }
+}

@@ -1,0 +1,479 @@
+{
+  "task": "traefik-pr14130",
+  "comparisons": [
+    {
+      "x": "RD/1",
+      "y": "R/1",
+      "winner": "R",
+      "first": {
+        "better": "y",
+        "reasons": [
+          "y/gatewaytls.go puts all Gateway-level TLS in one file: frontendValidation, resolveFrontendValidation, resolveCACertificateRefs, hasInsecureFrontendValidationMode, the new resolveBackendClientCertificate, and the ResolvedRefs condition helpers. x leaves the frontend-validation code in kubernetes.go and adds a separate one-function file, gatewaybackendtls.go, so related Gateway TLS code is split across two files.",
+          "y moves the Gateway ResolvedRefs logic out of makeGatewayStatus into gatewayResolvedRefsCondition in gatewaytls.go. x writes that branch logic inline in makeGatewayStatus in kubernetes.go, which makes the already large status function longer.",
+          "y makes httpRouteLoader the owner of the whole HTTPRoute load: loadHTTPRoute builds it, and loadHTTPRouteConfiguration, loadHTTPRouteRuleService, loadHTTPServers, loadMiddlewares and loadRequestMirror are all its methods. In x, loadHTTPRouteConfiguration is still a Provider method that builds the loader inside itself, so ownership is split between the two types.",
+          "y's tests follow the new file: gatewaytls_test.go holds the backend client certificate tests. x adds them to the 16k-line kubernetes_test.go.",
+          "x has one structural advantage: in httproute.go, the httpRouteBackend type and the resolveBackend/loadBackend split give the RequestMirror path a clean seam. This is smaller than y's gains at the file level."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 787500,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 774682,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 1059,
+            "output_tokens_details": {
+              "thinking_tokens": 500
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 774682,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 1059,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 774682,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 774682
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 6.2209954,
+          "duration_s": 15.2
+        }
+      },
+      "second": {
+        "better": "x",
+        "reasons": [
+          "x adds gatewaytls.go, which holds all Gateway-level TLS work in one place: frontendValidation, resolveFrontendValidation and resolveCACertificateRefs, the backend client certificate, and the Gateway ResolvedRefs condition. In y, the frontend validation code stays in kubernetes.go, which grows to 2321 lines, and the new y/gatewaybackendtls.go is a thin file with only one function.",
+          "x moves the Gateway ResolvedRefs logic into gatewayResolvedRefsCondition and makeGatewayResolvedRefsCondition in gatewaytls.go. y writes that logic inline as a three-way switch inside makeGatewayStatus in kubernetes.go, so the general status-building function also carries TLS-specific rules.",
+          "x keeps each feature's tests next to its code: gatewaytls_test.go covers the backend client certificate. y adds Test_loadConfigurationFromGateways_BackendClientCertificate, the BackendClientCertificateRef test and Test_makeGatewayStatus_resolvedRefs to the already huge kubernetes_test.go.",
+          "x's backendtlspolicy.go gives the HTTP, GRPC and TLS routes one entry point, loadBackendTLS, plus newServersTransport. y uses the same pattern for HTTP and GRPC, but y/tlsroute.go builds its TCPServersTransport inline instead of reusing a helper.",
+          "y does structure httproute.go better: the httpRouteBackend type with resolveBackend and loadBackend lets the RequestMirror filter reuse the backend loading cleanly. This is a real point for y, but it does not outweigh x's cleaner split of the Gateway TLS code across files."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 787410,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 774682,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 969,
+            "output_tokens_details": {
+              "thinking_tokens": 374
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 774682,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 969,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 774682,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 774682
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 6.2191954,
+          "duration_s": 28.1
+        }
+      }
+    },
+    {
+      "x": "MD/1",
+      "y": "M/1",
+      "winner": "tie",
+      "first": {
+        "better": "y",
+        "reasons": [
+          "y/kubernetes.go moves the Gateway ResolvedRefs decision into its own function, makeGatewayResolvedRefsCondition, which takes the listener statuses and the client-certificate condition. x/kubernetes.go builds that condition and then patches it inline in makeGatewayStatus, so makeGatewayStatus has one more job.",
+          "y/kubernetes_test.go has a separate Test_makeGatewayStatus_resolvedRefs that matches the extracted function. x adds the client-certificate cases to the existing Test_makeGatewayStatus table, which widens that table's job.",
+          "x/httproute.go keeps the retry builder (loadHTTPRouteRetry) next to loadHTTPRouteConfiguration and builds the backendRequest ForwardingTimeouts in one place. y passes a raw time.Duration down through loadWRRService, loadService and loadRequestMirror (which passes 0), and builds the timeout config in loadService. That point favours x.",
+          "y/httproute.go loads mirror filters in a second pass inside loadMiddlewares, after every filter is known to be valid. x builds a separate mirrorConf during the loop and merges it afterwards. Both keep mirror logic in httproute.go, and y's split between collecting and applying filters is a little clearer.",
+          "Both versions keep the gateway-status merge (mergeGatewayStatus, withoutForeignConditions) in client.go next to the other status-equality helpers, so the new code fits the existing structure equally well."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 795180,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 782250,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 1171,
+            "output_tokens_details": {
+              "thinking_tokens": 650
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 782250,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 1171,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 782250,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 782250
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 6.2837794,
+          "duration_s": 16.0
+        }
+      },
+      "second": {
+        "better": "y",
+        "reasons": [
+          "In y/httproute.go, loadMiddlewares stages mirror backends in a separate mirrorConf and merges it once the loop ends. x/httproute.go instead keeps a `mirrors` map keyed by middleware name and runs a second pass over it inside the naming loop, which ties mirror loading to middleware registration.",
+          "In y, loadHTTPRouteConfiguration builds the backendRequest *dynamic.ForwardingTimeouts once, next to the request-timeout parsing, so all timeout logic sits in one place. x passes a raw time.Duration down through loadWRRService and loadService, and loadService then builds the ForwardingTimeouts itself, so the timeout logic is split across layers.",
+          "y names its new methods loadHTTPRouteRetry and loadHTTPRouteRequestMirror, which matches the existing loadHTTPRouteFilterExtensionRef. y also places the retry helper right after the configuration function that uses it. x's createRetry is a Provider method that reads p.RetryMaxRequestBodyBytes, yet it sits among the pure create* filter builders (createCORS, createURLRewrite) that take no provider state.",
+          "x is better on one point. It pulls the Gateway ResolvedRefs logic out into makeGatewayResolvedRefsCondition in kubernetes.go, which gives it a clear single job. y inlines the same logic into makeGatewayStatus, which makes that function longer.",
+          "In y/tlsroute.go, the backend client certificate is applied in the same spot and with the same guard as in httproute.go and grpcroute.go. In x/tlsroute.go, the check is mixed into the passthrough and load-balancer setup, so it reads differently from its siblings."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 795230,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 782246,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 1225,
+            "output_tokens_details": {
+              "thinking_tokens": 637
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 782246,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 1225,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 782246,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 782246
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 6.2848274,
+          "duration_s": 50.7
+        }
+      }
+    },
+    {
+      "x": "R/1",
+      "y": "M/1",
+      "winner": "R",
+      "first": {
+        "better": "x",
+        "reasons": [
+          "x moves BackendTLSPolicy handling into a new backendtlspolicy.go (loadBackendTLS, loadBackendTLSPolicyClientConfig, newServersTransport) that HTTP, GRPC and TLS routes all share. y pastes the same ~100-line policy loop into grpcroute.go, httproute.go and tlsroute.go, and adds two near-identical converters (loadServersTransport, loadTCPServersTransport).",
+          "x gives the Gateway TLS feature its own file, gatewaytls.go (frontendValidation, resolveCACertificateRefs, resolveBackendClientCertificate, gatewayResolvedRefsCondition), with matching tests in gatewaytls_test.go. y adds the same functions to the already 2000+ line kubernetes.go and its test file.",
+          "x adds an httpRouteLoader type in httproute.go that holds the per-listener context (gateway, listener, route, statusReport). y instead adds those parameters to every HTTP loader function, giving 11–12-argument signatures on loadService and loadMiddlewares.",
+          "x splits HTTPRoute timeout and retry parsing into small helpers (routerRespondingTimeouts, parseBackendRequestTimeout, buildRetry). y writes the parsing inline in loadHTTPRouteConfiguration, so that function does more than one job."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 787857,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 775628,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 470,
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 775628,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 470,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 775628,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 775628
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 6.2167834,
+          "duration_s": 10.9
+        }
+      },
+      "second": {
+        "better": "y",
+        "reasons": [
+          "y/backendtlspolicy.go pulls the BackendTLSPolicy matching, status recording, and client TLS config out into one shared loadBackendTLS. In x, that block is copied three times, once each in httproute.go loadHTTPServers, grpcroute.go loadGRPCServers and tlsroute.go loadTLSServers. x also keeps two copies of the CA/SAN resolution (loadServersTransport in httproute.go, loadTCPServersTransport in tlsroute.go).",
+          "y/gatewaytls.go puts the Gateway-level TLS feature in one file: frontendValidation, resolveFrontendValidation, resolveCACertificateRefs, hasInsecureFrontendValidationMode, resolveBackendClientCertificate and the ResolvedRefs condition builders. In x these stay inside the already 2,375-line kubernetes.go.",
+          "In y the backend client certificate tests sit in gatewaytls_test.go, next to the feature they test. In x, Test_resolveBackendClientCertificate and the related helpers are added to the very large kubernetes_test.go.",
+          "y introduces the httpRouteLoader type, so a route's whole loading context lives in one struct. RequestMirror then loads its backend through the same path as a rule backend. Rule-level helpers (routerRespondingTimeouts, parseBackendRequestTimeout, buildRetry) are split out of the configuration loop. In x, loadHTTPRouteConfiguration inlines all of this, and every function takes long repeated parameter lists.",
+          "x keeps the existing files as they were and only grows them, which preserves the old layout. y's split follows the boundaries between features more closely and leaves smaller files with clearer jobs."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 787976,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 775628,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 589,
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 775628,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 589,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 775628,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 775628
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 6.2191634,
+          "duration_s": 49.7
+        }
+      }
+    },
+    {
+      "x": "RD/1",
+      "y": "MD/1",
+      "winner": "RD",
+      "first": {
+        "better": "x",
+        "reasons": [
+          "x puts BackendTLSPolicy handling in its own backendtlspolicy.go: loadBackendTLSPolicyClientConfig and buildBackendTLSPolicyClientConfig are shared by the HTTP, GRPC and TLS loaders. y copies the whole policy loop into loadHTTPServers, loadGRPCServers and loadTLSServers, and has two near-identical builders: loadServersTransport in httproute.go and loadTCPServersTransport in tlsroute.go.",
+          "x puts the Gateway backend client certificate feature in gatewaybackendtls.go. y adds resolveBackendClientCertificate to kubernetes.go, which is already about 2300 lines, and gives it no file boundary of its own.",
+          "x adds an httpRouteLoader type in httproute.go that holds the gateway, listener, route and status report context. Its resolveBackend and loadBackend let the RequestMirror filter reuse the backend-loading path. In y, loadService, loadMiddlewares and loadHTTPRouteRequestMirror each take about 10 positional parameters.",
+          "x pulls HTTPRoute timeout parsing and retry building out into parseHTTPRouteTimeouts and buildHTTPRouteRetry. y writes the timeout parsing inline in loadHTTPRouteConfiguration, so that function now does several jobs."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 793527,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 781298,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 470,
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 781298,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 470,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 781298,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 781298
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 6.2621434,
+          "duration_s": 30.6
+        }
+      },
+      "second": {
+        "better": "y",
+        "reasons": [
+          "y moves BackendTLSPolicy handling into a new backendtlspolicy.go (loadBackendTLSPolicyClientConfig, buildBackendTLSPolicyClientConfig). In x that logic is copied three times, in httproute.go loadHTTPServers, grpcroute.go loadGRPCServers and tlsroute.go loadTLSServers, plus two near-identical builders, loadServersTransport and loadTCPServersTransport.",
+          "y puts the new Gateway backend client certificate feature in its own file, gatewaybackendtls.go (loadGatewayBackendTLSClientCertificates). x adds resolveBackendClientCertificate to the already 2300-line kubernetes.go.",
+          "y's httproute.go adds an httpRouteLoader type that holds the gateway, listener, route and status report. A small httpRouteBackend type sits beside it, and resolveBackend/loadBackend are shared between backendRefs and RequestMirror. x keeps passing 10+ parameters through loadService, loadMiddlewares and loadHTTPRouteRequestMirror.",
+          "y splits the timeout and retry parsing in httproute.go into parseHTTPRouteTimeouts and buildHTTPRouteRetry, which keeps loadHTTPRouteConfiguration focused on building routers. x parses timeouts inline in that function.",
+          "Because of these extractions, y's route files are smaller and stick to routing: grpcroute.go is 472 lines vs 581, tlsroute.go 423 vs 641, httproute.go 1073 vs 1249."
+        ],
+        "audit": {
+          "ok": true,
+          "issues": [],
+          "warnings": []
+        },
+        "agent": {
+          "exit_code": 0,
+          "is_error": false,
+          "num_turns": 1,
+          "tokens": 793602,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 781300,
+            "cache_read_input_tokens": 11757,
+            "output_tokens": 543,
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "server_tool_use": {
+              "web_search_requests": 0,
+              "web_fetch_requests": 0
+            },
+            "service_tier": "standard",
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 781300,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "inference_geo": "global",
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 543,
+                "cache_read_input_tokens": 11757,
+                "cache_creation_input_tokens": 781300,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 781300
+                },
+                "type": "message"
+              }
+            ],
+            "speed": "standard",
+            "fallback_credit": null
+          },
+          "cost_usd": 6.2636194,
+          "duration_s": 49.6
+        }
+      }
+    }
+  ]
+}

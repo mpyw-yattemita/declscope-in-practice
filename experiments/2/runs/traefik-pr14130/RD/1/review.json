@@ -1,0 +1,218 @@
+{
+  "arm": "RD",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/client.go",
+      "line": 430,
+      "problem": "ListBackendTLSPoliciesForService appends a policy once for every matching targetRef. A policy that targets the same Service twice (for example two sectionNames) is returned twice. loadBackendTLSPolicyClientConfig then handles the second copy as a different policy, so it records a Conflicted status against itself. The targetRef matching is also split: group and kind are checked here, name and sectionName in backendtlspolicy.go.",
+      "fix": "Append each policy at most once (`break` after the first matching ref, or use slices.ContainsFunc). Move the full targetRef check (group, kind, name, sectionName) into one helper, e.g. `backendTLSPolicyTargetsPort(ref, serviceName, svcPort)`, and use it in both files."
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 46,
+      "problem": "The inner loop over policy.Spec.TargetRefs runs the build and status logic once per matching targetRef. A policy with both a sectionName-less ref and a sectionName ref for the same port is built twice and marks itself Conflicted.",
+      "fix": "Pick the matching targetRef with slices.ContainsFunc and the shared helper. Then process each policy once in the outer loop, with no nested per-ref build and status code."
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 93,
+      "problem": "loadBackendTLSPolicyClientConfig and buildBackendTLSPolicyClientConfig build about ten nearly identical metav1.Condition literals. Only Type, Status, Reason and Message change, and ObservedGeneration and LastTransitionTime are repeated each time. This hides the real decision logic (conflict, accepted, invalid).",
+      "fix": "Add small constructors such as `policyCondition(policy, condType, status, reason, msg)` and `routeResolvedRefsFalse(generation, reason, msg)`, and use them for every literal in the file."
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 215,
+      "problem": "The ca.crt lookup from a ConfigMap or Secret (get the object, read ca.crt, error if empty) duplicates the ConfigMap ca.crt lookup in resolveCACertificateRefs (kubernetes.go:1177). The two copies already produce different error messages.",
+      "fix": "Extract `p.getCACertificate(namespace string, kind gatev1.Kind, name gatev1.ObjectName) (string, error)` that supports ConfigMap and Secret. Call it from buildBackendTLSPolicyClientConfig and resolveCACertificateRefs, and wrap the error in each caller's condition."
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 22,
+      "problem": "loadBackendTLSPolicyClientConfig takes 8 parameters. gatewayName, gatewayNamespace, listener and statusReport are passed unchanged through loadGRPCService → loadGRPCBackendRef → loadGRPCServers and through the TLSRoute chain (loadTLSWRRService → loadTLSService → loadTLSServers) only to reach this function. httproute.go already solves this with httpRouteLoader.",
+      "fix": "Group the four values in a struct, e.g. `backendTLSContext{gatewayName, gatewayNamespace string; listener gatewayListener; statusReport *statusReport}`, or make the method take a gatewayListenersForParentRef match. Pass that struct instead, and reuse it in httpRouteLoader and in the GRPC and TLS loaders."
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 524,
+      "problem": "The scheme is chosen by checking `serversTransport != nil` as a proxy for 'a BackendTLSPolicy applies'. This forces loadBackend (line 480) to add ForwardingTimeouts only after loadServers returns, and it needs a comment to explain that ordering. grpcroute.go:368 has the same coupling.",
+      "fix": "Branch on `clientConfig != nil` (the BackendTLSPolicy result) instead of serversTransport. Then remove the ordering comment at line 480, since timeouts can be added in any order."
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 347,
+      "problem": "loadGRPCServers is a near copy of httpRouteLoader.loadServers (httproute.go:500): get backend addresses, load BackendTLSPolicy, choose the scheme, build the server URLs. The only differences are the protocol function and the 'GRPCBackendRef' or 'HTTPBackendRef' text in messages.",
+      "fix": "Extract one `p.loadHTTPServers(ctx backendTLSContext, namespace string, ref gatev1.BackendObjectReference, generation int64, protocolOf func(corev1.ServicePort) (string, error), refLabel string)`. Have both routes call it with getGRPCServiceProtocol or getHTTPServiceProtocol."
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 443,
+      "problem": "loadBackend calls loadHTTPBackendRef with the raw backend.ref, and loadHTTPBackendRef dereferences *backendRef.Group and *backendRef.Kind (line 697). resolveBackend has already computed the defaulted group and kind, but they are thrown away. A nil Group or Kind (now also reachable from RequestMirror filters through loadRequestMirror) panics.",
+      "fix": "Change the signature to loadHTTPBackendRef(namespace, group string, kind gatev1.Kind, name gatev1.ObjectName), pass backend.group, backend.kind and backend.ref.Name, and remove the pointer dereferences."
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 375,
+      "problem": "`serversTransport != nil && serversTransport.TLS != nil` is a roundabout `clientConfig != nil`. The passthrough expression is written twice (lines 162 and 369). In passthrough mode a TLS ServersTransport is still created and attached even though it is never used.",
+      "fix": "Add `isTLSPassthrough(listener gatewayListener) bool` and use it at lines 162 and 369. Set `TLS: clientConfig != nil && !passthrough`, and only build the TCPServersTransport when the servers actually dial TLS."
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 893,
+      "problem": "policyAncestorStatusesEqual and routeParentStatusesEqual (line 923) contain the same unordered, two-way ContainsFunc comparison. Only the element type and the equality function differ.",
+      "fix": "Add a generic `unorderedEqualFunc[T any](a, b []T, eq func(T, T) bool) bool` and write both functions as one-line calls to it."
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 21,
+      "problem": "Doc comments end with a stray empty `//` line: here, at backendtlspolicy.go:140 and at gatewaybackendtls.go:14.",
+      "fix": "Delete the trailing `//` line in the three comments."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/client.go",
+      "line": 430,
+      "problem": "ListBackendTLSPoliciesForService appends a policy once for every matching targetRef. A policy that targets the same Service twice (for example two sectionNames) is returned twice. loadBackendTLSPolicyClientConfig then handles the second copy as a different policy, so it records a Conflicted status against itself. The targetRef matching is also split: group and kind are checked here, name and sectionName in backendtlspolicy.go.",
+      "fix": "Append each policy at most once (`break` after the first matching ref, or use slices.ContainsFunc). Move the full targetRef check (group, kind, name, sectionName) into one helper, e.g. `backendTLSPolicyTargetsPort(ref, serviceName, svcPort)`, and use it in both files.",
+      "category": "duplication",
+      "why": "Confirmed. In client.go:430 the inner loop over TargetRefs appends the policy once for every ref that matches group, kind and name, with no break. So a policy with two refs to the same Service (for example two sectionNames) is listed twice. loadBackendTLSPolicyClientConfig then processes the second copy after clientConfig is already set and records Conflicted against the same policy. The targetRef match is split: group, kind and name are checked in client.go, and name again plus sectionName in backendtlspolicy.go. One helper used in both places would fix both problems.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 46,
+      "problem": "The inner loop over policy.Spec.TargetRefs runs the build and status logic once per matching targetRef. A policy with both a sectionName-less ref and a sectionName ref for the same port is built twice and marks itself Conflicted.",
+      "fix": "Pick the matching targetRef with slices.ContainsFunc and the shared helper. Then process each policy once in the outer loop, with no nested per-ref build and status code.",
+      "category": "other",
+      "why": "Confirmed. backendtlspolicy.go:46 nests the build and status logic inside the per-targetRef loop. A single policy with a sectionName-less ref and a matching sectionName ref for the same port passes both checks. On the second pass clientConfig != nil, so the policy records a Conflicted status against itself. Each policy should be selected once (ContainsFunc with the shared helper) and processed once.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 215,
+      "problem": "The ca.crt lookup from a ConfigMap or Secret (get the object, read ca.crt, error if empty) duplicates the ConfigMap ca.crt lookup in resolveCACertificateRefs (kubernetes.go:1177). The two copies already produce different error messages.",
+      "fix": "Extract `p.getCACertificate(namespace string, kind gatev1.Kind, name gatev1.ObjectName) (string, error)` that supports ConfigMap and Secret. Call it from buildBackendTLSPolicyClientConfig and resolveCACertificateRefs, and wrap the error in each caller's condition.",
+      "category": "duplication",
+      "why": "Confirmed. The ConfigMap branch in buildBackendTLSPolicyClientConfig (get the ConfigMap, read Data[\"ca.crt\"], error if empty) repeats resolveCACertificateRefs in kubernetes.go:1165-1187, and the two already word their errors differently. A shared getCACertificate(namespace, kind, name) for ConfigMap and Secret, with each caller wrapping the error in its own condition, removes the copy.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 22,
+      "problem": "loadBackendTLSPolicyClientConfig takes 8 parameters. gatewayName, gatewayNamespace, listener and statusReport are passed unchanged through loadGRPCService → loadGRPCBackendRef → loadGRPCServers and through the TLSRoute chain (loadTLSWRRService → loadTLSService → loadTLSServers) only to reach this function. httproute.go already solves this with httpRouteLoader.",
+      "fix": "Group the four values in a struct, e.g. `backendTLSContext{gatewayName, gatewayNamespace string; listener gatewayListener; statusReport *statusReport}`, or make the method take a gatewayListenersForParentRef match. Pass that struct instead, and reuse it in httpRouteLoader and in the GRPC and TLS loaders.",
+      "category": "other",
+      "why": "Confirmed. loadBackendTLSPolicyClientConfig takes 8 parameters. gatewayName, gatewayNamespace, listener and statusReport are passed unchanged through loadGRPCRouteConfiguration → loadGRPCService → loadGRPCBackendRef → loadGRPCServers, and through the TLSRoute chain, only to reach it. httpRouteLoader already groups these four values. A shared struct would shorten these signatures and line the three route types up.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 524,
+      "problem": "The scheme is chosen by checking `serversTransport != nil` as a proxy for 'a BackendTLSPolicy applies'. This forces loadBackend (line 480) to add ForwardingTimeouts only after loadServers returns, and it needs a comment to explain that ordering. grpcroute.go:368 has the same coupling.",
+      "fix": "Branch on `clientConfig != nil` (the BackendTLSPolicy result) instead of serversTransport. Then remove the ordering comment at line 480, since timeouts can be added in any order.",
+      "category": "other",
+      "why": "Confirmed. httproute.go:524 and grpcroute.go:368 test `serversTransport == nil` to mean 'no BackendTLSPolicy applies', and the comment at httproute.go:480 exists only to explain that coupling. clientConfig is in scope at both places and states the actual condition. Branching on it removes the indirect check and the ordering comment.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/grpcroute.go",
+      "line": 347,
+      "problem": "loadGRPCServers is a near copy of httpRouteLoader.loadServers (httproute.go:500): get backend addresses, load BackendTLSPolicy, choose the scheme, build the server URLs. The only differences are the protocol function and the 'GRPCBackendRef' or 'HTTPBackendRef' text in messages.",
+      "fix": "Extract one `p.loadHTTPServers(ctx backendTLSContext, namespace string, ref gatev1.BackendObjectReference, generation int64, protocolOf func(corev1.ServicePort) (string, error), refLabel string)`. Have both routes call it with getGRPCServiceProtocol or getHTTPServiceProtocol.",
+      "category": "duplication",
+      "why": "Confirmed. loadGRPCServers (grpcroute.go:347) and httpRouteLoader.loadServers (httproute.go:500) follow the same steps: getBackendAddresses, loadBackendTLSPolicyClientConfig, serversTransportForBackendTLSPolicy, the https or protocol-function choice, and the server URL loop. They differ only in getGRPCServiceProtocol vs getHTTPServiceProtocol and the GRPCBackendRef/HTTPBackendRef label in messages.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/httproute.go",
+      "line": 443,
+      "problem": "loadBackend calls loadHTTPBackendRef with the raw backend.ref, and loadHTTPBackendRef dereferences *backendRef.Group and *backendRef.Kind (line 697). resolveBackend has already computed the defaulted group and kind, but they are thrown away. A nil Group or Kind (now also reachable from RequestMirror filters through loadRequestMirror) panics.",
+      "fix": "Change the signature to loadHTTPBackendRef(namespace, group string, kind gatev1.Kind, name gatev1.ObjectName), pass backend.group, backend.kind and backend.ref.Name, and remove the pointer dereferences.",
+      "category": "other",
+      "why": "Confirmed panic. resolveBackend defaults group to core when ref.Group is nil. loadBackend calls loadHTTPBackendRef whenever group != core or kind != Service, so a ref with nil Group and Kind=TraefikService (name without '@') reaches the `*backendRef.Group` dereference at httproute.go:697 and panics. loadRequestMirror also goes through resolveBackend, so mirror filters can hit this too. Passing in the defaulted backend.group and backend.kind fixes it.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/tlsroute.go",
+      "line": 375,
+      "problem": "`serversTransport != nil && serversTransport.TLS != nil` is a roundabout `clientConfig != nil`. The passthrough expression is written twice (lines 162 and 369). In passthrough mode a TLS ServersTransport is still created and attached even though it is never used.",
+      "fix": "Add `isTLSPassthrough(listener gatewayListener) bool` and use it at lines 162 and 369. Set `TLS: clientConfig != nil && !passthrough`, and only build the TCPServersTransport when the servers actually dial TLS.",
+      "category": "duplication",
+      "why": "Confirmed. The passthrough expression is written at tlsroute.go:162 and again at :369. `serversTransport != nil && serversTransport.TLS != nil` is just `clientConfig != nil`, because the transport is built only from a non-nil clientConfig. In passthrough mode no server sets TLS, but the TLS TCPServersTransport is still returned and attached even though nothing uses it.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/client.go",
+      "line": 893,
+      "problem": "policyAncestorStatusesEqual and routeParentStatusesEqual (line 923) contain the same unordered, two-way ContainsFunc comparison. Only the element type and the equality function differ.",
+      "fix": "Add a generic `unorderedEqualFunc[T any](a, b []T, eq func(T, T) bool) bool` and write both functions as one-line calls to it.",
+      "category": "duplication",
+      "why": "Confirmed. policyAncestorStatusesEqual (client.go:893) and routeParentStatusesEqual (client.go:923) use the same length check and two-way ContainsFunc loops. Only the element type and the equality function differ. A small generic helper covers both.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/backendtlspolicy.go",
+      "line": 21,
+      "problem": "Doc comments end with a stray empty `//` line: here, at backendtlspolicy.go:140 and at gatewaybackendtls.go:14.",
+      "fix": "Delete the trailing `//` line in the three comments.",
+      "category": "other",
+      "why": "Confirmed. Doc comments end with a stray empty `//` line before the func at backendtlspolicy.go:21, before serversTransportForBackendTLSPolicy (around line 140), and in gatewaybackendtls.go:14. It is trivial to remove.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 7,
+  "changed_lines": 2041,
+  "per_kloc": 3.43,
+  "by_category": {
+    "naming": 0,
+    "duplication": 2,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 5
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 823466,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 399565,
+      "cache_read_input_tokens": 418205,
+      "output_tokens": 5692,
+      "output_tokens_details": {
+        "thinking_tokens": 2826
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 399565,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2468,
+          "cache_read_input_tokens": 406448,
+          "cache_creation_input_tokens": 4874,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4874
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 3.3940170000000003,
+    "duration_s": 65.3
+  }
+}

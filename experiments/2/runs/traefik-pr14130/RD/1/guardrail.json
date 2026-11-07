@@ -1,0 +1,94 @@
+{
+  "task": "traefik-pr14130",
+  "arm": "RD",
+  "rep": "1",
+  "steps": [
+    {
+      "step": 1,
+      "verdict": "clean",
+      "checks": 2,
+      "first": 0,
+      "last": 0,
+      "type_errors": 0,
+      "distinct": 0,
+      "by_rule": {},
+      "skill_read": true,
+      "directives_added": 0,
+      "ignores_added": 0,
+      "reported": []
+    },
+    {
+      "step": 2,
+      "verdict": "helped",
+      "checks": 3,
+      "first": 1,
+      "last": 0,
+      "type_errors": 0,
+      "distinct": 1,
+      "by_rule": {
+        "boundary": 1
+      },
+      "skill_read": true,
+      "directives_added": 4,
+      "ignores_added": 0,
+      "reported": [
+        "method Provider.getTLSCert is private to namespace \"kubernetes\", but is used from namespace \"gatewaybackendtls\""
+      ]
+    },
+    {
+      "step": 3,
+      "verdict": "clean",
+      "checks": 1,
+      "first": 0,
+      "last": 0,
+      "type_errors": 0,
+      "distinct": 0,
+      "by_rule": {},
+      "skill_read": true,
+      "directives_added": 0,
+      "ignores_added": 0,
+      "reported": []
+    },
+    {
+      "step": 4,
+      "verdict": "helped",
+      "checks": 3,
+      "first": 0,
+      "last": 0,
+      "type_errors": 0,
+      "distinct": 23,
+      "by_rule": {
+        "qualify": 17,
+        "boundary": 6
+      },
+      "skill_read": true,
+      "directives_added": 0,
+      "ignores_added": 0,
+      "reported": [
+        "const defaultMaxBodySize does not carry namespace \"mirror\" anywhere in its name; rename it to mirrorDefaultMaxBodySize, or to another name that carries \"mirror\"",
+        "field teeBody.mirrors is private to namespace \"streaming\", but is used from namespace \"mirror\"",
+        "func New does not carry namespace \"mirror\" anywhere in its name; rename it to MirrorNew, or to another name that carries \"mirror\"",
+        "func NewReusableRequest does not carry namespace \"mirror\" anywhere in its name; rename it to MirrorNewReusableRequest, or to another name that carries \"mirror\"",
+        "func newStreamedBody does not carry namespace \"streaming\" anywhere in its name; rename it to streamingNewStreamedBody, or to another name that carries \"streaming\"; if the name spells \"streaming\" in another form, list that form under rules.naming.vocabulary.streaming",
+        "func newStreamedBody is private to namespace \"streaming\", but is used from namespace \"mirror\"",
+        "func readingMirror does not carry namespace \"streaming\" anywhere in its name; rename it to streamingReadingMirror, or to another name that carries \"streaming\"; if the name spells \"streaming\" in another form, list that form under rules.naming.vocabulary.streaming",
+        "method streamedBody.closeWithError is private to namespace \"streaming\", but is used from namespace \"mirror\"",
+        "type RequestMirror does not carry namespace \"middlewares\" anywhere in its name; rename it to MiddlewaresRequestMirror, or to another name that carries \"middlewares\"",
+        "type ReusableRequest does not carry namespace \"mirror\" anywhere in its name; rename it to MirrorReusableRequest, or to another name that carries \"mirror\"",
+        "type blackHoleResponseWriter does not carry namespace \"mirror\" anywhere in its name; rename it to mirrorBlackHoleResponseWriter, or to another name that carries \"mirror\"",
+        "type clonableRequest does not carry namespace \"mirror\" anywhere in its name; rename it to mirrorClonableRequest, or to another name that carries \"mirror\"",
+        "type contextStopPropagation does not carry namespace \"mirror\" anywhere in its name; rename it to mirrorContextStopPropagation, or to another name that carries \"mirror\"",
+        "type mirrorResult does not carry namespace \"streaming\" anywhere in its name; rename it to streamingMirrorResult, or to another name that carries \"streaming\"; if the name spells \"streaming\" in another form, list that form under rules.naming.vocabulary.streaming",
+        "type streamedBody does not carry namespace \"streaming\" anywhere in its name; rename it to streamingStreamedBody, or to another name that carries \"streaming\"; if the name spells \"streaming\" in another form, list that form under rules.naming.vocabulary.streaming",
+        "type streamedBody is private to namespace \"streaming\", but is used from namespace \"mirror\"",
+        "type teeBody does not carry namespace \"streaming\" anywhere in its name; rename it to streamingTeeBody, or to another name that carries \"streaming\"; if the name spells \"streaming\" in another form, list that form under rules.naming.vocabulary.streaming",
+        "type teeBody is private to namespace \"streaming\", but is used from namespace \"mirror\"",
+        "var ErrBodyTooLarge does not carry namespace \"mirror\" anywhere in its name; rename it to MirrorErrBodyTooLarge, or to another name that carries \"mirror\"",
+        "var errBodyNotFullyRead does not carry namespace \"streaming\" anywhere in its name; rename it to streamingErrBodyNotFullyRead, or to another name that carries \"streaming\"; if the name spells \"streaming\" in another form, list that form under rules.naming.vocabulary.streaming",
+        "var errBodyNotFullyRead is private to namespace \"streaming\", but is used from namespace \"mirror\"",
+        "var errMirrorTooSlow does not carry namespace \"streaming\" anywhere in its name; rename it to streamingErrMirrorTooSlow, or to another name that carries \"streaming\"; if the name spells \"streaming\" in another form, list that form under rules.naming.vocabulary.streaming",
+        "var errStreamedBodyClose does not carry namespace \"streaming\" anywhere in its name; rename it to streamingErrStreamedBodyClose, or to another name that carries \"streaming\"; if the name spells \"streaming\" in another form, list that form under rules.naming.vocabulary.streaming"
+      ]
+    }
+  ]
+}
