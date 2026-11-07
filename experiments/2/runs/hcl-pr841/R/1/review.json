@@ -1,0 +1,194 @@
+{
+  "arm": "R",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/parser.go",
+      "line": 567,
+      "problem": "parseTemplateExpr sets `expr.wrapped = expr.children.Append(quoted)` by hand. The change added `Expression.wrap` and `wrapExpressionNode` for exactly this, and the function call, tuple and object parsers already use them. This is now the only place that skips the already-wrapped check.",
+      "fix": "Replace the three lines with `return wrapExpressionNode(newQuoted(from.writerTokens))` and drop the `else` after the return."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 385,
+      "problem": "parseExpression has a `case *hclsyntax.ObjectConsKeyExpr` that returns a node whose content is *ObjectConsKeyExpr, not *Expression. Every caller of parseExpression (parseAttribute, parseExpressionList, the object value path, exprsTraversalNodes, ObjectConsValue.Expr) type-asserts the result to *Expression. Keys are only parsed through parseObjectConsKeyExpr, so this case is dead code, and it would panic if it were ever reached.",
+      "fix": "Remove the ObjectConsKeyExpr case from parseExpression so that parseExpression always returns an *Expression node. Keep calling parseObjectConsKeyExpr directly from parseObjectConsExpr."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 442,
+      "problem": "parseObjectConsExpr builds each item by hand: it assigns item.key, item.value and value.expr and appends their nodes one by one. ObjectConsItem.init and newObjectConsValue already cover most of this, and the two code paths that build the same item/value structure can drift apart.",
+      "fix": "Add a helper such as `newObjectConsValueFor(exprNode *node) *ObjectConsValue` that sets `expr` and appends it. Use it in both ObjectConsItem.init and parseObjectConsExpr, and append the item's lead/separator tokens in the same order in both paths."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 199,
+      "problem": "parseBody builds `&Body{inTree: newInTree(), items: newNodeSet()}` by hand instead of calling the existing newBody() constructor. public.go:15 does the same.",
+      "fix": "Use `body := newBody()` in parseBody and in public.go."
+    },
+    {
+      "file": "pkg/ast_body.go",
+      "line": 76,
+      "problem": "GetAttribute repeats the loop from getAttributeNode line for line. Both also loop over the map `b.items`, so if an attribute name appears twice, which one they return is not defined. The new ObjectConsExpr.ItemFor uses `items.List()` and returns the first match in source order.",
+      "fix": "Implement GetAttribute as `if n := b.getAttributeNode(name); n != nil { return n.content.(*Attribute) }; return nil`. Make getAttributeNode loop over `b.items.List()` so the lookup returns the first match in source order, like ItemFor."
+    },
+    {
+      "file": "pkg/ast_body.go",
+      "line": 290,
+      "problem": "AppendNewline builds a newline token literal by hand. The change added newNewlineToken() in ast_object_cons_expr.go, and the same literal is also repeated in ast_attribute.go init and ast_block.go.",
+      "fix": "Move newNewlineToken and newCommaToken into tokens.go next to newIdentToken, and add a newEqualsToken. Use them in Body.AppendNewline, Attribute.init, Block init and ObjectConsItem.init."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 287,
+      "problem": "renamePrefix compares names with `string(step.name.content.(*identifier).token.Bytes) != name`, even though identifier.hasName already does this comparison.",
+      "fix": "Use `if !step.name.content.(*identifier).hasName(name) { return }`."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 358,
+      "problem": "isLineBreak repeats the rule 'a comment ending in \\n ends the line', which partitionLineEndTokens in parser.go (around line 795) also encodes inline. If the rule changes in one place, the other will not change with it.",
+      "fix": "Add a helper `commentEndsLine(b []byte) bool` (or have isLineBreak take the token type and bytes) and call it from both isLineBreak and partitionLineEndTokens."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 250,
+      "problem": "AsQuotedLiteral is exported but has no doc comment. Its local variable `quoted` shadows the `quoted` type. It also uses an if/else around returns, unlike the As* methods added next to it.",
+      "fix": "Add a doc comment and rewrite the body as `q := e.asQuoted(); if q == nil { return Tokens{} }; return q.tokens`."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr_test.go",
+      "line": 17,
+      "problem": "The shared test helpers are spread over several new test files. tokensString is defined here but used by ast_function_call_expr_test.go. exprsStrings and parseTestExpr live in ast_function_call_expr_test.go but are used by the tuple and expression tests. parseTestObject repeats the parsing code in parseTestExpr. TestObjectConsExprSetItemLayout (line 572) and TestExpressionVariablesAndRename (ast_expression_test.go:112) repeat the ParseConfig and diagnostics boilerplate again.",
+      "fix": "Move parseTestExpr, tokensString, exprsStrings and checkRoundTrip into ast_test.go. Implement parseTestObject as parseTestExpr followed by AsObjectConsExpr and a nil check. Use parseTestExpr in TestExpressionVariablesAndRename."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/parser.go",
+      "line": 567,
+      "problem": "parseTemplateExpr sets `expr.wrapped = expr.children.Append(quoted)` by hand. The change added `Expression.wrap` and `wrapExpressionNode` for exactly this, and the function call, tuple and object parsers already use them. This is now the only place that skips the already-wrapped check.",
+      "fix": "Replace the three lines with `return wrapExpressionNode(newQuoted(from.writerTokens))` and drop the `else` after the return.",
+      "category": "duplication",
+      "why": "parseTemplateExpr builds the Expression and sets `wrapped` by hand. `Expression.wrap` and `wrapExpressionNode` (parser.go:519) already do this, including the already-wrapped check. The object, function call and tuple parsers already call `wrapExpressionNode`.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 385,
+      "problem": "parseExpression has a `case *hclsyntax.ObjectConsKeyExpr` that returns a node whose content is *ObjectConsKeyExpr, not *Expression. Every caller of parseExpression (parseAttribute, parseExpressionList, the object value path, exprsTraversalNodes, ObjectConsValue.Expr) type-asserts the result to *Expression. Keys are only parsed through parseObjectConsKeyExpr, so this case is dead code, and it would panic if it were ever reached.",
+      "fix": "Remove the ObjectConsKeyExpr case from parseExpression so that parseExpression always returns an *Expression node. Keep calling parseObjectConsKeyExpr directly from parseObjectConsExpr.",
+      "category": "dead",
+      "why": "parseExpression is only called on attribute exprs, list elements, object values and `ObjectConsKeyExpr.Wrapped`. None of these can be an `*hclsyntax.ObjectConsKeyExpr`, because keys go through `parseObjectConsKeyExpr` directly. So this case can never run. If it did run, it would return non-*Expression content that callers like `ObjectConsValue.Expr` type-assert to *Expression and panic on.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 199,
+      "problem": "parseBody builds `&Body{inTree: newInTree(), items: newNodeSet()}` by hand instead of calling the existing newBody() constructor. public.go:15 does the same.",
+      "fix": "Use `body := newBody()` in parseBody and in public.go.",
+      "category": "duplication",
+      "why": "`newBody()` (ast_body.go:20) builds exactly the same literal. parseBody and NewFile in public.go both repeat it by hand.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_body.go",
+      "line": 76,
+      "problem": "GetAttribute repeats the loop from getAttributeNode line for line. Both also loop over the map `b.items`, so if an attribute name appears twice, which one they return is not defined. The new ObjectConsExpr.ItemFor uses `items.List()` and returns the first match in source order.",
+      "fix": "Implement GetAttribute as `if n := b.getAttributeNode(name); n != nil { return n.content.(*Attribute) }; return nil`. Make getAttributeNode loop over `b.items.List()` so the lookup returns the first match in source order, like ItemFor.",
+      "category": "duplication",
+      "why": "GetAttribute and getAttributeNode have the same loop body. Both range over `b.items`, which is a map (`nodeSet map[*node]struct{}`), so with duplicate names the result depends on map iteration order. `items.List()` would give source order, like ItemFor.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_body.go",
+      "line": 290,
+      "problem": "AppendNewline builds a newline token literal by hand. The change added newNewlineToken() in ast_object_cons_expr.go, and the same literal is also repeated in ast_attribute.go init and ast_block.go.",
+      "fix": "Move newNewlineToken and newCommaToken into tokens.go next to newIdentToken, and add a newEqualsToken. Use them in Body.AppendNewline, Attribute.init, Block init and ObjectConsItem.init.",
+      "category": "duplication",
+      "why": "The newline token literal appears in ast_body.go:293, ast_attribute.go:43 and ast_block.go:48/60, and `newNewlineToken` exists in ast_object_cons_expr.go. The `=` token literal is repeated in ast_attribute.go:34 and ast_object_cons_expr.go:195. Token constructors belong in tokens.go next to `newIdentToken`.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 287,
+      "problem": "renamePrefix compares names with `string(step.name.content.(*identifier).token.Bytes) != name`, even though identifier.hasName already does this comparison.",
+      "fix": "Use `if !step.name.content.(*identifier).hasName(name) { return }`.",
+      "category": "duplication",
+      "why": "`identifier.hasName` (ast.go:87) does exactly this `string(token.Bytes) == name` comparison.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 250,
+      "problem": "AsQuotedLiteral is exported but has no doc comment. Its local variable `quoted` shadows the `quoted` type. It also uses an if/else around returns, unlike the As* methods added next to it.",
+      "fix": "Add a doc comment and rewrite the body as `q := e.asQuoted(); if q == nil { return Tokens{} }; return q.tokens`.",
+      "category": "other",
+      "why": "AsQuotedLiteral is exported and has no doc comment, while the As* methods next to it all have one. Its local `quoted` shadows the `quoted` type, and its if/else around returns does not match the style of the methods around it.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_object_cons_expr_test.go",
+      "line": 17,
+      "problem": "The shared test helpers are spread over several new test files. tokensString is defined here but used by ast_function_call_expr_test.go. exprsStrings and parseTestExpr live in ast_function_call_expr_test.go but are used by the tuple and expression tests. parseTestObject repeats the parsing code in parseTestExpr. TestObjectConsExprSetItemLayout (line 572) and TestExpressionVariablesAndRename (ast_expression_test.go:112) repeat the ParseConfig and diagnostics boilerplate again.",
+      "fix": "Move parseTestExpr, tokensString, exprsStrings and checkRoundTrip into ast_test.go. Implement parseTestObject as parseTestExpr followed by AsObjectConsExpr and a nil check. Use parseTestExpr in TestExpressionVariablesAndRename.",
+      "category": "duplication",
+      "why": "parseTestObject repeats the parse-and-check-diagnostics code of parseTestExpr. TestObjectConsExprSetItemLayout and TestExpressionVariablesAndRename repeat it again. Shared helpers like tokensString and exprsStrings live in files of unrelated tests that use each other's helpers, so moving them into ast_test.go is the right place.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 2,
+  "changed_lines": 1681,
+  "per_kloc": 1.19,
+  "by_category": {
+    "naming": 0,
+    "duplication": 2,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 0
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 3,
+    "tokens": 287057,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 85307,
+      "cache_read_input_tokens": 197211,
+      "output_tokens": 4533,
+      "output_tokens_details": {
+        "thinking_tokens": 2220
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 85307,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2047,
+          "cache_read_input_tokens": 95008,
+          "cache_creation_input_tokens": 2056,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2056
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.8125822,
+    "duration_s": 49.2
+  }
+}

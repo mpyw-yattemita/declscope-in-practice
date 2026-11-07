@@ -1,0 +1,26 @@
+This directory holds one Go package, `pkg/`. A reviewer listed the findings
+below. Check each one against the code.
+
+0. pkg/parser.go:567: parseTemplateExpr sets `expr.wrapped = expr.children.Append(quoted)` by hand. The change added `Expression.wrap` and `wrapExpressionNode` for exactly this, and the function call, tuple and object parsers already use them. This is now the only place that skips the already-wrapped check. Fix: Replace the three lines with `return wrapExpressionNode(newQuoted(from.writerTokens))` and drop the `else` after the return.
+1. pkg/parser.go:385: parseExpression has a `case *hclsyntax.ObjectConsKeyExpr` that returns a node whose content is *ObjectConsKeyExpr, not *Expression. Every caller of parseExpression (parseAttribute, parseExpressionList, the object value path, exprsTraversalNodes, ObjectConsValue.Expr) type-asserts the result to *Expression. Keys are only parsed through parseObjectConsKeyExpr, so this case is dead code, and it would panic if it were ever reached. Fix: Remove the ObjectConsKeyExpr case from parseExpression so that parseExpression always returns an *Expression node. Keep calling parseObjectConsKeyExpr directly from parseObjectConsExpr.
+2. pkg/parser.go:442: parseObjectConsExpr builds each item by hand: it assigns item.key, item.value and value.expr and appends their nodes one by one. ObjectConsItem.init and newObjectConsValue already cover most of this, and the two code paths that build the same item/value structure can drift apart. Fix: Add a helper such as `newObjectConsValueFor(exprNode *node) *ObjectConsValue` that sets `expr` and appends it. Use it in both ObjectConsItem.init and parseObjectConsExpr, and append the item's lead/separator tokens in the same order in both paths.
+3. pkg/parser.go:199: parseBody builds `&Body{inTree: newInTree(), items: newNodeSet()}` by hand instead of calling the existing newBody() constructor. public.go:15 does the same. Fix: Use `body := newBody()` in parseBody and in public.go.
+4. pkg/ast_body.go:76: GetAttribute repeats the loop from getAttributeNode line for line. Both also loop over the map `b.items`, so if an attribute name appears twice, which one they return is not defined. The new ObjectConsExpr.ItemFor uses `items.List()` and returns the first match in source order. Fix: Implement GetAttribute as `if n := b.getAttributeNode(name); n != nil { return n.content.(*Attribute) }; return nil`. Make getAttributeNode loop over `b.items.List()` so the lookup returns the first match in source order, like ItemFor.
+5. pkg/ast_body.go:290: AppendNewline builds a newline token literal by hand. The change added newNewlineToken() in ast_object_cons_expr.go, and the same literal is also repeated in ast_attribute.go init and ast_block.go. Fix: Move newNewlineToken and newCommaToken into tokens.go next to newIdentToken, and add a newEqualsToken. Use them in Body.AppendNewline, Attribute.init, Block init and ObjectConsItem.init.
+6. pkg/ast_expression.go:287: renamePrefix compares names with `string(step.name.content.(*identifier).token.Bytes) != name`, even though identifier.hasName already does this comparison. Fix: Use `if !step.name.content.(*identifier).hasName(name) { return }`.
+7. pkg/ast_object_cons_expr.go:358: isLineBreak repeats the rule 'a comment ending in \n ends the line', which partitionLineEndTokens in parser.go (around line 795) also encodes inline. If the rule changes in one place, the other will not change with it. Fix: Add a helper `commentEndsLine(b []byte) bool` (or have isLineBreak take the token type and bytes) and call it from both isLineBreak and partitionLineEndTokens.
+8. pkg/ast_expression.go:250: AsQuotedLiteral is exported but has no doc comment. Its local variable `quoted` shadows the `quoted` type. It also uses an if/else around returns, unlike the As* methods added next to it. Fix: Add a doc comment and rewrite the body as `q := e.asQuoted(); if q == nil { return Tokens{} }; return q.tokens`.
+9. pkg/ast_object_cons_expr_test.go:17: The shared test helpers are spread over several new test files. tokensString is defined here but used by ast_function_call_expr_test.go. exprsStrings and parseTestExpr live in ast_function_call_expr_test.go but are used by the tuple and expression tests. parseTestObject repeats the parsing code in parseTestExpr. TestObjectConsExprSetItemLayout (line 572) and TestExpressionVariablesAndRename (ast_expression_test.go:112) repeat the ParseConfig and diagnostics boilerplate again. Fix: Move parseTestExpr, tokensString, exprsStrings and checkRoundTrip into ast_test.go. Implement parseTestObject as parseTestExpr followed by AsObjectConsExpr and a nil check. Use parseTestExpr in TestExpressionVariablesAndRename.
+
+For each finding, decide whether it is real and worth fixing now. For each
+kept finding, give one category:
+
+- naming: a name does not match its role, or one idea has two names
+- duplication: the same logic is written twice
+- over-abstraction: a shared helper couples callers that are not related
+- mixed-job: one function or type does two unrelated jobs
+- dead: a definition is unused
+- other: none of the above
+
+Answer with one JSON object and nothing else:
+{"verdicts": [{"index": 0, "keep": true, "category": "naming", "why": "..."}]}

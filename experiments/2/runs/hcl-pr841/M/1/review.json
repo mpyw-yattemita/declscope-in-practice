@@ -1,0 +1,164 @@
+{
+  "arm": "M",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 206,
+      "problem": "isLineEnd does the same job as tokenIsNewline in format.go (format.go:431): a newline token, or a single-line comment that ends in '\\n'. The 'a comment ends in a newline' rule is also written a third time in partitionLineEndTokens in parser.go. These copies can drift apart.",
+      "fix": "Delete isLineEnd and call tokenIsNewline in hasLineEnd and appendItem. Move tokenIsNewline, hasLineEnd and newNewlineToken into tokens.go next to newIdentToken, because they are general token helpers and are not specific to objects."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 545,
+      "problem": "parseTemplateExpr sets expr.wrapped = expr.children.Append(...) directly, and so does newObjectConsKeyExprForName (ast_object_cons_expr.go:276). Expression.wrap was added for exactly this and has a guard against double wrapping, but these two places skip it.",
+      "fix": "Replace both with expr.wrap(quoted) / expr.wrap(newQuoted(...)), so wrap is the only place that sets Expression.wrapped."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 221,
+      "problem": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted repeat the same 'if wrapped is nil, return nil; type-assert the content' code four times. AsObjectConsExpr also has no doc comment, while the new methods next to it do.",
+      "fix": "Add a generic helper `func wrappedAs[T nodeContent](e *Expression) T` (it returns the zero value when e.wrapped is nil or the assertion fails). Make each As* method a one-line call to it. Add a doc comment to AsObjectConsExpr in the same style as the others."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 145,
+      "problem": "Variables type-switches by hand on each composite expression kind and calls its variables(). Each new wrapped kind needs one more if-block here, and a kind that is left out silently loses its traversals from Variables and from RenameVariablePrefix.",
+      "fix": "Define an internal interface `type variablesNode interface{ variables() []*Traversal }`. In Variables, do one check: `if v, ok := e.wrapped.content.(variablesNode); ok { ret = append(ret, v.variables()...) }` (only when e.wrapped is not nil)."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 533,
+      "problem": "Expression.parent is set by hand in several unrelated places: parseAttribute (parser.go:290), parseObjectConsExpr (parser.go:459), parseExprList (here) and SetItem (ast_object_cons_expr.go:84, 90). Object key expressions never get a parent. Because of this, assertUnattached in SetItem gives inconsistent protection, and every new container has to remember the rule.",
+      "fix": "Add a single helper, for example `func appendExpr(children *nodes, expr *Expression) *node`. It calls expr.assertUnattached(), appends expr, sets expr.parent to the owning node and returns the node. Use it in the parser for attributes, object keys and values, and list elements, and in SetItem. Add the matching detach step (clear parent) in one place too."
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 519,
+      "problem": "parseExprList takes content, children and set as three separate arguments. children and set are really fields of content, so a caller can pass a mismatched combination. The function also builds the wrapping Expression, which is a separate job from parsing the list.",
+      "fix": "Change the signature to `parseExprList(children *nodes, set nodeSet, nativeExprs, from)` and have it fill in only the list. Let parseFunctionCallExpr and parseTupleConsExpr do the wrapping themselves with newExpression().wrap(expr), as parseObjectConsExpr already does. Better still, have it set the parent through the attach helper from the previous finding."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 312,
+      "problem": "ObjectConsExpr.variables sits after the ObjectConsKeyExpr methods, away from the other ObjectConsExpr methods. It reaches into raw nodes (o.items.List(), item.key.content.(*ObjectConsKeyExpr), key.wrapped.content.(*Expression), item.value.content.(*ObjectConsValue)) even though accessors for all of these exist.",
+      "fix": "Move it next to Items/ItemFor and write it with the accessors: `for _, item := range o.Items() { if k := item.KeyExpr(); !k.literal { ret = append(ret, k.expr().Variables()...) }; ret = append(ret, item.ValueExpr().Expr().Variables()...) }`. Add a small `func (k *ObjectConsKeyExpr) expr() *Expression` accessor and use it in name() as well."
+    },
+    {
+      "file": "pkg/ast_expression_test.go",
+      "line": 111,
+      "problem": "TestExpressionVariablesFunctionCallAndTupleCons uses the same table shape and almost the same loop as TestExpressionVariablesObjectCons. The traversal-to-text conversion is copied at lines 88 and 167, and in TestObjectConsExprSetItemHelpers. The function-call/tuple test also skips the hclsyntax variable-count check that the object test has.",
+      "fix": "Merge the two tables into one TestExpressionVariables. Run the same checks on every case: the source round-trips unchanged, the variables match, the variable count matches hclsyntax, and the rename gives the expected source. Add a helper `variableTexts(expr *Expression) []string` built on tokensText, and use it in all three places."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 206,
+      "problem": "isLineEnd does the same job as tokenIsNewline in format.go (format.go:431): a newline token, or a single-line comment that ends in '\\n'. The 'a comment ends in a newline' rule is also written a third time in partitionLineEndTokens in parser.go. These copies can drift apart.",
+      "fix": "Delete isLineEnd and call tokenIsNewline in hasLineEnd and appendItem. Move tokenIsNewline, hasLineEnd and newNewlineToken into tokens.go next to newIdentToken, because they are general token helpers and are not specific to objects.",
+      "category": "duplication",
+      "why": "The rule 'a newline token, or a comment whose bytes end in a newline' is written three times: isLineEnd (ast_object_cons_expr.go:206), tokenIsNewline (format.go:431), and the comment-suffix check in partitionLineEndTokens (parser.go:777). isLineEnd and tokenIsNewline do exactly the same thing, so one can go. newIdentToken already lives in tokens.go, so the token helpers fit there.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/parser.go",
+      "line": 545,
+      "problem": "parseTemplateExpr sets expr.wrapped = expr.children.Append(...) directly, and so does newObjectConsKeyExprForName (ast_object_cons_expr.go:276). Expression.wrap was added for exactly this and has a guard against double wrapping, but these two places skip it.",
+      "fix": "Replace both with expr.wrap(quoted) / expr.wrap(newQuoted(...)), so wrap is the only place that sets Expression.wrapped.",
+      "category": "duplication",
+      "why": "Expression.wrap (ast_expression.go:28) does the append and has a guard against wrapping twice. parseTemplateExpr (parser.go:545) and newObjectConsKeyExprForName (ast_object_cons_expr.go:276) still repeat `expr.wrapped = expr.children.Append(...)` by hand and skip the guard. Both can call wrap() directly.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 221,
+      "problem": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted repeat the same 'if wrapped is nil, return nil; type-assert the content' code four times. AsObjectConsExpr also has no doc comment, while the new methods next to it do.",
+      "fix": "Add a generic helper `func wrappedAs[T nodeContent](e *Expression) T` (it returns the zero value when e.wrapped is nil or the assertion fails). Make each As* method a one-line call to it. Add a doc comment to AsObjectConsExpr in the same style as the others.",
+      "category": "duplication",
+      "why": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted are the same nil check plus a type assertion with only the type changed. A small generic wrappedAs[T] removes the copies without tying unrelated callers together. AsObjectConsExpr is also the only public one of the four without a doc comment.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 145,
+      "problem": "Variables type-switches by hand on each composite expression kind and calls its variables(). Each new wrapped kind needs one more if-block here, and a kind that is left out silently loses its traversals from Variables and from RenameVariablePrefix.",
+      "fix": "Define an internal interface `type variablesNode interface{ variables() []*Traversal }`. In Variables, do one check: `if v, ok := e.wrapped.content.(variablesNode); ok { ret = append(ret, v.variables()...) }` (only when e.wrapped is not nil).",
+      "category": "duplication",
+      "why": "Variables (ast_expression.go:151-159) has one copied if-block per kind that calls variables(). ObjectConsExpr, FunctionCallExpr and TupleConsExpr all already have `variables() []*Traversal`. An interface check makes this a single block, so a new kind can't be left out and silently lose its traversals in Variables and RenameVariablePrefix.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 312,
+      "problem": "ObjectConsExpr.variables sits after the ObjectConsKeyExpr methods, away from the other ObjectConsExpr methods. It reaches into raw nodes (o.items.List(), item.key.content.(*ObjectConsKeyExpr), key.wrapped.content.(*Expression), item.value.content.(*ObjectConsValue)) even though accessors for all of these exist.",
+      "fix": "Move it next to Items/ItemFor and write it with the accessors: `for _, item := range o.Items() { if k := item.KeyExpr(); !k.literal { ret = append(ret, k.expr().Variables()...) }; ret = append(ret, item.ValueExpr().Expr().Variables()...) }`. Add a small `func (k *ObjectConsKeyExpr) expr() *Expression` accessor and use it in name() as well.",
+      "category": "duplication",
+      "why": "ObjectConsExpr.variables (ast_object_cons_expr.go:312) sits among the ObjectConsKeyExpr methods. It also does its own raw node casts (o.items.List(), item.key.content.(*ObjectConsKeyExpr), item.value.content.(*ObjectConsValue)) even though Items(), KeyExpr() and ValueExpr() already exist. name() casts k.wrapped.content.(*Expression) in the same way, so one small expr() accessor serves both places.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_expression_test.go",
+      "line": 111,
+      "problem": "TestExpressionVariablesFunctionCallAndTupleCons uses the same table shape and almost the same loop as TestExpressionVariablesObjectCons. The traversal-to-text conversion is copied at lines 88 and 167, and in TestObjectConsExprSetItemHelpers. The function-call/tuple test also skips the hclsyntax variable-count check that the object test has.",
+      "fix": "Merge the two tables into one TestExpressionVariables. Run the same checks on every case: the source round-trips unchanged, the variables match, the variable count matches hclsyntax, and the rename gives the expected source. Add a helper `variableTexts(expr *Expression) []string` built on tokensText, and use it in all three places.",
+      "category": "duplication",
+      "why": "TestExpressionVariablesObjectCons and TestExpressionVariablesFunctionCallAndTupleCons use the same table shape and almost the same loop. They repeat the traversal-to-text code that the existing tokensText helper already does (and that ast_object_cons_expr_test.go:269 uses). They have also drifted: one test has the hclsyntax count check but no round-trip check, and the other has the reverse. Merging them runs every check on every case.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 3,
+  "changed_lines": 1531,
+  "per_kloc": 1.96,
+  "by_category": {
+    "naming": 0,
+    "duplication": 3,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 0
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 5,
+    "tokens": 434736,
+    "usage": {
+      "input_tokens": 10,
+      "cache_creation_input_tokens": 77080,
+      "cache_read_input_tokens": 353090,
+      "output_tokens": 4556,
+      "output_tokens_details": {
+        "thinking_tokens": 1973
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 77080,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1995,
+          "cache_read_input_tokens": 88453,
+          "cache_creation_input_tokens": 384,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 384
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.778418,
+    "duration_s": 54.0
+  }
+}

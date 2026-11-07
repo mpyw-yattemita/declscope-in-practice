@@ -1,0 +1,155 @@
+{
+  "arm": "RD",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/parser.go",
+      "line": 443,
+      "problem": "parseTemplateExpr sets `expr.wrapped = expr.children.Append(quoted)` directly. Every other wrapping site now calls the new `Expression.wrap`, which also guards against wrapping twice. This site skips that guard and keeps a second way of setting `wrapped`.",
+      "fix": "Replace the two lines with `expr.wrap(quoted)`, the same as parseObjectConsExpr, parseFunctionCallExpr and parseTupleConsExpr."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 172,
+      "problem": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted repeat the same nil check and type assertion on `e.wrapped.content`. The new code copies this block twice more, and AsObjectConsExpr is still the only exported one with no doc comment.",
+      "fix": "Add one generic helper, `func wrappedAs[T nodeContent](e *Expression) T`, that returns the zero value when `wrapped` is nil or holds a different type. Make all four methods one-line calls to it, and give AsObjectConsExpr a doc comment like the other two."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 222,
+      "problem": "Expression.traversals type-switches over *ObjectConsExpr, *FunctionCallExpr and *TupleConsExpr only to call the same `traversals(to)` method on each. Every new wrapped expression kind needs another case here.",
+      "fix": "Declare an unexported interface `type traversalHolder interface{ traversals([]*Traversal) []*Traversal }`. Replace the switch with `if h, ok := e.wrapped.content.(traversalHolder); ok { to = h.traversals(to) }`."
+    },
+    {
+      "file": "pkg/ast_tuple_cons_expr.go",
+      "line": 29,
+      "problem": "TupleConsExpr is FunctionCallExpr with only the field renamed (elems instead of args). The constructor and the traversals method are copies, and parseTupleConsExpr and parseFunctionCallExpr are copies too. They already share parseExpressionList.",
+      "fix": "Pull the shared part into an embedded type, e.g. `type exprList struct { inTree; items nodeSet }`, with `newExprList()` and `traversals(to)`. Embed it in both structs and delete the duplicated traversals methods. parseExpressionList can then take the `*exprList`."
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 91,
+      "problem": "NewExpressionAbsTraversal builds identifier tokens by hand with `&Token{Type: hclsyntax.TokenIdent, Bytes: []byte(name)}` (root and attribute steps). The package already has newIdentToken for this, and ast_attribute.go, ast_block.go and generate.go use it.",
+      "fix": "Use `newIdentifier(newIdentToken(rootName))` and `newIdentifier(newIdentToken(ts.Name))`."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 162,
+      "problem": "appendItem writes the newline token literal `&Token{Type: hclsyntax.TokenNewline, Bytes: []byte{'\\n'}}` twice (lines 162 and 164). objectConsBreaksLine only loops tokenIsNewline over a slice, which is a general Tokens helper hidden under an object-specific name.",
+      "fix": "Add `newNewlineToken()` next to newIdentToken in tokens.go and use it at both places. Rename objectConsBreaksLine to a Tokens method, e.g. `func (ts Tokens) hasNewline() bool`, in tokens.go."
+    },
+    {
+      "file": "pkg/partition.go",
+      "line": 133,
+      "problem": "partitionableTokens.Types() has no callers in the package, test files included. It came over in the move from parser.go and is dead code.",
+      "fix": "Delete the Types method. While editing this file, also fix the doc comment at line ~72, which says `PartitionIncludeComments` but the method is `PartitionIncludingComments`."
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 210,
+      "problem": "`gofmt -l` lists 11 changed or new files: ast_expression.go, ast_function_call_expr.go, ast_function_call_expr_test.go, ast_object_cons_expr.go, ast_object_cons_expr_test.go, ast_tuple_cons_expr.go, format.go, parser.go, parser_test.go, partition.go, tokens.go. The causes are the unaligned `key *node` / `value *node` fields in ObjectConsItem, the double blank line after the license header in the new files, and a trailing empty `//` line on doc comments (tokenIsNewline, writerTokens, lexConfigTokens, parse, the traversals methods, the partitionableTokens fields).",
+      "fix": "Run `gofmt -w` on the package. Then delete the leftover trailing `//` lines by hand so the doc comments end at the last sentence."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/parser.go",
+      "line": 443,
+      "problem": "parseTemplateExpr sets `expr.wrapped = expr.children.Append(quoted)` directly. Every other wrapping site now calls the new `Expression.wrap`, which also guards against wrapping twice. This site skips that guard and keeps a second way of setting `wrapped`.",
+      "fix": "Replace the two lines with `expr.wrap(quoted)`, the same as parseObjectConsExpr, parseFunctionCallExpr and parseTupleConsExpr.",
+      "category": "duplication",
+      "why": "Confirmed at parser.go:443. parseTemplateExpr still sets `expr.wrapped = expr.children.Append(quoted)` by hand. Expression.wrap (ast_expression.go:28) does the same thing and also panics on a second wrap. The other three parse sites call wrap, so this one bypasses that guard. Replacing it with `expr.wrap(quoted)` behaves the same.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 172,
+      "problem": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted repeat the same nil check and type assertion on `e.wrapped.content`. The new code copies this block twice more, and AsObjectConsExpr is still the only exported one with no doc comment.",
+      "fix": "Add one generic helper, `func wrappedAs[T nodeContent](e *Expression) T`, that returns the zero value when `wrapped` is nil or holds a different type. Make all four methods one-line calls to it, and give AsObjectConsExpr a doc comment like the other two.",
+      "category": "duplication",
+      "why": "AsObjectConsExpr, AsFunctionCallExpr, AsTupleConsExpr and asQuoted have the same body: a nil check on wrapped, then a type assertion that returns the zero value on failure. Only the type differs. A generic `wrappedAs[T]` helper makes each one a single line. AsObjectConsExpr is also the only exported one of the three with no doc comment.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/ast_expression.go",
+      "line": 222,
+      "problem": "Expression.traversals type-switches over *ObjectConsExpr, *FunctionCallExpr and *TupleConsExpr only to call the same `traversals(to)` method on each. Every new wrapped expression kind needs another case here.",
+      "fix": "Declare an unexported interface `type traversalHolder interface{ traversals([]*Traversal) []*Traversal }`. Replace the switch with `if h, ok := e.wrapped.content.(traversalHolder); ok { to = h.traversals(to) }`.",
+      "category": "duplication",
+      "why": "All three cases of the switch in Expression.traversals call the same `traversals(to)` method. An unexported interface plus one type assertion removes the repeated cases, and new wrapped kinds will not need another case.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/partition.go",
+      "line": 133,
+      "problem": "partitionableTokens.Types() has no callers in the package, test files included. It came over in the move from parser.go and is dead code.",
+      "fix": "Delete the Types method. While editing this file, also fix the doc comment at line ~72, which says `PartitionIncludeComments` but the method is `PartitionIncludingComments`.",
+      "category": "dead",
+      "why": "Searching the whole package, tests and the fuzz directory included, finds only the definition of partitionableTokens.Types(). It has no callers. The doc comment on PartitionIncludingComments does say `PartitionIncludeComments`, and so does the comment on PartitionBlockItem, which should be fixed in the same edit.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/ast_object_cons_expr.go",
+      "line": 210,
+      "problem": "`gofmt -l` lists 11 changed or new files: ast_expression.go, ast_function_call_expr.go, ast_function_call_expr_test.go, ast_object_cons_expr.go, ast_object_cons_expr_test.go, ast_tuple_cons_expr.go, format.go, parser.go, parser_test.go, partition.go, tokens.go. The causes are the unaligned `key *node` / `value *node` fields in ObjectConsItem, the double blank line after the license header in the new files, and a trailing empty `//` line on doc comments (tokenIsNewline, writerTokens, lexConfigTokens, parse, the traversals methods, the partitionableTokens fields).",
+      "fix": "Run `gofmt -w` on the package. Then delete the leftover trailing `//` lines by hand so the doc comments end at the last sentence.",
+      "category": "other",
+      "why": "`gofmt -l` lists exactly these 11 files. Examples I checked: the unaligned key/value fields in ObjectConsItem, a double blank line after the license header in ast_tuple_cons_expr.go and ast_function_call_expr.go, and a trailing `//` on doc comments. Running `gofmt -w` fixes it. Recent gofmt (Go 1.19 and later) already removes the trailing `//` lines, so the hand edit is probably unnecessary.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 3,
+  "changed_lines": 2434,
+  "per_kloc": 1.23,
+  "by_category": {
+    "naming": 0,
+    "duplication": 1,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 1,
+    "other": 1
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 3,
+    "tokens": 306550,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 90688,
+      "cache_read_input_tokens": 212114,
+      "output_tokens": 3742,
+      "output_tokens_details": {
+        "thinking_tokens": 1741
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 90688,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2012,
+          "cache_read_input_tokens": 101394,
+          "cache_creation_input_tokens": 1051,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1051
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.8427908,
+    "duration_s": 40.3
+  }
+}
