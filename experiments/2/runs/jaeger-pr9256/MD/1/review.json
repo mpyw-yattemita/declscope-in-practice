@@ -1,0 +1,155 @@
+{
+  "arm": "MD",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/filter.go",
+      "line": 49,
+      "problem": "The methods use different receiver kinds. IsEmpty has a pointer receiver and is safe on nil, but SupportsLevel and SupportsOperator have value receivers. SearchCapabilities.Filter is a *FilterCapabilities that is nil by default, so caps.Filter.SupportsOperator(op) panics with a nil dereference whenever a reader leaves Filter unset. Only IsEmpty is safe to call on what a reader returns by default.",
+      "fix": "Give SupportsLevel and SupportsOperator pointer receivers and make them nil-safe, the same way IsEmpty is: `func (c *FilterCapabilities) SupportsOperator(op expression.Operator) bool { return c != nil && slices.Contains(c.Operators, op) }`, and `return level == \"\" || (c != nil && slices.Contains(c.Levels, level))` in SupportsLevel. Add nil-receiver cases to filter_test.go. If the next finding is applied instead, this one is no longer needed."
+    },
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 31,
+      "problem": "Filter is a pointer, so 'no filter support' can be written two ways: nil and &FilterCapabilities{}. The doc comments on both types must tell callers not to compare against nil, and IsEmpty needs a nil special case. The pointer adds no meaning, because the zero value of FilterCapabilities already means 'supports nothing', which matches the stated rule that a zero SearchCapabilities is the least capable reader.",
+      "fix": "Change the field to a value, `Filter FilterCapabilities`. Then give IsEmpty a value receiver without the nil check. Drop the 'nil Filter / ask IsEmpty rather than comparing against nil' sentences from this comment and from the FilterCapabilities doc in filter.go (lines 29-31). Remove the nil case from TestFilterCapabilitiesIsEmpty and update TestSearchCapabilitiesZeroValue."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 49,
+      "problem": "The FindTraces doc still says that whether conjunctive filters must match the same span is an 'implementation-dependent ambiguity'. The new SearchCapabilities.SameSpanConjunction field now answers that question for each reader, so this comment is out of date and contradicts the new contract.",
+      "fix": "Replace the paragraph with: 'Whether several conditions (Attributes entries or an OpAnd in Filter) must be satisfied by the same span is declared by SearchCapabilities.SameSpanConjunction.'"
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 111,
+      "problem": "The comment says Filter is mutually exclusive with ServiceName, OperationName, Attributes and the duration bounds, but nothing checks this. ErrFilterInvalid and ErrFilterUnsupported are also declared but never used in this package, so every reader has to write its own check and choose its own error.",
+      "fix": "Add `func (p TraceQueryParams) Validate() error` (or a similar helper) in reader.go. When Filter != nil and any legacy predicate field is set (ServiceName, OperationName, Attributes.Len() > 0, DurationMin, DurationMax), it returns a wrapped ErrFilterInvalid. Point the Filter doc comment at it and add a table test in reader_test.go, which is currently empty."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 112,
+      "problem": "A leftover empty `//` line comes right before `Filter *expression.Call`, as if a sentence was deleted.",
+      "fix": "Delete the empty `//` line at reader.go:112."
+    },
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 24,
+      "problem": "The doc comments on SameSpanConjunction (line 24) and Filter (line 30) each end with an empty `//` line.",
+      "fix": "Delete the empty `//` lines at search_capabilities.go:24 and :30."
+    },
+    {
+      "file": "pkg/summary.go",
+      "line": 54,
+      "problem": "The Reader doc tells backends that cannot report capabilities to return a wrapped errors.ErrUnsupported from SearchCapabilities. FindTraceSummaries has the same kind of contract, and the package ships an embeddable UnsupportedTraceSummaries for it, but SearchCapabilities has no such helper. Every backend will copy the same fmt.Errorf code by hand.",
+      "fix": "Add `type UnsupportedSearchCapabilities struct{}` with `func (UnsupportedSearchCapabilities) SearchCapabilities(context.Context) (SearchCapabilities, error) { return SearchCapabilities{}, fmt.Errorf(\"this storage backend cannot report its search capabilities: %w\", errors.ErrUnsupported) }` in search_capabilities.go. Mention it in the Reader.SearchCapabilities doc and test it the same way summary_test.go tests UnsupportedTraceSummaries."
+    },
+    {
+      "file": "pkg/filter.go",
+      "line": 3,
+      "problem": "There are two blank lines between the license header and `package tracestore`. No other file in the package does this, and gofumpt flags it.",
+      "fix": "Delete one of the blank lines so filter.go matches the other files."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 31,
+      "problem": "Filter is a pointer, so 'no filter support' can be written two ways: nil and &FilterCapabilities{}. The doc comments on both types must tell callers not to compare against nil, and IsEmpty needs a nil special case. The pointer adds no meaning, because the zero value of FilterCapabilities already means 'supports nothing', which matches the stated rule that a zero SearchCapabilities is the least capable reader.",
+      "fix": "Change the field to a value, `Filter FilterCapabilities`. Then give IsEmpty a value receiver without the nil check. Drop the 'nil Filter / ask IsEmpty rather than comparing against nil' sentences from this comment and from the FilterCapabilities doc in filter.go (lines 29-31). Remove the nil case from TestFilterCapabilitiesIsEmpty and update TestSearchCapabilitiesZeroValue.",
+      "category": "other",
+      "why": "The zero FilterCapabilities already means 'supports nothing', so the pointer gives the same state two forms (nil and &{}). That forces the 'don't compare against nil' notes in both doc comments, the nil branch in IsEmpty, and the receiver mismatch behind finding 0. A value field fits the rule that a zero SearchCapabilities is the least capable reader. The only code outside the type that touches it is the zero-value test and the IsEmpty nil test case.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 49,
+      "problem": "The FindTraces doc still says that whether conjunctive filters must match the same span is an 'implementation-dependent ambiguity'. The new SearchCapabilities.SameSpanConjunction field now answers that question for each reader, so this comment is out of date and contradicts the new contract.",
+      "fix": "Replace the paragraph with: 'Whether several conditions (Attributes entries or an OpAnd in Filter) must be satisfied by the same span is declared by SearchCapabilities.SameSpanConjunction.'",
+      "category": "other",
+      "why": "reader.go:49-51 still calls same-span matching an implementation-dependent ambiguity. SearchCapabilities.SameSpanConjunction now declares this for each reader, so the comment is out of date and contradicts the new contract.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 112,
+      "problem": "A leftover empty `//` line comes right before `Filter *expression.Call`, as if a sentence was deleted.",
+      "fix": "Delete the empty `//` line at reader.go:112.",
+      "category": "other",
+      "why": "reader.go:120 has a stray empty '//' right before 'Filter *expression.Call'. It reads as if a sentence was deleted. It is a trivial edit to remove.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 24,
+      "problem": "The doc comments on SameSpanConjunction (line 24) and Filter (line 30) each end with an empty `//` line.",
+      "fix": "Delete the empty `//` lines at search_capabilities.go:24 and :30.",
+      "category": "other",
+      "why": "search_capabilities.go:23 and :30 have the same dangling empty '//' at the end of the doc comments. Line 30 goes away anyway when finding 1 rewrites the Filter comment.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/filter.go",
+      "line": 3,
+      "problem": "There are two blank lines between the license header and `package tracestore`. No other file in the package does this, and gofumpt flags it.",
+      "fix": "Delete one of the blank lines so filter.go matches the other files.",
+      "category": "other",
+      "why": "filter.go:3-4 has two blank lines between the license header and 'package tracestore'. Every other file has one, so filter.go is out of line with the rest of the package and the formatters. A one-line fix.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 3,
+  "changed_lines": 210,
+  "per_kloc": 14.29,
+  "by_category": {
+    "naming": 0,
+    "duplication": 0,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 3
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 64063,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 20860,
+      "cache_read_input_tokens": 40443,
+      "output_tokens": 2756,
+      "output_tokens_details": {
+        "thinking_tokens": 812
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 20860,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1830,
+          "cache_read_input_tokens": 28686,
+          "cache_creation_input_tokens": 3931,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3931
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.2301046,
+    "duration_s": 30.8
+  }
+}

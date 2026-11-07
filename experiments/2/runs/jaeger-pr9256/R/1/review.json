@@ -1,0 +1,122 @@
+{
+  "arm": "R",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/filter.go",
+      "line": 49,
+      "problem": "FilterCapabilities mixes receiver types. IsEmpty has a nil-safe pointer receiver, but SupportsLevel and SupportsOperator have value receivers. SearchCapabilities.Filter is a *FilterCapabilities and nil is documented as a valid value, so caps.Filter.SupportsLevel(...) or caps.Filter.SupportsOperator(...) panics when a Reader declares no filter support. Only IsEmpty is safe to call on the nil value.",
+      "fix": "Give all three methods a *FilterCapabilities receiver and make them nil-safe. For a nil c, SupportsLevel returns level == \"\" and SupportsOperator returns false. Add nil-pointer cases to TestFilterCapabilities_SupportsLevel and TestFilterCapabilities_SupportsOperator. Alternatively, apply the value-type change in the next finding, then switch IsEmpty to a value receiver."
+    },
+    {
+      "file": "pkg/capabilities.go",
+      "line": 30,
+      "problem": "SearchCapabilities.Filter is a pointer, but nil and &FilterCapabilities{} mean the same thing. The docs on both types have to tell callers not to compare against nil. Two encodings of 'no filter support' invite bugs like the nil-receiver panic above, and they make struct equality in decorator forwarding tests depend on which encoding was used.",
+      "fix": "Change the field to `Filter FilterCapabilities` (a value, not a pointer). The zero value then is the least-capable declaration, which matches the type's documented zero-value design. Change IsEmpty to a value receiver, drop the 'rather than comparing against nil' sentences from both doc comments, and use caps.Filter.IsEmpty() on the value in TestSearchCapabilities_ZeroValueIsLeastCapable."
+    },
+    {
+      "file": "pkg/query.go",
+      "line": 30,
+      "problem": "The ServiceName and Filter contracts contradict each other. ServiceName 'may be empty only when the Reader's SearchCapabilities reports WithoutServiceName'. Filter is 'mutually exclusive with ... ServiceName', so every Filter query has an empty ServiceName. As written, a Reader that declares filter support but not WithoutServiceName can never legally receive a Filter query. The contract does not say whether the service is constrained inside the Filter or whether filter support implies WithoutServiceName.",
+      "fix": "Reword the ServiceName comment: 'When Filter is nil, ServiceName may be empty only when SearchCapabilities.WithoutServiceName is true; when Filter is set, ServiceName is empty and the service, if any, is constrained in Filter.' In the SearchCapabilities.WithoutServiceName doc (capabilities.go:15), state that the flag applies only to the legacy predicate fields."
+    },
+    {
+      "file": "pkg/capabilities_test.go",
+      "line": 19,
+      "problem": "TestSearchCapabilities_FieldCount uses reflection to count fields and fails on any addition. Its own comment says it is a reminder, not a contract. It also names tests in other packages (tracestoremetrics, queryinterceptor) by function name, so a rename there makes this comment stale silently. It covers for decorator forwarding tests that check fields one by one when they should compare whole values.",
+      "fix": "Delete TestSearchCapabilities_FieldCount and its reflect import. In the two decorator tests, have the backend mock return a SearchCapabilities with every field set to a non-zero value, then check the forwarded result with assert.Equal(t, want, got) against the whole struct. Fields added later are then covered without a count to keep in sync."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/filter.go",
+      "line": 49,
+      "problem": "FilterCapabilities mixes receiver types. IsEmpty has a nil-safe pointer receiver, but SupportsLevel and SupportsOperator have value receivers. SearchCapabilities.Filter is a *FilterCapabilities and nil is documented as a valid value, so caps.Filter.SupportsLevel(...) or caps.Filter.SupportsOperator(...) panics when a Reader declares no filter support. Only IsEmpty is safe to call on the nil value.",
+      "fix": "Give all three methods a *FilterCapabilities receiver and make them nil-safe. For a nil c, SupportsLevel returns level == \"\" and SupportsOperator returns false. Add nil-pointer cases to TestFilterCapabilities_SupportsLevel and TestFilterCapabilities_SupportsOperator. Alternatively, apply the value-type change in the next finding, then switch IsEmpty to a value receiver.",
+      "category": "other",
+      "why": "Confirmed. SearchCapabilities.Filter is a *FilterCapabilities, and its doc says nil means 'none of it'. SupportsLevel and SupportsOperator (filter.go:49 and :57) have value receivers, so calling them through a nil Filter dereferences nil and panics. Only IsEmpty (pointer receiver, checks c == nil) is safe, and only IsEmpty's test has a nil case. This is a real crash risk for callers checking a Reader that declares no filter support. Fixing finding 1 fixes this too.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/capabilities.go",
+      "line": 30,
+      "problem": "SearchCapabilities.Filter is a pointer, but nil and &FilterCapabilities{} mean the same thing. The docs on both types have to tell callers not to compare against nil. Two encodings of 'no filter support' invite bugs like the nil-receiver panic above, and they make struct equality in decorator forwarding tests depend on which encoding was used.",
+      "fix": "Change the field to `Filter FilterCapabilities` (a value, not a pointer). The zero value then is the least-capable declaration, which matches the type's documented zero-value design. Change IsEmpty to a value receiver, drop the 'rather than comparing against nil' sentences from both doc comments, and use caps.Filter.IsEmpty() on the value in TestSearchCapabilities_ZeroValueIsLeastCapable.",
+      "category": "other",
+      "why": "Confirmed. capabilities.go:26-30 and filter.go:27-28 both say nil and an empty FilterCapabilities mean the same thing, and both warn callers not to compare against nil. Having two encodings for 'no filter support' is what makes the nil-receiver panic possible. It also makes struct equality in the decorator test (assert.Equal on SearchCapabilities) depend on which encoding the backend used. A value field fits the type's documented zero-value-is-least-capable design and removes both problems.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/query.go",
+      "line": 30,
+      "problem": "The ServiceName and Filter contracts contradict each other. ServiceName 'may be empty only when the Reader's SearchCapabilities reports WithoutServiceName'. Filter is 'mutually exclusive with ... ServiceName', so every Filter query has an empty ServiceName. As written, a Reader that declares filter support but not WithoutServiceName can never legally receive a Filter query. The contract does not say whether the service is constrained inside the Filter or whether filter support implies WithoutServiceName.",
+      "fix": "Reword the ServiceName comment: 'When Filter is nil, ServiceName may be empty only when SearchCapabilities.WithoutServiceName is true; when Filter is set, ServiceName is empty and the service, if any, is constrained in Filter.' In the SearchCapabilities.WithoutServiceName doc (capabilities.go:15), state that the flag applies only to the legacy predicate fields.",
+      "category": "other",
+      "why": "Confirmed. query.go:30-31 says ServiceName may be empty only if WithoutServiceName is set. query.go:41-43 says Filter is mutually exclusive with ServiceName, so every Filter query has an empty ServiceName. Read literally, a Reader that declares filter support but not WithoutServiceName can never legally receive a Filter query. The WithoutServiceName doc at capabilities.go:14-16 does not limit itself to the legacy fields either. This is a real contract contradiction that implementers will read differently.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/capabilities_test.go",
+      "line": 19,
+      "problem": "TestSearchCapabilities_FieldCount uses reflection to count fields and fails on any addition. Its own comment says it is a reminder, not a contract. It also names tests in other packages (tracestoremetrics, queryinterceptor) by function name, so a rename there makes this comment stale silently. It covers for decorator forwarding tests that check fields one by one when they should compare whole values.",
+      "fix": "Delete TestSearchCapabilities_FieldCount and its reflect import. In the two decorator tests, have the backend mock return a SearchCapabilities with every field set to a non-zero value, then check the forwarded result with assert.Equal(t, want, got) against the whole struct. Fields added later are then covered without a count to keep in sync.",
+      "category": "other",
+      "why": "Confirmed. capabilities_test.go uses reflection to require exactly 3 fields, and its comment names tests in other packages by function name. tracestoremetrics/reader_metrics_test.go:260-262 says its cases 'enumerate every permutation', but they only vary WithoutServiceName. SameSpanConjunction and Filter are never forwarded with non-zero values, so the reminder has already failed to keep that test complete. One case with every field set to a non-zero value, checked with the assert.Equal the test already uses, covers forwarding without a brittle count to keep in sync.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 4,
+  "changed_lines": 263,
+  "per_kloc": 15.21,
+  "by_category": {
+    "naming": 0,
+    "duplication": 0,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 4
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 63556,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 20073,
+      "cache_read_input_tokens": 40788,
+      "output_tokens": 2691,
+      "output_tokens_details": {
+        "thinking_tokens": 1364
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 20073,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1535,
+          "cache_read_input_tokens": 29031,
+          "cache_creation_input_tokens": 2799,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2799
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.22257760000000001,
+    "duration_s": 30.5
+  }
+}

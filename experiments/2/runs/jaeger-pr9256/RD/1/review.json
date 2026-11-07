@@ -1,0 +1,113 @@
+{
+  "arm": "RD",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 28,
+      "problem": "`Filter` is a `*FilterCapabilities`, so 'supports no filter' can be written two ways: nil, or a pointer to an empty value. The docs then have to warn callers not to compare it against nil, and `IsEmpty` needs a nil-safe pointer receiver to cover both. The pointer adds nothing, because the zero `FilterCapabilities` already means 'none', just like the zero values of the other fields in `SearchCapabilities`.",
+      "fix": "Make the field a value: `Filter FilterCapabilities`. Remove the 'A nil Filter means…' and 'rather than comparing it against nil' sentences. Update `TestSearchCapabilitiesZeroValue` to call `zero.Filter.IsEmpty()` on the value."
+    },
+    {
+      "file": "pkg/filter.go",
+      "line": 43,
+      "problem": "The receivers are mixed. `IsEmpty` uses a pointer receiver and accepts nil, but `SupportsLevel` and `SupportsOperator` use value receivers. Since `SearchCapabilities.Filter` is a pointer, `caps.Filter.SupportsOperator(op)` compiles and then panics with a nil dereference when the reader sets no Filter, which is exactly the zero-value case the type was designed for.",
+      "fix": "Once `Filter` is a value (finding above), change `IsEmpty` to a value receiver: `func (c FilterCapabilities) IsEmpty() bool { return len(c.Levels) == 0 && len(c.Operators) == 0 }`. Drop the 'nil c' sentences from its doc and the `nil` case from `TestFilterCapabilitiesIsEmpty`. If the pointer has to stay, switch all three methods to nil-safe pointer receivers instead."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 50,
+      "problem": "The package adds the `ErrFilterUnsupported` and `ErrFilterInvalid` sentinels, but the `Reader` contract never says that `FindTraces`, `FindTraceIDs` or `FindTraceSummaries` return them. It also doesn't say they are wrapped with `%w`, which callers need to know to use `errors.Is`. Nor does it say what a reader with an empty `SearchCapabilities.Filter` must do when it receives a non-nil `TraceQueryParams.Filter`. Implementers have to guess the error behavior.",
+      "fix": "In the `FindTraces` doc comment, add a paragraph saying: when `query.Filter` uses a level, operator or structure outside `SearchCapabilities.Filter`, the iterator yields an error wrapping `ErrFilterUnsupported` as its first error, before any batch; when a value doesn't fit its field, it yields an error wrapping `ErrFilterInvalid`. The existing 'behaves identically to FindTraces' wording already carries this to `FindTraceIDs`. Add an explicit sentence to the `FindTraceSummaries` doc, because its fallback contract relies on `errors.ErrUnsupported` and the two must not be confused."
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 116,
+      "problem": "The `Filter` doc says it is mutually exclusive with `ServiceName`, `OperationName`, `Attributes` and the duration bounds. It doesn't say who enforces that rule or which error a mixed query gets, so every reader will either check it with its own code or silently ignore one side.",
+      "fix": "State the outcome in the field doc: a query that sets `Filter` together with any predicate field is rejected with an error wrapping `ErrFilterInvalid`. Add one helper next to the sentinels in `filter.go`, such as `func (p TraceQueryParams) validateFilterExclusive() error` or an exported equivalent, that the readers and the query service call, so the check exists in one place."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/search_capabilities.go",
+      "line": 28,
+      "problem": "`Filter` is a `*FilterCapabilities`, so 'supports no filter' can be written two ways: nil, or a pointer to an empty value. The docs then have to warn callers not to compare it against nil, and `IsEmpty` needs a nil-safe pointer receiver to cover both. The pointer adds nothing, because the zero `FilterCapabilities` already means 'none', just like the zero values of the other fields in `SearchCapabilities`.",
+      "fix": "Make the field a value: `Filter FilterCapabilities`. Remove the 'A nil Filter means…' and 'rather than comparing it against nil' sentences. Update `TestSearchCapabilitiesZeroValue` to call `zero.Filter.IsEmpty()` on the value.",
+      "category": "other",
+      "why": "Confirmed in pkg/search_capabilities.go:28. `Filter *FilterCapabilities` gives two ways to say 'no filter support': nil and `&FilterCapabilities{}`. That is why the doc tells callers not to compare it against nil, and why `IsEmpty` needs a nil-safe pointer receiver. The zero `FilterCapabilities` already means 'none', just as the zero values of the other `SearchCapabilities` fields do. Nothing else in the package needs the pointer: the only other uses are `zero.Filter.IsEmpty()` in search_capabilities_test.go and the `&FilterCapabilities{}` cases in filter_test.go. A value field removes the second encoding and the warning in the doc.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/filter.go",
+      "line": 43,
+      "problem": "The receivers are mixed. `IsEmpty` uses a pointer receiver and accepts nil, but `SupportsLevel` and `SupportsOperator` use value receivers. Since `SearchCapabilities.Filter` is a pointer, `caps.Filter.SupportsOperator(op)` compiles and then panics with a nil dereference when the reader sets no Filter, which is exactly the zero-value case the type was designed for.",
+      "fix": "Once `Filter` is a value (finding above), change `IsEmpty` to a value receiver: `func (c FilterCapabilities) IsEmpty() bool { return len(c.Levels) == 0 && len(c.Operators) == 0 }`. Drop the 'nil c' sentences from its doc and the `nil` case from `TestFilterCapabilitiesIsEmpty`. If the pointer has to stay, switch all three methods to nil-safe pointer receivers instead.",
+      "category": "other",
+      "why": "Confirmed in pkg/filter.go. `IsEmpty` has a nil-safe pointer receiver, while `SupportsLevel` and `SupportsOperator` have value receivers. When `caps.Filter` is nil, which is the zero-value case, `caps.Filter.SupportsOperator(op)` compiles but panics when Go dereferences nil to call the value method. Making `Filter` a value (finding 0) and giving `IsEmpty` a value receiver makes the receivers consistent and removes the panic. This depends on finding 0.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/reader.go",
+      "line": 50,
+      "problem": "The package adds the `ErrFilterUnsupported` and `ErrFilterInvalid` sentinels, but the `Reader` contract never says that `FindTraces`, `FindTraceIDs` or `FindTraceSummaries` return them. It also doesn't say they are wrapped with `%w`, which callers need to know to use `errors.Is`. Nor does it say what a reader with an empty `SearchCapabilities.Filter` must do when it receives a non-nil `TraceQueryParams.Filter`. Implementers have to guess the error behavior.",
+      "fix": "In the `FindTraces` doc comment, add a paragraph saying: when `query.Filter` uses a level, operator or structure outside `SearchCapabilities.Filter`, the iterator yields an error wrapping `ErrFilterUnsupported` as its first error, before any batch; when a value doesn't fit its field, it yields an error wrapping `ErrFilterInvalid`. The existing 'behaves identically to FindTraces' wording already carries this to `FindTraceIDs`. Add an explicit sentence to the `FindTraceSummaries` doc, because its fallback contract relies on `errors.ErrUnsupported` and the two must not be confused.",
+      "category": "other",
+      "why": "Confirmed. reader.go never mentions `ErrFilterUnsupported` or `ErrFilterInvalid`. No method doc says they are returned, that they are wrapped with %w, or what a reader with empty filter capabilities must do when it gets a non-nil `query.Filter`. Other readers and callers are written against this interface contract, so they have to guess. `FindTraceSummaries` already uses `errors.ErrUnsupported` to mean 'use the fallback', so its doc needs to say which error means what. The fix is doc-only and fits the existing style of the contract.",
+      "on_changed_lines": true
+    }
+  ],
+  "counted": 3,
+  "changed_lines": 202,
+  "per_kloc": 14.85,
+  "by_category": {
+    "naming": 0,
+    "duplication": 0,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 0,
+    "other": 3
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 2,
+    "tokens": 62626,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 19389,
+      "cache_read_input_tokens": 40597,
+      "output_tokens": 2636,
+      "output_tokens_details": {
+        "thinking_tokens": 1173
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 19389,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2472,
+          "cache_read_input_tokens": 28840,
+          "cache_creation_input_tokens": 2306,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2306
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 0.2159674,
+    "duration_s": 30.8
+  }
+}

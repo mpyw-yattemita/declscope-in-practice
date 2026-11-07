@@ -1,0 +1,44 @@
+{
+  "task": "jaeger-pr9256",
+  "arm": "MD",
+  "rep": "1",
+  "steps": [
+    {
+      "step": 1,
+      "verdict": "clean",
+      "checks": 2,
+      "first": 0,
+      "last": 0,
+      "type_errors": 0,
+      "distinct": 0,
+      "by_rule": {},
+      "skill_read": true,
+      "directives_added": 0,
+      "ignores_added": 0,
+      "reported": []
+    },
+    {
+      "step": 2,
+      "verdict": "helped",
+      "checks": 6,
+      "first": 6,
+      "last": 0,
+      "type_errors": 0,
+      "distinct": 6,
+      "by_rule": {
+        "qualify": 6
+      },
+      "skill_read": true,
+      "directives_added": 0,
+      "ignores_added": 4,
+      "reported": [
+        "const maxSpanAttrChars does not carry namespace \"middleware\" anywhere in its name; rename it to middlewareMaxSpanAttrChars, or to another name that carries \"middleware\"",
+        "func asStatusError does not carry namespace \"grpcHandler\" anywhere in its name; rename it to grpcHandlerAsStatusError, or to another name that carries \"grpcHandler\"",
+        "func cloneTrace does not carry namespace \"memory\" anywhere in its name; rename it to memoryCloneTrace, or to another name that carries \"memory\"",
+        "func toolArgumentsFromRequest does not carry namespace \"middleware\" anywhere in its name; rename it to middlewareToolArgumentsFromRequest, or to another name that carries \"middleware\"",
+        "var marshalTraces does not carry namespace \"memory\" anywhere in its name; rename it to memoryMarshalTraces, or to another name that carries \"memory\"",
+        "var unmarshalTraces does not carry namespace \"memory\" anywhere in its name; rename it to memoryUnmarshalTraces, or to another name that carries \"memory\""
+      ]
+    }
+  ]
+}
