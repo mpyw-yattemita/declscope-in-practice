@@ -1,0 +1,697 @@
+diff --git a/hclwrite/ast_expression.go b/hclwrite/ast_expression.go
+index e8dfd57..eb38a0e 100644
+--- a/hclwrite/ast_expression.go
++++ b/hclwrite/ast_expression.go
+@@ -139,7 +139,9 @@ func NewExpressionAbsTraversal(traversal hcl.Traversal) *Expression {
+ 
+ // Variables returns the absolute traversals that exist within the receiving
+ // expression. For an object-construct expression, this includes the
+-// traversals in the keys and values of its items.
++// traversals in the keys and values of its items. For a function call or a
++// tuple-construct expression, this includes the traversals in its arguments
++// or elements.
+ func (e *Expression) Variables() []*Traversal {
+ 	nodes := e.absTraversals.List()
+ 	ret := make([]*Traversal, len(nodes))
+@@ -149,6 +151,22 @@ func (e *Expression) Variables() []*Traversal {
+ 	if object := e.AsObjectConsExpr(); object != nil {
+ 		ret = append(ret, object.variables()...)
+ 	}
++	if call := e.AsFunctionCallExpr(); call != nil {
++		ret = append(ret, call.variables()...)
++	}
++	if tuple := e.AsTupleConsExpr(); tuple != nil {
++		ret = append(ret, tuple.variables()...)
++	}
++	return ret
++}
++
++// variablesOf returns the absolute traversals in the expressions of the
++// given set, in source order.
++func variablesOf(exprs nodeSet) []*Traversal {
++	var ret []*Traversal
++	for _, n := range exprs.List() {
++		ret = append(ret, n.content.(*Expression).Variables()...)
++	}
+ 	return ret
+ }
+ 
+@@ -212,6 +230,34 @@ func (e *Expression) AsObjectConsExpr() *ObjectConsExpr {
+ 	return nil
+ }
+ 
++// AsFunctionCallExpr returns the wrapped function call expression, or nil if
++// this expression does not parse as a function call expression.
++func (e *Expression) AsFunctionCallExpr() *FunctionCallExpr {
++	if e.wrapped == nil {
++		return nil
++	}
++
++	if call, ok := e.wrapped.content.(*FunctionCallExpr); ok {
++		return call
++	}
++
++	return nil
++}
++
++// AsTupleConsExpr returns the wrapped tuple-construct expression, or nil if
++// this expression does not parse as a tuple-construct expression.
++func (e *Expression) AsTupleConsExpr() *TupleConsExpr {
++	if e.wrapped == nil {
++		return nil
++	}
++
++	if tuple, ok := e.wrapped.content.(*TupleConsExpr); ok {
++		return tuple
++	}
++
++	return nil
++}
++
+ func (e *Expression) asQuoted() *quoted {
+ 	if e.wrapped == nil {
+ 		return nil
+diff --git a/hclwrite/ast_expression_test.go b/hclwrite/ast_expression_test.go
+index c3d9c35..4fda52e 100644
+--- a/hclwrite/ast_expression_test.go
++++ b/hclwrite/ast_expression_test.go
+@@ -107,3 +107,130 @@ func TestExpressionVariablesObjectCons(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestExpressionVariablesFunctionCallAndTupleCons(t *testing.T) {
++	tests := []struct {
++		src     string
++		want    []string // Variables, in order, as source text
++		renamed string   // source after renaming "old" to "new"
++	}{
++		{
++			"a = f(old.x)\n",
++			[]string{"old.x"},
++			"a = f(new.x)\n",
++		},
++		{
++			"a = f(old.x, other.y, old.z...)\n",
++			[]string{"old.x", "other.y", "old.z"},
++			"a = f(new.x, other.y, new.z...)\n",
++		},
++		{
++			"a = [old.x, other.y, old.z]\n",
++			[]string{"old.x", "other.y", "old.z"},
++			"a = [new.x, other.y, new.z]\n",
++		},
++		{
++			"a = f(old.w, [old.x, g(old.y)], { k = old.z })\n",
++			[]string{"old.w", "old.x", "old.y", "old.z"},
++			"a = f(new.w, [new.x, g(new.y)], { k = new.z })\n",
++		},
++		{
++			"a = [\n  old.x,\n  f(old.y + 1),\n]\n",
++			[]string{"old.x", "old.y"},
++			"a = [\n  new.x,\n  f(new.y + 1),\n]\n",
++		},
++		{
++			"a = f()\n",
++			nil,
++			"a = f()\n",
++		},
++		{
++			"a = []\n",
++			nil,
++			"a = []\n",
++		},
++	}
++
++	for _, test := range tests {
++		t.Run(test.src, func(t *testing.T) {
++			f, diags := ParseConfig([]byte(test.src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected diagnostics: %s", diags.Error())
++			}
++			if got := string(f.Bytes()); got != test.src {
++				t.Errorf("wrong result before rename\ngot:  %q\nwant: %q", got, test.src)
++			}
++			expr := f.Body().GetAttribute("a").Expr()
++
++			var got []string
++			for _, traversal := range expr.Variables() {
++				got = append(got, strings.TrimSpace(string(traversal.BuildTokens(nil).Bytes())))
++			}
++			if diff := cmp.Diff(test.want, got); diff != "" {
++				t.Errorf("wrong variables\n%s", diff)
++			}
++
++			expr.RenameVariablePrefix([]string{"old"}, []string{"new"})
++			if got := string(f.Bytes()); got != test.renamed {
++				t.Errorf("wrong result after rename\ngot:  %q\nwant: %q", got, test.renamed)
++			}
++		})
++	}
++}
++
++func TestExpressionAsFunctionCallAndTupleCons(t *testing.T) {
++	tests := []struct {
++		src      string
++		wantCall string // name of the function, or "" if not a call
++		wantArgs int    // number of arguments or elements
++		isTuple  bool
++	}{
++		{`join(" ", ["fedora", "fez"])`, "join", 2, false},
++		{`f()`, "f", 0, false},
++		{`provider::local::upper("hat")`, "provider::local::upper", 1, false},
++		{`["fedora", "fez"]`, "", 2, true},
++		{`[]`, "", 0, true},
++		{`f(1) + 1`, "", 0, false},
++		{`[1][0]`, "", 0, false},
++		{`[for x in y : x]`, "", 0, false},
++		{`{ k = [1] }`, "", 0, false},
++		{`"fedora"`, "", 0, false},
++	}
++
++	for _, test := range tests {
++		t.Run(test.src, func(t *testing.T) {
++			f, diags := ParseConfig([]byte("a = "+test.src+"\n"), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected diagnostics: %s", diags.Error())
++			}
++			expr := f.Body().GetAttribute("a").Expr()
++
++			call := expr.AsFunctionCallExpr()
++			switch {
++			case test.wantCall == "" && call != nil:
++				t.Errorf("unexpected function call %q", call.Name())
++			case test.wantCall != "" && call == nil:
++				t.Errorf("not a function call")
++			case call != nil:
++				if got := call.Name(); got != test.wantCall {
++					t.Errorf("wrong name %q; want %q", got, test.wantCall)
++				}
++				if got := len(call.args); got != test.wantArgs {
++					t.Errorf("wrong number of arguments %d; want %d", got, test.wantArgs)
++				}
++			}
++
++			tuple := expr.AsTupleConsExpr()
++			switch {
++			case !test.isTuple && tuple != nil:
++				t.Errorf("unexpected tuple")
++			case test.isTuple && tuple == nil:
++				t.Errorf("not a tuple")
++			case tuple != nil:
++				if got := len(tuple.elems); got != test.wantArgs {
++					t.Errorf("wrong number of elements %d; want %d", got, test.wantArgs)
++				}
++			}
++		})
++	}
++}
+diff --git a/hclwrite/ast_function_call_expr.go b/hclwrite/ast_function_call_expr.go
+new file mode 100644
+index 0000000..217f26a
+--- /dev/null
++++ b/hclwrite/ast_function_call_expr.go
+@@ -0,0 +1,36 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: MPL-2.0
++
++package hclwrite
++
++// FunctionCallExpr is a function call expression, such as join(" ", list).
++// Use Expression.AsFunctionCallExpr to get one from an expression.
++//
++// Each argument is its own Expression. The function name, the parentheses,
++// the commas and a final "..." are unstructured tokens of the call.
++type FunctionCallExpr struct {
++	inTree
++
++	name string
++	args nodeSet
++}
++
++func newFunctionCallExpr(name string) *FunctionCallExpr {
++	return &FunctionCallExpr{
++		inTree: newInTree(),
++		name:   name,
++		args:   newNodeSet(),
++	}
++}
++
++// Name returns the name of the called function. A namespaced function name
++// includes its namespaces, such as provider::local::func.
++func (call *FunctionCallExpr) Name() string {
++	return call.name
++}
++
++// variables returns the absolute traversals in the arguments of the call,
++// in source order.
++func (call *FunctionCallExpr) variables() []*Traversal {
++	return variablesOf(call.args)
++}
+diff --git a/hclwrite/ast_tuple_cons_expr.go b/hclwrite/ast_tuple_cons_expr.go
+new file mode 100644
+index 0000000..19617b4
+--- /dev/null
++++ b/hclwrite/ast_tuple_cons_expr.go
+@@ -0,0 +1,28 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: MPL-2.0
++
++package hclwrite
++
++// TupleConsExpr is a tuple-construct expression, such as ["fedora", "fez"].
++// Use Expression.AsTupleConsExpr to get one from an expression.
++//
++// Each element is its own Expression. The brackets and the commas are
++// unstructured tokens of the tuple.
++type TupleConsExpr struct {
++	inTree
++
++	elems nodeSet
++}
++
++func newTupleConsExpr() *TupleConsExpr {
++	return &TupleConsExpr{
++		inTree: newInTree(),
++		elems:  newNodeSet(),
++	}
++}
++
++// variables returns the absolute traversals in the elements of the tuple,
++// in source order.
++func (tuple *TupleConsExpr) variables() []*Traversal {
++	return variablesOf(tuple.elems)
++}
+diff --git a/hclwrite/parser.go b/hclwrite/parser.go
+index 9304349..8c85451 100644
+--- a/hclwrite/parser.go
++++ b/hclwrite/parser.go
+@@ -387,6 +387,12 @@ func parseExpression(nativeExpr hclsyntax.Expression, from inputTokens) *node {
+ 	case *hclsyntax.ObjectConsKeyExpr:
+ 		return parseObjectConsKeyExpr(tNativeExpr, from)
+ 
++	case *hclsyntax.FunctionCallExpr:
++		return parseFunctionCallExpr(tNativeExpr, from)
++
++	case *hclsyntax.TupleConsExpr:
++		return parseTupleConsExpr(tNativeExpr, from)
++
+ 	case *hclsyntax.TemplateExpr:
+ 		return parseTemplateExpr(tNativeExpr, from)
+ 
+@@ -478,6 +484,57 @@ func parseObjectConsKeyExpr(nativeExpr *hclsyntax.ObjectConsKeyExpr, from inputT
+ 	return newNode(wrapExpr)
+ }
+ 
++// parseFunctionCallExpr parses a function call expression, defined as:
++//
++//	FunctionCall = Identifier ("::" Identifier)* "(" Arguments ")";
++//	Arguments = (
++//	    () ||
++//	    (Expression ("," Expression)* ("," | "...")?)
++//	);
++//
++// Each argument becomes its own Expression. The tokens around the arguments
++// stay as unstructured tokens of the call.
++func parseFunctionCallExpr(nativeExpr *hclsyntax.FunctionCallExpr, from inputTokens) *node {
++	expr := newFunctionCallExpr(nativeExpr.Name)
++	return parseExprList(expr, expr.children, expr.args, nativeExpr.Args, from)
++}
++
++// parseTupleConsExpr parses a tuple-construct expression, defined as:
++//
++//	tuple = "[" (
++//	    (Expression ("," Expression)* ","?)?
++//	) "]";
++//
++// Each element becomes its own Expression. The tokens around the elements
++// stay as unstructured tokens of the tuple.
++func parseTupleConsExpr(nativeExpr *hclsyntax.TupleConsExpr, from inputTokens) *node {
++	expr := newTupleConsExpr()
++	return parseExprList(expr, expr.children, expr.elems, nativeExpr.Exprs, from)
++}
++
++// parseExprList parses each of nativeExprs into an Expression, appends it to
++// children and adds it to set. The tokens before, between and after them are
++// appended to children as unstructured tokens. It returns a node with an
++// Expression that wraps content, which must own children.
++func parseExprList(content nodeContent, children *nodes, set nodeSet, nativeExprs []hclsyntax.Expression, from inputTokens) *node {
++	var before, exprTokens inputTokens
++	for _, nativeExpr := range nativeExprs {
++		before, exprTokens, from = from.Partition(nativeExpr.Range())
++		children.AppendUnstructuredTokens(before.writerTokens)
++		n := parseExpression(nativeExpr, exprTokens)
++		children.AppendNode(n)
++		set.Add(n)
++	}
++	children.AppendUnstructuredTokens(from.writerTokens)
++
++	wrapExpr := newExpression()
++	wrapExpr.wrap(content)
++	for n := range set {
++		n.content.(*Expression).parent = wrapExpr.wrapped
++	}
++	return newNode(wrapExpr)
++}
++
+ // parseTemplateExpr is specifically interested in string literal expressions
+ // at this time.
+ func parseTemplateExpr(nativeExpr *hclsyntax.TemplateExpr, from inputTokens) *node {
+diff --git a/hclwrite/parser_test.go b/hclwrite/parser_test.go
+index 9275f94..42cec0f 100644
+--- a/hclwrite/parser_test.go
++++ b/hclwrite/parser_test.go
+@@ -1770,6 +1770,314 @@ func TestParse(t *testing.T) {
+ 				},
+ 			},
+ 		},
++		{
++			`a = join(" ", ["fedora", "fez"])`,
++			TestTreeNode{
++				Type: "Body",
++				Children: []TestTreeNode{
++					{
++						Type: "Attribute",
++						Children: []TestTreeNode{
++							{
++								Type: "comments",
++							},
++							{
++								Type: "identifier",
++								Val:  "a",
++							},
++							{
++								Type: "Tokens",
++								Val:  " =",
++							},
++							{
++								Type: "Expression",
++								Children: []TestTreeNode{
++									{
++										Type: "FunctionCallExpr",
++										Children: []TestTreeNode{
++											{
++												Type: "Tokens",
++												Val:  " join(",
++											},
++											{
++												Type: "Expression",
++												Children: []TestTreeNode{
++													{
++														Type: "quoted",
++														Val:  `" "`,
++													},
++												},
++											},
++											{
++												Type: "Tokens",
++												Val:  ",",
++											},
++											{
++												Type: "Expression",
++												Children: []TestTreeNode{
++													{
++														Type: "TupleConsExpr",
++														Children: []TestTreeNode{
++															{
++																Type: "Tokens",
++																Val:  " [",
++															},
++															{
++																Type: "Expression",
++																Children: []TestTreeNode{
++																	{
++																		Type: "quoted",
++																		Val:  `"fedora"`,
++																	},
++																},
++															},
++															{
++																Type: "Tokens",
++																Val:  ",",
++															},
++															{
++																Type: "Expression",
++																Children: []TestTreeNode{
++																	{
++																		Type: "quoted",
++																		Val:  ` "fez"`,
++																	},
++																},
++															},
++															{
++																Type: "Tokens",
++																Val:  "]",
++															},
++														},
++													},
++												},
++											},
++											{
++												Type: "Tokens",
++												Val:  ")",
++											},
++										},
++									},
++								},
++							},
++							{
++								Type: "comments",
++							},
++						},
++					},
++				},
++			},
++		},
++		{
++			`a = [
++  hat.brim,
++  f(),
++  { b = 1 },
++  g(c...),
++]`,
++			TestTreeNode{
++				Type: "Body",
++				Children: []TestTreeNode{
++					{
++						Type: "Attribute",
++						Children: []TestTreeNode{
++							{
++								Type: "comments",
++							},
++							{
++								Type: "identifier",
++								Val:  "a",
++							},
++							{
++								Type: "Tokens",
++								Val:  " =",
++							},
++							{
++								Type: "Expression",
++								Children: []TestTreeNode{
++									{
++										Type: "TupleConsExpr",
++										Children: []TestTreeNode{
++											{
++												Type: "Tokens",
++												Val:  " [\n",
++											},
++											{
++												Type: "Expression",
++												Children: []TestTreeNode{
++													{
++														Type: "Traversal",
++														Children: []TestTreeNode{
++															{
++																Type: "TraverseName",
++																Children: []TestTreeNode{
++																	{
++																		Type: "identifier",
++																		Val:  "  hat",
++																	},
++																},
++															},
++															{
++																Type: "TraverseName",
++																Children: []TestTreeNode{
++																	{
++																		Type: "Tokens",
++																		Val:  ".",
++																	},
++																	{
++																		Type: "identifier",
++																		Val:  "brim",
++																	},
++																},
++															},
++														},
++													},
++												},
++											},
++											{
++												Type: "Tokens",
++												Val:  ",\n",
++											},
++											{
++												Type: "Expression",
++												Children: []TestTreeNode{
++													{
++														Type: "FunctionCallExpr",
++														Children: []TestTreeNode{
++															{
++																Type: "Tokens",
++																Val:  "  f()",
++															},
++														},
++													},
++												},
++											},
++											{
++												Type: "Tokens",
++												Val:  ",\n",
++											},
++											{
++												Type: "Expression",
++												Children: []TestTreeNode{
++													{
++														Type: "ObjectConsExpr",
++														Children: []TestTreeNode{
++															{
++																Type: "Tokens",
++																Val:  "  {",
++															},
++															{
++																Type: "ObjectConsItem",
++																Children: []TestTreeNode{
++																	{
++																		Type: "ObjectConsKeyExpr",
++																		Children: []TestTreeNode{
++																			{
++																				Type: "Expression",
++																				Children: []TestTreeNode{
++																					{
++																						Type: "Traversal",
++																						Children: []TestTreeNode{
++																							{
++																								Type: "TraverseName",
++																								Children: []TestTreeNode{
++																									{
++																										Type: "identifier",
++																										Val:  " b",
++																									},
++																								},
++																							},
++																						},
++																					},
++																				},
++																			},
++																		},
++																	},
++																	{
++																		Type: "Tokens",
++																		Val:  " =",
++																	},
++																	{
++																		Type: "ObjectConsValue",
++																		Children: []TestTreeNode{
++																			{
++																				Type: "Expression",
++																				Children: []TestTreeNode{
++																					{
++																						Type: "Tokens",
++																						Val:  " 1",
++																					},
++																				},
++																			},
++																		},
++																	},
++																},
++															},
++															{
++																Type: "Tokens",
++																Val:  " }",
++															},
++														},
++													},
++												},
++											},
++											{
++												Type: "Tokens",
++												Val:  ",\n",
++											},
++											{
++												Type: "Expression",
++												Children: []TestTreeNode{
++													{
++														Type: "FunctionCallExpr",
++														Children: []TestTreeNode{
++															{
++																Type: "Tokens",
++																Val:  "  g(",
++															},
++															{
++																Type: "Expression",
++																Children: []TestTreeNode{
++																	{
++																		Type: "Traversal",
++																		Children: []TestTreeNode{
++																			{
++																				Type: "TraverseName",
++																				Children: []TestTreeNode{
++																					{
++																						Type: "identifier",
++																						Val:  "c",
++																					},
++																				},
++																			},
++																		},
++																	},
++																},
++															},
++															{
++																Type: "Tokens",
++																Val:  "...)",
++															},
++														},
++													},
++												},
++											},
++											{
++												Type: "Tokens",
++												Val:  ",\n]",
++											},
++										},
++									},
++								},
++							},
++							{
++								Type: "comments",
++							},
++						},
++					},
++				},
++			},
++		},
+ 	}
+ 
+ 	for _, test := range tests {
+diff --git a/hclwrite/round_trip_test.go b/hclwrite/round_trip_test.go
+index b0090c3..5bee5af 100644
+--- a/hclwrite/round_trip_test.go
++++ b/hclwrite/round_trip_test.go
+@@ -47,6 +47,14 @@ block {
+ }
+ 
+ # and they all lived happily ever after
++`,
++		`a = join(" ", ["fedora", "fez"])
++b = [
++  f(x, [1, 2]...),
++  { k = g() },
++  [], # empty
++]
++c = provider::local::upper(lower("HAT"), ) # trailing comma
+ `,
+ 	}
+ 

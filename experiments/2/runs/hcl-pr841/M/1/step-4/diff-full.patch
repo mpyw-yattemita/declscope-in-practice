@@ -1,0 +1,3767 @@
+diff --git a/hclwrite/ast_body.go b/hclwrite/ast_body.go
+index fe09292..b029887 100644
+--- a/hclwrite/ast_body.go
++++ b/hclwrite/ast_body.go
+@@ -1,309 +1,311 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+ package hclwrite
+ 
+ import (
+ 	"reflect"
+ 
+ 	"github.com/hashicorp/hcl/v2"
+ 	"github.com/hashicorp/hcl/v2/hclsyntax"
+ 	"github.com/zclconf/go-cty/cty"
+ )
+ 
+ type Body struct {
+ 	inTree
+ 
+ 	items nodeSet
+ }
+ 
+ func newBody() *Body {
+ 	return &Body{
+ 		inTree: newInTree(),
+ 		items:  newNodeSet(),
+ 	}
+ }
+ 
+ func (b *Body) appendItem(c nodeContent) *node {
+ 	nn := b.children.Append(c)
+ 	b.items.Add(nn)
+ 	return nn
+ }
+ 
+ func (b *Body) appendItemNode(nn *node) *node {
+ 	nn.assertUnattached()
+ 	b.children.AppendNode(nn)
+ 	b.items.Add(nn)
+ 	return nn
+ }
+ 
+ // Clear removes all of the items from the body, making it empty.
+ func (b *Body) Clear() {
+ 	b.children.Clear()
+ }
+ 
+ func (b *Body) AppendUnstructuredTokens(ts Tokens) {
+ 	b.children.Append(ts)
+ }
+ 
+ // Attributes returns a new map of all of the attributes in the body, with
+ // the attribute names as the keys.
+ func (b *Body) Attributes() map[string]*Attribute {
+ 	ret := make(map[string]*Attribute)
+ 	for n := range b.items {
+ 		if attr, isAttr := n.content.(*Attribute); isAttr {
+ 			nameObj := attr.name.content.(*identifier)
+ 			name := string(nameObj.token.Bytes)
+ 			ret[name] = attr
+ 		}
+ 	}
+ 	return ret
+ }
+ 
+ // Blocks returns a new slice of all the blocks in the body.
+ func (b *Body) Blocks() []*Block {
+ 	ret := make([]*Block, 0, len(b.items))
+ 	for _, n := range b.items.List() {
+ 		if block, isBlock := n.content.(*Block); isBlock {
+ 			ret = append(ret, block)
+ 		}
+ 	}
+ 	return ret
+ }
+ 
+ // GetAttribute returns the attribute from the body that has the given name,
+ // or returns nil if there is currently no matching attribute.
+ func (b *Body) GetAttribute(name string) *Attribute {
+ 	for n := range b.items {
+ 		if attr, isAttr := n.content.(*Attribute); isAttr {
+ 			nameObj := attr.name.content.(*identifier)
+ 			if nameObj.hasName(name) {
+ 				// We've found it!
+ 				return attr
+ 			}
+ 		}
+ 	}
+ 
+ 	return nil
+ }
+ 
+ // getAttributeNode is like GetAttribute but it returns the node containing
+ // the selected attribute (if one is found) rather than the attribute itself.
+ func (b *Body) getAttributeNode(name string) *node {
+ 	for n := range b.items {
+ 		if attr, isAttr := n.content.(*Attribute); isAttr {
+ 			nameObj := attr.name.content.(*identifier)
+ 			if nameObj.hasName(name) {
+ 				// We've found it!
+ 				return n
+ 			}
+ 		}
+ 	}
+ 
+ 	return nil
+ }
+ 
+ // RenameAttribute changes the attribute named fromName to toName.
+ // Takes no action if fromName is missing or there is already a
+ // conflicting attribute called toName.
+ //
+ // Returns true if the rename succeeded.
+ func (b *Body) RenameAttribute(fromName, toName string) bool {
+ 	attr := b.GetAttribute(fromName)
+ 	conflictingAttr := b.GetAttribute(toName)
+ 	if attr == nil || conflictingAttr != nil {
+ 		return false
+ 	}
+ 	attr.setName(toName)
+ 	return true
+ }
+ 
+ // FirstMatchingBlock returns a first matching block from the body that has the
+ // given name and labels or returns nil if there is currently no matching
+ // block.
+ func (b *Body) FirstMatchingBlock(typeName string, labels []string) *Block {
+ 	for _, block := range b.Blocks() {
+ 		if typeName == block.Type() {
+ 			labelNames := block.Labels()
+ 			if len(labels) == 0 && len(labelNames) == 0 {
+ 				return block
+ 			}
+ 			if reflect.DeepEqual(labels, labelNames) {
+ 				return block
+ 			}
+ 		}
+ 	}
+ 
+ 	return nil
+ }
+ 
+ // RemoveNewlineBeforeBlock makes a best effort to remove one newline of
+ // vertical separation before a block.
+ //
+ // It will not remove the trailing newline of a preceding structural element,
+ // such as an attribute or a block.
+ 
+ // The pair of RemoveNewlineBeforeBlock + RemoveBlock is an "undo" move for the
+ // pair of AppendNewline + AppendNewBlock.
+ func (b *Body) RemoveNewlineBeforeBlock(block *Block) bool {
+ 	for n := range b.items {
+ 		if n.content != block {
+ 			continue
+ 		}
+ 		if n.before == nil {
+ 			return false
+ 		}
+ 
+ 		// Detect "unstructured token"-only nodes. Structured content, such as
+ 		// an attribute, includes its trailing newline, so we will not remove
+ 		// that.
+ 		if tokens, ok := n.before.content.(Tokens); ok {
+ 			count := len(tokens)
+ 			switch count {
+ 			case 0:
+ 				break
+ 
+ 			case 1:
+ 				// It seems unlikely for this to be anything other than a
+ 				// newline. And yet, we verify.
+ 				if tokens[0].Type == hclsyntax.TokenNewline {
+ 					b.items.Remove(n.before)
+ 					n.before.Detach()
+ 					return true
+ 				}
+ 
+ 			default:
+ 				// It seems unlikely for this to be anything other than a
+ 				// newline. And yet, we verify.
+ 				if tokens[count-1].Type == hclsyntax.TokenNewline {
+ 					newTokens := tokens[:count-1]
+ 					n.before.ReplaceWith(newTokens)
+ 					return true
+ 				}
+ 			}
+ 		}
+ 	}
+ 	return false
+ }
+ 
+ // RemoveBlock removes the given block from the body, if it's in that body.
+ // If it isn't present, this is a no-op.
+ //
+ // Returns true if it removed something, or false otherwise.
+ func (b *Body) RemoveBlock(block *Block) bool {
+ 	for n := range b.items {
+ 		if n.content == block {
+ 			n.Detach()
+ 			b.items.Remove(n)
+ 			return true
+ 		}
+ 	}
+ 	return false
+ }
+ 
++// SetAttribute either replaces the expression of an existing attribute of the
++// given name or adds a new attribute definition to the end of the block,
++// using the given expression. The expression keeps its structure, so
++// Attribute.Expr on the result returns the given expression.
++//
++// The expression must not already be part of a syntax tree, or SetAttribute
++// panics. Where possible, use SetAttributeValue or SetAttributeTraversal
++// instead.
++//
++// The return value is the attribute that was either modified in-place or
++// created.
++func (b *Body) SetAttribute(name string, expr *Expression) *Attribute {
++	expr.assertUnattached()
++
++	attrNode := b.getAttributeNode(name)
++	var attr *Attribute
++	if attrNode != nil {
++		attr = attrNode.content.(*Attribute)
++		attr.Expr().parent = nil
++		attr.expr = attr.expr.ReplaceWith(expr)
++	} else {
++		attr = newAttribute()
++		attr.init(name, expr)
++		attrNode = b.appendItem(attr)
++	}
++	expr.parent = attrNode
++	return attr
++}
++
+ // SetAttributeRaw either replaces the expression of an existing attribute
+ // of the given name or adds a new attribute definition to the end of the block,
+ // using the given tokens verbatim as the expression.
+ //
+ // The same caveats apply to this function as for NewExpressionRaw on which
+ // it is based. If possible, prefer to use SetAttributeValue or
+ // SetAttributeTraversal.
+ //
+ // The return value is the attribute that was either modified in-place or
+ // created.
+ func (b *Body) SetAttributeRaw(name string, tokens Tokens) *Attribute {
+-	attr := b.GetAttribute(name)
+-	expr := NewExpressionRaw(tokens)
+-	if attr != nil {
+-		attr.expr = attr.expr.ReplaceWith(expr)
+-	} else {
+-		attr = newAttribute()
+-		attr.init(name, expr)
+-		b.appendItem(attr)
+-	}
+-	return attr
++	return b.SetAttribute(name, NewExpressionRaw(tokens))
+ }
+ 
+ // SetAttributeValue either replaces the expression of an existing attribute
+ // of the given name or adds a new attribute definition to the end of the block.
+ //
+ // The value is given as a cty.Value, and must therefore be a literal. To set
+ // a variable reference or other traversal, use SetAttributeTraversal.
+ //
+ // The return value is the attribute that was either modified in-place or
+ // created.
+ func (b *Body) SetAttributeValue(name string, val cty.Value) *Attribute {
+-	attr := b.GetAttribute(name)
+-	expr := NewExpressionLiteral(val)
+-	if attr != nil {
+-		attr.expr = attr.expr.ReplaceWith(expr)
+-	} else {
+-		attr = newAttribute()
+-		attr.init(name, expr)
+-		b.appendItem(attr)
+-	}
+-	return attr
++	return b.SetAttribute(name, NewExpressionLiteral(val))
+ }
+ 
+ // SetAttributeTraversal either replaces the expression of an existing attribute
+ // of the given name or adds a new attribute definition to the end of the body.
+ //
+ // The new expression is given as a hcl.Traversal, which must be an absolute
+ // traversal. To set a literal value, use SetAttributeValue.
+ //
+ // The return value is the attribute that was either modified in-place or
+ // created.
+ func (b *Body) SetAttributeTraversal(name string, traversal hcl.Traversal) *Attribute {
+-	attr := b.GetAttribute(name)
+-	expr := NewExpressionAbsTraversal(traversal)
+-	if attr != nil {
+-		attr.expr = attr.expr.ReplaceWith(expr)
+-	} else {
+-		attr = newAttribute()
+-		attr.init(name, expr)
+-		b.appendItem(attr)
+-	}
+-	return attr
++	return b.SetAttribute(name, NewExpressionAbsTraversal(traversal))
+ }
+ 
+ // RemoveAttribute removes the attribute with the given name from the body.
+ //
+ // The return value is the attribute that was removed, or nil if there was
+ // no such attribute (in which case the call was a no-op).
+ func (b *Body) RemoveAttribute(name string) *Attribute {
+ 	node := b.getAttributeNode(name)
+ 	if node == nil {
+ 		return nil
+ 	}
+ 	node.Detach()
+ 	b.items.Remove(node)
+ 	return node.content.(*Attribute)
+ }
+ 
+ // AppendBlock appends an existing block (which must not be already attached
+ // to a body) to the end of the receiving body.
+ func (b *Body) AppendBlock(block *Block) *Block {
+ 	b.appendItem(block)
+ 	return block
+ }
+ 
+ // AppendNewBlock appends a new nested block to the end of the receiving body
+ // with the given type name and labels.
+ func (b *Body) AppendNewBlock(typeName string, labels []string) *Block {
+ 	block := newBlock()
+ 	block.init(typeName, labels)
+ 	b.appendItem(block)
+ 	return block
+ }
+ 
+ // AppendNewline appends a newline token to the end of the receiving body,
+ // which generally serves as a separator between different sets of body
+ // contents.
+ func (b *Body) AppendNewline() {
+ 	b.AppendUnstructuredTokens(Tokens{
+ 		{
+ 			Type:  hclsyntax.TokenNewline,
+ 			Bytes: []byte{'\n'},
+ 		},
+ 	})
+ }
+diff --git a/hclwrite/ast_body_test.go b/hclwrite/ast_body_test.go
+index 7934c34..704d4cd 100644
+--- a/hclwrite/ast_body_test.go
++++ b/hclwrite/ast_body_test.go
+@@ -1,2195 +1,2264 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+ package hclwrite
+ 
+ import (
+ 	"bytes"
+ 	"fmt"
+ 	"reflect"
+ 	"strings"
+ 	"testing"
+ 
+ 	"github.com/davecgh/go-spew/spew"
+ 	"github.com/google/go-cmp/cmp"
+ 	"github.com/hashicorp/hcl/v2"
+ 	"github.com/hashicorp/hcl/v2/hclsyntax"
+ 	"github.com/zclconf/go-cty/cty"
+ )
+ 
+ func TestBodyGetAttribute(t *testing.T) {
+ 	tests := []struct {
+ 		src  string
+ 		name string
+ 		want Tokens
+ 	}{
+ 		{
+ 			"",
+ 			"a",
+ 			nil,
+ 		},
+ 		{
+ 			"a = 1\n",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte{'1'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = 1\nb = 1\nc = 1\n",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte{'1'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = 1\nb = 2\nc = 3\n",
+ 			"b",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte{'2'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = 1\nb = 2\nc = 3\n",
+ 			"c",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'c'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte{'3'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = 1\n# b is a b\nb = 2\nc = 3\n",
+ 			"b",
+ 			Tokens{
+ 				{
+ 					// Recognized as a lead comment and so attached to the attribute
+ 					Type:         hclsyntax.TokenComment,
+ 					Bytes:        []byte("# b is a b\n"),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte{'2'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = 1\n# not attached to a or b\n\nb = 2\nc = 3\n",
+ 			"b",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte{'2'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s in %s", test.name, test.src), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			attr := f.Body().GetAttribute(test.name)
+ 			if attr == nil {
+ 				if test.want != nil {
+ 					t.Fatal("attribute not found, but want it to exist")
+ 				}
+ 			} else {
+ 				if test.want == nil {
+ 					t.Fatal("attribute found, but expecting not found")
+ 				}
+ 
+ 				got := attr.BuildTokens(nil)
+ 				if !reflect.DeepEqual(got, test.want) {
+ 					t.Errorf("wrong result\ngot:  %s\nwant: %s", spew.Sdump(got), spew.Sdump(test.want))
+ 				}
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodyFirstMatchingBlock(t *testing.T) {
+ 	src := `a = "b"
+ service {
+   attr0 = "val0"
+ }
+ service "label1" {
+   attr1 = "val1"
+ }
+ service "label1" "label2" {
+   attr2 = "val2"
+ }
+ parent {
+   attr3 = "val3"
+   child {
+     attr4 = "val4"
+   }
+ }
+ `
+ 
+ 	tests := []struct {
+ 		src      string
+ 		typeName string
+ 		labels   []string
+ 		want     string
+ 	}{
+ 		{
+ 			src,
+ 			"service",
+ 			[]string{},
+ 			`service {
+   attr0 = "val0"
+ }
+ `,
+ 		},
+ 		{
+ 			src,
+ 			"service",
+ 			[]string{"label1"},
+ 			`service "label1" {
+   attr1 = "val1"
+ }
+ `,
+ 		},
+ 		{
+ 			src,
+ 			"service",
+ 			[]string{"label1", "label2"},
+ 			`service "label1" "label2" {
+   attr2 = "val2"
+ }
+ `,
+ 		},
+ 		{
+ 			src,
+ 			"parent",
+ 			[]string{},
+ 			`parent {
+   attr3 = "val3"
+   child {
+     attr4 = "val4"
+   }
+ }
+ `,
+ 		},
+ 		{
+ 			src,
+ 			"hoge",
+ 			[]string{},
+ 			"",
+ 		},
+ 		{
+ 			src,
+ 			"hoge",
+ 			[]string{"label1"},
+ 			"",
+ 		},
+ 		{
+ 			src,
+ 			"service",
+ 			[]string{"label2"},
+ 			"",
+ 		},
+ 		{
+ 			src,
+ 			"service",
+ 			[]string{"label2", "label1"},
+ 			"",
+ 		},
+ 		{
+ 			src,
+ 			"child",
+ 			[]string{},
+ 			"",
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s %s", test.typeName, strings.Join(test.labels, " ")), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			block := f.Body().FirstMatchingBlock(test.typeName, test.labels)
+ 			if block == nil {
+ 				if test.want != "" {
+ 					t.Fatal("block not found, but want it to exist")
+ 				}
+ 			} else {
+ 				if test.want == "" {
+ 					t.Fatal("block found, but expecting not found")
+ 				}
+ 
+ 				got := string(block.BuildTokens(nil).Bytes())
+ 				if got != test.want {
+ 					t.Errorf("wrong result\ngot:  %s\nwant: %s", got, test.want)
+ 				}
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodySetAttributeValue(t *testing.T) {
+ 	tests := []struct {
+ 		src  string
+ 		name string
+ 		val  cty.Value
+ 		want Tokens
+ 	}{
+ 		{
+ 			"",
+ 			"a",
+ 			cty.True,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("true"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"b = false\n",
+ 			"a",
+ 			cty.True,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("false"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("true"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = false\n",
+ 			"a",
+ 			cty.True,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("true"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = 1\nb = false\n",
+ 			"a",
+ 			cty.True,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("true"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("false"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s = %#v in %s", test.name, test.val, test.src), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			f.Body().SetAttributeValue(test.name, test.val)
+ 			got := f.BuildTokens(nil)
+ 			format(got)
+ 			if !reflect.DeepEqual(got, test.want) {
+ 				diff := cmp.Diff(test.want, got)
+ 				t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(test.want), diff)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodySetAttributeTraversal(t *testing.T) {
+ 	tests := []struct {
+ 		src  string
+ 		name string
+ 		trav string
+ 		want Tokens
+ 	}{
+ 		{
+ 			"",
+ 			"a",
+ 			`b`,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("b"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"",
+ 			"a",
+ 			`b.c.d`,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("b"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenDot,
+ 					Bytes:        []byte("."),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("c"),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenDot,
+ 					Bytes:        []byte("."),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("d"),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"",
+ 			"a",
+ 			`b[0]`,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("b"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrack,
+ 					Bytes:        []byte("["),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte("0"),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCBrack,
+ 					Bytes:        []byte("]"),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"",
+ 			"a",
+ 			`b[0].c`,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("b"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrack,
+ 					Bytes:        []byte("["),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte("0"),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCBrack,
+ 					Bytes:        []byte("]"),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenDot,
+ 					Bytes:        []byte("."),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("c"),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s = %s in %s", test.name, test.trav, test.src), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			traversal, diags := hclsyntax.ParseTraversalAbs([]byte(test.trav), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics from traversal")
+ 			}
+ 
+ 			f.Body().SetAttributeTraversal(test.name, traversal)
+ 			got := f.BuildTokens(nil)
+ 			format(got)
+ 			if !reflect.DeepEqual(got, test.want) {
+ 				diff := cmp.Diff(test.want, got)
+ 				t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(test.want), diff)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodySetAttributeTraversal_ReturnsTheAttribute(t *testing.T) {
+ 	tests := map[string]struct {
+ 		config string
+ 		want   string
+ 	}{
+ 		"attribute `one` is already set to a value": {
+ 			config: `one = 1`,
+ 			want:   `one =the.loneliest.number`,
+ 		},
+ 		"attribute `one` is not set to a value": {
+ 			config: `two = 2`,
+ 			want:   `one=the.loneliest.number` + "\n",
+ 		},
+ 	}
+ 
+ 	for name, test := range tests {
+ 		t.Run(name, func(t *testing.T) {
+ 			f := testFn[*File](t)(ParseConfig([]byte(test.config), "", hcl.Pos{Line: 1, Column: 1}))
+ 
+ 			traversal := hcl.Traversal{
+ 				hcl.TraverseRoot{Name: "the"},
+ 				hcl.TraverseAttr{Name: "loneliest"},
+ 				hcl.TraverseAttr{Name: "number"},
+ 			}
+ 
+ 			attr := f.Body().SetAttributeTraversal(`one`, traversal)
+ 			if attr == nil {
+ 				t.Fatalf("got: nil\nwant: %s", test.want)
+ 			}
+ 
+ 			got := attr.BuildTokens(nil).Bytes()
+ 			if !bytes.Equal(got, []byte(test.want)) {
+ 				t.Errorf("got: %s\nwant: %s", got, test.want)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodySetAttributeRaw(t *testing.T) {
+ 	tests := []struct {
+ 		src    string
+ 		name   string
+ 		tokens Tokens
+ 		want   Tokens
+ 	}{
+ 		{
+ 			"",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte(`true`),
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("true"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = 23\n",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte(`true`),
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("true"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"b = 23\n",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte(`true`),
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte("23"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("true"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s = %s in %s", test.name, test.tokens.Bytes(), test.src), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			f.Body().SetAttributeRaw(test.name, test.tokens)
+ 			got := f.BuildTokens(nil)
+ 			format(got)
+ 			if !reflect.DeepEqual(got, test.want) {
+ 				diff := cmp.Diff(test.want, got)
+ 				t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(test.want), diff)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodySetAttributeRaw_ReturnsTheAttribute(t *testing.T) {
+ 	tests := map[string]struct {
+ 		config string
+ 		want   string
+ 	}{
+ 		"attribute `one` is already set to a value": {
+ 			config: `one = 1`,
+ 			want:   `one ="the loneliest number"`,
+ 		},
+ 		"attribute `one` is not set to a value": {
+ 			config: `two = 2`,
+ 			want:   `one="the loneliest number"` + "\n",
+ 		},
+ 	}
+ 
+ 	for name, test := range tests {
+ 		t.Run(name, func(t *testing.T) {
+ 			f := testFn[*File](t)(ParseConfig([]byte(test.config), "", hcl.Pos{Line: 1, Column: 1}))
+ 
+ 			attr := f.Body().SetAttributeRaw(`one`, TokensForValue(cty.StringVal("the loneliest number")))
+ 			if attr == nil {
+ 				t.Fatalf("got: nil\nwant: %s", test.want)
+ 			}
+ 
+ 			got := attr.BuildTokens(nil).Bytes()
+ 			if !bytes.Equal(got, []byte(test.want)) {
+ 				t.Errorf("got: %s\nwant: %s", got, test.want)
+ 			}
+ 		})
+ 	}
+ }
+ func TestBodySetAttributeValue_ReturnsTheAttribute(t *testing.T) {
+ 	tests := map[string]struct {
+ 		config string
+ 		want   string
+ 	}{
+ 		"attribute `one` is already set to a value": {
+ 			config: `one = 1`,
+ 			want:   `one ="the loneliest number"`,
+ 		},
+ 		"attribute `one` is not set to a value": {
+ 			config: `two = 2`,
+ 			want:   `one="the loneliest number"` + "\n",
+ 		},
+ 	}
+ 
+ 	for name, test := range tests {
+ 		t.Run(name, func(t *testing.T) {
+ 			f := testFn[*File](t)(ParseConfig([]byte(test.config), "", hcl.Pos{Line: 1, Column: 1}))
+ 
+ 			attr := f.Body().SetAttributeValue(`one`, cty.StringVal("the loneliest number"))
+ 			if attr == nil {
+ 				t.Fatalf("got: nil\nwant: %s", test.want)
+ 			}
+ 
+ 			got := attr.BuildTokens(nil).Bytes()
+ 			if !bytes.Equal(got, []byte(test.want)) {
+ 				t.Errorf("got: %s\nwant: %s", got, test.want)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodySetAttributeValueInBlock(t *testing.T) {
+ 	src := `service "label1" {
+   attr1 = "val1"
+ }
+ `
+ 	tests := []struct {
+ 		src      string
+ 		typeName string
+ 		labels   []string
+ 		attr     string
+ 		val      cty.Value
+ 		want     string
+ 	}{
+ 		{
+ 			src,
+ 			"service",
+ 			[]string{"label1"},
+ 			"attr1",
+ 			cty.StringVal("updated1"),
+ 			`service "label1" {
+   attr1 = "updated1"
+ }
+ `,
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s = %#v in %s %s", test.attr, test.val, test.typeName, strings.Join(test.labels, " ")), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			b := f.Body().FirstMatchingBlock(test.typeName, test.labels)
+ 			b.Body().SetAttributeValue(test.attr, test.val)
+ 			tokens := f.BuildTokens(nil)
+ 			format(tokens)
+ 			got := string(tokens.Bytes())
+ 			if got != test.want {
+ 				t.Errorf("wrong result\ngot:  %s\nwant: %s\n", got, test.want)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodySetAttributeValueInNestedBlock(t *testing.T) {
+ 	src := `parent {
+   attr1 = "val1"
+   child {
+     attr2 = "val2"
+   }
+ }
+ `
+ 	tests := []struct {
+ 		src            string
+ 		parentTypeName string
+ 		childTypeName  string
+ 		attr           string
+ 		val            cty.Value
+ 		want           string
+ 	}{
+ 		{
+ 			src,
+ 			"parent",
+ 			"child",
+ 			"attr2",
+ 			cty.StringVal("updated2"),
+ 			`parent {
+   attr1 = "val1"
+   child {
+     attr2 = "updated2"
+   }
+ }
+ `,
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s = %#v in %s in %s", test.attr, test.val, test.childTypeName, test.parentTypeName), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			parent := f.Body().FirstMatchingBlock(test.parentTypeName, []string{})
+ 			child := parent.Body().FirstMatchingBlock(test.childTypeName, []string{})
+ 			child.Body().SetAttributeValue(test.attr, test.val)
+ 			tokens := f.BuildTokens(nil)
+ 			format(tokens)
+ 			got := string(tokens.Bytes())
+ 			if got != test.want {
+ 				t.Errorf("wrong result\ngot:  %s\nwant: %s\n", got, test.want)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodyRemoveAttribute(t *testing.T) {
+ 	tests := []struct {
+ 		src  string
+ 		name string
+ 		want Tokens
+ 	}{
+ 		{
+ 			"",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"b = false\n",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("false"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = false\n",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = 1\nb = false\n",
+ 			"a",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("false"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s in %s", test.name, test.src), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			f.Body().RemoveAttribute(test.name)
+ 			got := f.BuildTokens(nil)
+ 			format(got)
+ 			if !reflect.DeepEqual(got, test.want) {
+ 				diff := cmp.Diff(test.want, got)
+ 				t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(test.want), diff)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodyRenameAttribute(t *testing.T) {
+ 	tests := []struct {
+ 		src     string
+ 		oldName string
+ 		newName string
+ 		want    Tokens
+ 	}{
+ 		{
+ 			"",
+ 			"a",
+ 			"b",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = false\n",
+ 			"a",
+ 			"b",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("false"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = false\n",
+ 			"b",
+ 			"c",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("false"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"a = false\nb = false\n",
+ 			"a",
+ 			"b",
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'a'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("false"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte{'b'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte{'='},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte("false"),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s->%s in %s", test.oldName, test.newName, test.src), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 			oldExists := nil != f.Body().GetAttribute(test.oldName)
+ 			newExists := nil != f.Body().GetAttribute(test.newName)
+ 			shouldSucceed := (oldExists && !newExists)
+ 			success := f.Body().RenameAttribute(test.oldName, test.newName)
+ 
+ 			got := f.BuildTokens(nil)
+ 			format(got)
+ 			if !reflect.DeepEqual(got, test.want) {
+ 				diff := cmp.Diff(test.want, got)
+ 				t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(test.want), diff)
+ 			}
+ 			if success != shouldSucceed {
+ 				t.Errorf("RenameAttribute returned %v when it should have returned %v ", success, shouldSucceed)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodyAppendBlock(t *testing.T) {
+ 	tests := []struct {
+ 		src       string
+ 		blockType string
+ 		labels    []string
+ 		want      Tokens
+ 	}{
+ 		{
+ 			"",
+ 			"foo",
+ 			nil,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte(`foo`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte{'{'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCBrace,
+ 					Bytes:        []byte{'}'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"",
+ 			"foo",
+ 			[]string{"bar"},
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte(`foo`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOQuote,
+ 					Bytes:        []byte(`"`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenQuotedLit,
+ 					Bytes:        []byte(`bar`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCQuote,
+ 					Bytes:        []byte(`"`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte{'{'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCBrace,
+ 					Bytes:        []byte{'}'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"",
+ 			"foo",
+ 			[]string{"bar", "baz"},
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte(`foo`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOQuote,
+ 					Bytes:        []byte(`"`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenQuotedLit,
+ 					Bytes:        []byte(`bar`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCQuote,
+ 					Bytes:        []byte(`"`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOQuote,
+ 					Bytes:        []byte(`"`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenQuotedLit,
+ 					Bytes:        []byte(`baz`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCQuote,
+ 					Bytes:        []byte(`"`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte{'{'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCBrace,
+ 					Bytes:        []byte{'}'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 		{
+ 			"bar {}\n",
+ 			"foo",
+ 			nil,
+ 			Tokens{
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte(`bar`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte{'{'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCBrace,
+ 					Bytes:        []byte{'}'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenIdent,
+ 					Bytes:        []byte(`foo`),
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte{'{'},
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenCBrace,
+ 					Bytes:        []byte{'}'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNewline,
+ 					Bytes:        []byte{'\n'},
+ 					SpacesBefore: 0,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEOF,
+ 					Bytes:        []byte{},
+ 					SpacesBefore: 0,
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		t.Run(fmt.Sprintf("%s %#v in %s", test.blockType, test.blockType, test.src), func(t *testing.T) {
+ 			f, diags := ParseConfig([]byte(test.src), "", hcl.Pos{Line: 1, Column: 1})
+ 			if len(diags) != 0 {
+ 				for _, diag := range diags {
+ 					t.Logf("- %s", diag.Error())
+ 				}
+ 				t.Fatalf("unexpected diagnostics")
+ 			}
+ 
+ 			f.Body().AppendNewBlock(test.blockType, test.labels)
+ 			got := f.BuildTokens(nil)
+ 			format(got)
+ 			if !reflect.DeepEqual(got, test.want) {
+ 				diff := cmp.Diff(test.want, got)
+ 				t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(test.want), diff)
+ 			}
+ 		})
+ 	}
+ }
+ 
+ func TestBodyRemoveBlock(t *testing.T) {
+ 	src := strings.TrimSpace(`
+ a = 1
+ 
+ # Foo
+ foo {
+   b = 1
+ }
+ foo {
+   b = 2
+ }
+ bar {}
+ `)
+ 	f, diags := ParseConfig([]byte(src), "", hcl.Pos{Line: 1, Column: 1})
+ 	if len(diags) != 0 {
+ 		for _, diag := range diags {
+ 			t.Logf("- %s", diag.Error())
+ 		}
+ 		t.Fatalf("unexpected diagnostics")
+ 	}
+ 
+ 	t.Logf("Removing the first block")
+ 	t.Logf("initial content:\n%s", f.Bytes())
+ 	body := f.Body()
+ 	block := body.FirstMatchingBlock("foo", nil)
+ 	if block == nil {
+ 		t.Fatalf("didn't find a 'foo' block")
+ 	}
+ 	removed := body.RemoveBlock(block)
+ 	if !removed {
+ 		t.Fatalf("didn't remove first block")
+ 	}
+ 	t.Logf("updated content:\n%s", f.Bytes())
+ 	got := f.BuildTokens(nil)
+ 	want := Tokens{
+ 		0: {
+ 			Type:         hclsyntax.TokenIdent,
+ 			Bytes:        []byte(`a`),
+ 			SpacesBefore: 0,
+ 		},
+ 		1: {
+ 			Type:         hclsyntax.TokenEqual,
+ 			Bytes:        []byte(`=`),
+ 			SpacesBefore: 1,
+ 		},
+ 		2: {
+ 			Type:         hclsyntax.TokenNumberLit,
+ 			Bytes:        []byte(`1`),
+ 			SpacesBefore: 1,
+ 		},
+ 		3: {
+ 			Type:         hclsyntax.TokenNewline,
+ 			Bytes:        []byte("\n"),
+ 			SpacesBefore: 0,
+ 		},
+ 		4: {
+ 			Type:         hclsyntax.TokenNewline,
+ 			Bytes:        []byte("\n"),
+ 			SpacesBefore: 0,
+ 		},
+ 		5: {
+ 			Type:         hclsyntax.TokenIdent,
+ 			Bytes:        []byte(`foo`),
+ 			SpacesBefore: 0,
+ 		},
+ 		6: {
+ 			Type:         hclsyntax.TokenOBrace,
+ 			Bytes:        []byte(`{`),
+ 			SpacesBefore: 1,
+ 		},
+ 		7: {
+ 			Type:         hclsyntax.TokenNewline,
+ 			Bytes:        []byte("\n"),
+ 			SpacesBefore: 0,
+ 		},
+ 		8: {
+ 			Type:         hclsyntax.TokenIdent,
+ 			Bytes:        []byte(`b`),
+ 			SpacesBefore: 2,
+ 		},
+ 		9: {
+ 			Type:         hclsyntax.TokenEqual,
+ 			Bytes:        []byte(`=`),
+ 			SpacesBefore: 1,
+ 		},
+ 		10: {
+ 			Type:         hclsyntax.TokenNumberLit,
+ 			Bytes:        []byte(`2`),
+ 			SpacesBefore: 1,
+ 		},
+ 		11: {
+ 			Type:         hclsyntax.TokenNewline,
+ 			Bytes:        []byte("\n"),
+ 			SpacesBefore: 0,
+ 		},
+ 		12: {
+ 			Type:         hclsyntax.TokenCBrace,
+ 			Bytes:        []byte(`}`),
+ 			SpacesBefore: 0,
+ 		},
+ 		13: {
+ 			Type:         hclsyntax.TokenNewline,
+ 			Bytes:        []byte("\n"),
+ 			SpacesBefore: 0,
+ 		},
+ 		14: {
+ 			Type:         hclsyntax.TokenIdent,
+ 			Bytes:        []byte(`bar`),
+ 			SpacesBefore: 0,
+ 		},
+ 		15: {
+ 			Type:         hclsyntax.TokenOBrace,
+ 			Bytes:        []byte(`{`),
+ 			SpacesBefore: 1,
+ 		},
+ 		16: {
+ 			Type:         hclsyntax.TokenCBrace,
+ 			Bytes:        []byte(`}`),
+ 			SpacesBefore: 0,
+ 		},
+ 		17: {
+ 			Type:         hclsyntax.TokenEOF,
+ 			Bytes:        []byte(""),
+ 			SpacesBefore: 0,
+ 		},
+ 	}
+ 	format(got)
+ 	if !reflect.DeepEqual(got, want) {
+ 		diff := cmp.Diff(want, got)
+ 		t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(want), diff)
+ 	}
+ 
+ 	t.Logf("removing the second block")
+ 	t.Logf("initial content:\n%s", f.Bytes())
+ 	block = body.FirstMatchingBlock("foo", nil)
+ 	if block == nil {
+ 		t.Fatalf("didn't find a 'foo' block")
+ 	}
+ 	removed = body.RemoveBlock(block)
+ 	if !removed {
+ 		t.Fatalf("didn't remove second block")
+ 	}
+ 	t.Logf("updated content:\n%s", f.Bytes())
+ 	got = f.BuildTokens(nil)
+ 	want = Tokens{
+ 		0: {
+ 			Type:         hclsyntax.TokenIdent,
+ 			Bytes:        []byte(`a`),
+ 			SpacesBefore: 0,
+ 		},
+ 		1: {
+ 			Type:         hclsyntax.TokenEqual,
+ 			Bytes:        []byte(`=`),
+ 			SpacesBefore: 1,
+ 		},
+ 		2: {
+ 			Type:         hclsyntax.TokenNumberLit,
+ 			Bytes:        []byte(`1`),
+ 			SpacesBefore: 1,
+ 		},
+ 		3: {
+ 			Type:         hclsyntax.TokenNewline,
+ 			Bytes:        []byte("\n"),
+ 			SpacesBefore: 0,
+ 		},
+ 		4: {
+ 			Type:         hclsyntax.TokenNewline,
+ 			Bytes:        []byte("\n"),
+ 			SpacesBefore: 0,
+ 		},
+ 		5: {
+ 			Type:         hclsyntax.TokenIdent,
+ 			Bytes:        []byte(`bar`),
+ 			SpacesBefore: 0,
+ 		},
+ 		6: {
+ 			Type:         hclsyntax.TokenOBrace,
+ 			Bytes:        []byte(`{`),
+ 			SpacesBefore: 1,
+ 		},
+ 		7: {
+ 			Type:         hclsyntax.TokenCBrace,
+ 			Bytes:        []byte(`}`),
+ 			SpacesBefore: 0,
+ 		},
+ 		8: {
+ 			Type:         hclsyntax.TokenEOF,
+ 			Bytes:        []byte(""),
+ 			SpacesBefore: 0,
+ 		},
+ 	}
+ 	format(got)
+ 	if !reflect.DeepEqual(got, want) {
+ 		diff := cmp.Diff(want, got)
+ 		t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(want), diff)
+ 	}
+ 
+ }
+ 
+ func TestBodyRemoveNewlineBeforeBlock(t *testing.T) {
+ 	tests := []struct {
+ 		src             string
+ 		blockType       string
+ 		wantReturnValue bool
+ 		want            Tokens
+ 	}{
+ 		{
+ 			src: `
+ a = 1
+ 
+ cat {
+ }
+ `,
+ 			blockType:       `cat`,
+ 			wantReturnValue: true,
+ 			want: Tokens{
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`a`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte(`=`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte(`1`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				// One newline removed.
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`cat`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte(`{`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenCBrace,
+ 					Bytes: []byte(`}`),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenEOF,
+ 					Bytes: []byte{},
+ 				},
+ 			},
+ 		},
+ 		{
+ 			src: `
+ a = 1
+ 
+ 
+ cat {
+ }
+ `,
+ 			blockType:       `cat`,
+ 			wantReturnValue: true,
+ 			want: Tokens{
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`a`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte(`=`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte(`1`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				// One newline removed.
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`cat`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte(`{`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenCBrace,
+ 					Bytes: []byte(`}`),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenEOF,
+ 					Bytes: []byte{},
+ 				},
+ 			},
+ 		},
+ 		{
+ 			src: `
+ a = 1
+ 
+ // bat
+ // hat
+ cat {
+ }
+ `,
+ 			blockType:       `cat`,
+ 			wantReturnValue: true,
+ 			want: Tokens{
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`a`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte(`=`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte(`1`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				// One newline removed.
+ 				{
+ 					Type:  hclsyntax.TokenComment,
+ 					Bytes: []byte(`// bat` + "\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenComment,
+ 					Bytes: []byte(`// hat` + "\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`cat`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte(`{`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenCBrace,
+ 					Bytes: []byte(`}`),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenEOF,
+ 					Bytes: []byte{},
+ 				},
+ 			},
+ 		},
+ 		{
+ 			src: `
+ a = 1
+ 
+ # bat
+ # hat
+ cat {
+ }
+ `,
+ 			blockType:       `cat`,
+ 			wantReturnValue: true,
+ 			want: Tokens{
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`a`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte(`=`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte(`1`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				// One newline removed.
+ 				{
+ 					Type:  hclsyntax.TokenComment,
+ 					Bytes: []byte(`# bat` + "\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenComment,
+ 					Bytes: []byte(`# hat` + "\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`cat`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte(`{`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenCBrace,
+ 					Bytes: []byte(`}`),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenEOF,
+ 					Bytes: []byte{},
+ 				},
+ 			},
+ 		},
+ 		{
+ 			src: `
+ a = 1
+ cat {
+ }
+ `,
+ 			blockType:       `cat`,
+ 			wantReturnValue: false,
+ 			want: Tokens{
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`a`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenEqual,
+ 					Bytes:        []byte(`=`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenNumberLit,
+ 					Bytes:        []byte(`1`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenIdent,
+ 					Bytes: []byte(`cat`),
+ 				},
+ 				{
+ 					Type:         hclsyntax.TokenOBrace,
+ 					Bytes:        []byte(`{`),
+ 					SpacesBefore: 1,
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenNewline,
+ 					Bytes: []byte("\n"),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenCBrace,
+ 					Bytes: []byte(`}`),
+ 				},
+ 				{
+ 					Type:  hclsyntax.TokenEOF,
+ 					Bytes: []byte{},
+ 				},
+ 			},
+ 		},
+ 	}
+ 
+ 	for _, test := range tests {
+ 		f, diags := ParseConfig([]byte(strings.TrimSpace(test.src)), "", hcl.InitialPos)
+ 		if diags.HasErrors() {
+ 			for _, diag := range diags {
+ 				t.Logf("- %s", diag.Error())
+ 			}
+ 			t.Fatalf("unexpected diagnostics")
+ 		}
+ 
+ 		block := f.Body().FirstMatchingBlock(test.blockType, nil)
+ 		removed := f.Body().RemoveNewlineBeforeBlock(block)
+ 
+ 		if removed != test.wantReturnValue {
+ 			t.Errorf("expected RemoveNewlineBeforeBlock to return %v; got %v", test.wantReturnValue, removed)
+ 		}
+ 
+ 		got := f.BuildTokens(nil)
+ 		format(got)
+ 		if !reflect.DeepEqual(got, test.want) {
+ 			diff := cmp.Diff(test.want, got)
+ 			t.Errorf("wrong result\ndiff:\n%s", diff)
+ 		}
+ 	}
+ }
+ 
+ // testFn is a convenience function that wraps a function call that returns a
+ // value and diagnostics.
+ //
+ // If there are no diagnostics, returns the value.
+ // If there are diagnostics, fails the test.
+ func testFn[E any](t *testing.T) func(value E, diags hcl.Diagnostics) E {
+ 	t.Helper()
+ 
+ 	return func(value E, diags hcl.Diagnostics) E {
+ 		if len(diags) != 0 {
+ 			for _, diag := range diags {
+ 				t.Logf("- %s", diag.Error())
+ 			}
+ 			t.Fatalf("unexpected diagnostics")
+ 		}
+ 
+ 		return value
+ 	}
+ }
++
++func TestBodySetAttribute(t *testing.T) {
++	tests := map[string]struct {
++		config string
++		want   string
++	}{
++		"new attribute": {
++			config: "b = 1\n",
++			want:   "b = 1\na = { hat = \"derby\" }\n",
++		},
++		"existing attribute": {
++			config: "a = 1 # comment\nb = 2\n",
++			want:   "a = { hat = \"derby\" } # comment\nb = 2\n",
++		},
++	}
++
++	for name, test := range tests {
++		t.Run(name, func(t *testing.T) {
++			f := testFn[*File](t)(ParseConfig([]byte(test.config), "", hcl.InitialPos))
++			expr := testFn[*Expression](t)(ParseExpression([]byte(`{ hat = "derby" }`), "", hcl.InitialPos))
++
++			attr := f.Body().SetAttribute("a", expr)
++			if attr != f.Body().GetAttribute("a") {
++				t.Fatalf("returned attribute is not the attribute of the body")
++			}
++			if attr.Expr() != expr {
++				t.Fatalf("attribute expression is not the given expression")
++			}
++
++			// The structure is kept, so the object can be changed in place.
++			object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
++			if object == nil {
++				t.Fatalf("attribute expression is not an object")
++			}
++			object.SetItemValue("shoes", cty.StringVal("loafers"))
++
++			got := string(f.Bytes())
++			want := strings.Replace(test.want, `"derby" }`, `"derby", shoes = "loafers" }`, 1)
++			if got != want {
++				t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, want)
++			}
++		})
++	}
++}
++
++func TestBodySetAttribute_AttachedExpression(t *testing.T) {
++	f := testFn[*File](t)(ParseConfig([]byte("a = 1\nb = 2\n"), "", hcl.InitialPos))
++	expr := f.Body().GetAttribute("a").Expr()
++
++	defer func() {
++		if recover() == nil {
++			t.Errorf("SetAttribute did not panic")
++		}
++	}()
++	f.Body().SetAttribute("b", expr)
++}
++
++func TestBodySetAttribute_ReplacedExpressionIsDetached(t *testing.T) {
++	f := testFn[*File](t)(ParseConfig([]byte("a = 1\n"), "", hcl.InitialPos))
++	old := f.Body().GetAttribute("a").Expr()
++	f.Body().SetAttributeValue("a", cty.True)
++
++	// The old expression is no longer part of the tree, so it can be used
++	// again.
++	f.Body().SetAttribute("b", old)
++	if got, want := string(f.Bytes()), "a = true\nb = 1\n"; got != want {
++		t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, want)
++	}
++}
+diff --git a/hclwrite/parser.go b/hclwrite/parser.go
+index 8c85451..75c3384 100644
+--- a/hclwrite/parser.go
++++ b/hclwrite/parser.go
+@@ -1,794 +1,823 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+ package hclwrite
+ 
+ import (
+ 	"fmt"
+ 	"sort"
+ 
+ 	"github.com/hashicorp/hcl/v2"
+ 	"github.com/hashicorp/hcl/v2/hclsyntax"
+ 	"github.com/zclconf/go-cty/cty"
+ )
+ 
+ // Our "parser" here is actually not doing any parsing of its own. Instead,
+ // it leans on the native parser in hclsyntax, and then uses the source ranges
+ // from the AST to partition the raw token sequence to match the raw tokens
+ // up to AST nodes.
+ //
+ // This strategy feels somewhat counter-intuitive, since most of the work the
+ // parser does is thrown away here, but this strategy is chosen because the
+ // normal parsing work done by hclsyntax is considered to be the "main case",
+ // while modifying and re-printing source is more of an edge case, used only
+ // in ancillary tools, and so it's good to keep all the main parsing logic
+ // with the main case but keep all of the extra complexity of token wrangling
+ // out of the main parser, which is already rather complex just serving the
+ // use-cases it already serves.
+ //
+ // If the parsing step produces any errors, the returned File is nil because
+ // we can't reliably extract tokens from the partial AST produced by an
+ // erroneous parse.
+ func parse(src []byte, filename string, start hcl.Pos) (*File, hcl.Diagnostics) {
+ 	file, diags := hclsyntax.ParseConfig(src, filename, start)
+ 	if diags.HasErrors() {
+ 		return nil, diags
+ 	}
+ 
+-	// To do our work here, we use the "native" tokens (those from hclsyntax)
+-	// to match against source ranges in the AST, but ultimately produce
+-	// slices from our sequence of "writer" tokens, which contain only
+-	// *relative* position information that is more appropriate for
+-	// transformation/writing use-cases.
+-	nativeTokens, diags := hclsyntax.LexConfig(src, filename, start)
++	from, diags := lexInputTokens(src, filename, start)
+ 	if diags.HasErrors() {
+-		// should never happen, since we would've caught these diags in
+-		// the first call above.
+ 		return nil, diags
+ 	}
+-	writerTokens := writerTokens(nativeTokens)
+-
+-	from := inputTokens{
+-		nativeTokens: nativeTokens,
+-		writerTokens: writerTokens,
+-	}
+ 
+ 	before, root, after := parseBody(file.Body.(*hclsyntax.Body), from)
+ 	ret := &File{
+ 		inTree: newInTree(),
+ 
+ 		srcBytes: src,
+ 		body:     root,
+ 	}
+ 
+ 	nodes := ret.children
+ 	nodes.Append(before.Tokens())
+ 	nodes.AppendNode(root)
+ 	nodes.Append(after.Tokens())
+ 
+ 	return ret, diags
+ }
+ 
++// parseExpr is like parse, but parses src as a single expression. The
++// tokens before and after the expression, such as comments and newlines,
++// are not part of the result.
++//
++// If the parsing step produces any errors, the returned Expression is nil.
++func parseExpr(src []byte, filename string, start hcl.Pos) (*Expression, hcl.Diagnostics) {
++	nativeExpr, diags := hclsyntax.ParseExpression(src, filename, start)
++	if diags.HasErrors() {
++		return nil, diags
++	}
++
++	from, lexDiags := lexInputTokens(src, filename, start)
++	if lexDiags.HasErrors() {
++		return nil, lexDiags
++	}
++
++	_, exprTokens, _ := from.Partition(nativeExpr.Range())
++	return parseExpression(nativeExpr, exprTokens).content.(*Expression), diags
++}
++
++// lexInputTokens lexes src into the token sequences that the parse
++// functions partition.
++//
++// To do our work, we use the "native" tokens (those from hclsyntax) to
++// match against source ranges in the AST, but ultimately produce slices
++// from our sequence of "writer" tokens, which contain only *relative*
++// position information that is more appropriate for transformation/writing
++// use-cases.
++//
++// The caller must have already parsed src without errors, so the lexing
++// step should never produce errors either.
++func lexInputTokens(src []byte, filename string, start hcl.Pos) (inputTokens, hcl.Diagnostics) {
++	nativeTokens, diags := hclsyntax.LexConfig(src, filename, start)
++	if diags.HasErrors() {
++		return inputTokens{}, diags
++	}
++	return inputTokens{
++		nativeTokens: nativeTokens,
++		writerTokens: writerTokens(nativeTokens),
++	}, diags
++}
++
+ type inputTokens struct {
+ 	nativeTokens hclsyntax.Tokens
+ 	writerTokens Tokens
+ }
+ 
+ func (it inputTokens) Partition(rng hcl.Range) (before, within, after inputTokens) {
+ 	start, end := partitionTokens(it.nativeTokens, rng)
+ 	before = it.Slice(0, start)
+ 	within = it.Slice(start, end)
+ 	after = it.Slice(end, len(it.nativeTokens))
+ 	return
+ }
+ 
+ func (it inputTokens) PartitionType(ty hclsyntax.TokenType) (before, within, after inputTokens) {
+ 	for i, t := range it.writerTokens {
+ 		if t.Type == ty {
+ 			return it.Slice(0, i), it.Slice(i, i+1), it.Slice(i+1, len(it.nativeTokens))
+ 		}
+ 	}
+ 	panic(fmt.Sprintf("didn't find any token of type %s", ty))
+ }
+ 
+ func (it inputTokens) PartitionTypeOk(ty hclsyntax.TokenType) (before, within, after inputTokens, ok bool) {
+ 	for i, t := range it.writerTokens {
+ 		if t.Type == ty {
+ 			return it.Slice(0, i), it.Slice(i, i+1), it.Slice(i+1, len(it.nativeTokens)), true
+ 		}
+ 	}
+ 
+ 	return inputTokens{}, inputTokens{}, inputTokens{}, false
+ }
+ 
+ func (it inputTokens) PartitionTypeSingle(ty hclsyntax.TokenType) (before inputTokens, found *Token, after inputTokens) {
+ 	before, within, after := it.PartitionType(ty)
+ 	if within.Len() != 1 {
+ 		panic("PartitionType found more than one token")
+ 	}
+ 	return before, within.Tokens()[0], after
+ }
+ 
+ // PartitionIncludeComments is like Partition except the returned "within"
+ // range includes any lead and line comments associated with the range.
+ func (it inputTokens) PartitionIncludingComments(rng hcl.Range) (before, within, after inputTokens) {
+ 	start, end := partitionTokens(it.nativeTokens, rng)
+ 	start = partitionLeadCommentTokens(it.nativeTokens[:start])
+ 	_, afterNewline := partitionLineEndTokens(it.nativeTokens[end:])
+ 	end += afterNewline
+ 
+ 	before = it.Slice(0, start)
+ 	within = it.Slice(start, end)
+ 	after = it.Slice(end, len(it.nativeTokens))
+ 	return
+ 
+ }
+ 
+ // PartitionBlockItem is similar to PartitionIncludeComments but it returns
+ // the comments as separate token sequences so that they can be captured into
+ // AST attributes. It makes assumptions that apply only to block items, so
+ // should not be used for other constructs.
+ func (it inputTokens) PartitionBlockItem(rng hcl.Range) (before, leadComments, within, lineComments, newline, after inputTokens) {
+ 	before, within, after = it.Partition(rng)
+ 	before, leadComments = before.PartitionLeadComments()
+ 	lineComments, newline, after = after.PartitionLineEndTokens()
+ 	return
+ }
+ 
+ func (it inputTokens) PartitionLeadComments() (before, within inputTokens) {
+ 	start := partitionLeadCommentTokens(it.nativeTokens)
+ 	before = it.Slice(0, start)
+ 	within = it.Slice(start, len(it.nativeTokens))
+ 	return
+ }
+ 
+ func (it inputTokens) PartitionLineEndTokens() (comments, newline, after inputTokens) {
+ 	afterComments, afterNewline := partitionLineEndTokens(it.nativeTokens)
+ 	comments = it.Slice(0, afterComments)
+ 	newline = it.Slice(afterComments, afterNewline)
+ 	after = it.Slice(afterNewline, len(it.nativeTokens))
+ 	return
+ }
+ 
+ func (it inputTokens) Slice(start, end int) inputTokens {
+ 	// When we slice, we create a new slice with no additional capacity because
+ 	// we expect that these slices will be mutated in order to insert
+ 	// new code into the AST, and we want to ensure that a new underlying
+ 	// array gets allocated in that case, rather than writing into some
+ 	// following slice and corrupting it.
+ 	return inputTokens{
+ 		nativeTokens: it.nativeTokens[start:end:end],
+ 		writerTokens: it.writerTokens[start:end:end],
+ 	}
+ }
+ 
+ func (it inputTokens) Len() int {
+ 	return len(it.nativeTokens)
+ }
+ 
+ func (it inputTokens) Tokens() Tokens {
+ 	return it.writerTokens
+ }
+ 
+ func (it inputTokens) Types() []hclsyntax.TokenType {
+ 	ret := make([]hclsyntax.TokenType, len(it.nativeTokens))
+ 	for i, tok := range it.nativeTokens {
+ 		ret[i] = tok.Type
+ 	}
+ 	return ret
+ }
+ 
+ // parseBody locates the given body within the given input tokens and returns
+ // the resulting *Body object as well as the tokens that appeared before and
+ // after it.
+ func parseBody(nativeBody *hclsyntax.Body, from inputTokens) (inputTokens, *node, inputTokens) {
+ 	before, within, after := from.PartitionIncludingComments(nativeBody.SrcRange)
+ 
+ 	// The main AST doesn't retain the original source ordering of the
+ 	// body items, so we need to reconstruct that ordering by inspecting
+ 	// their source ranges.
+ 	nativeItems := make([]hclsyntax.Node, 0, len(nativeBody.Attributes)+len(nativeBody.Blocks))
+ 	for _, nativeAttr := range nativeBody.Attributes {
+ 		nativeItems = append(nativeItems, nativeAttr)
+ 	}
+ 	for _, nativeBlock := range nativeBody.Blocks {
+ 		nativeItems = append(nativeItems, nativeBlock)
+ 	}
+ 	sort.Sort(nativeNodeSorter{nativeItems})
+ 
+ 	body := &Body{
+ 		inTree: newInTree(),
+ 		items:  newNodeSet(),
+ 	}
+ 
+ 	remain := within
+ 	for _, nativeItem := range nativeItems {
+ 		beforeItem, item, afterItem := parseBodyItem(nativeItem, remain)
+ 
+ 		if beforeItem.Len() > 0 {
+ 			body.AppendUnstructuredTokens(beforeItem.Tokens())
+ 		}
+ 		body.appendItemNode(item)
+ 
+ 		remain = afterItem
+ 	}
+ 
+ 	if remain.Len() > 0 {
+ 		body.AppendUnstructuredTokens(remain.Tokens())
+ 	}
+ 
+ 	return before, newNode(body), after
+ }
+ 
+ func parseBodyItem(nativeItem hclsyntax.Node, from inputTokens) (inputTokens, *node, inputTokens) {
+ 	before, leadComments, within, lineComments, newline, after := from.PartitionBlockItem(nativeItem.Range())
+ 
+ 	var item *node
+ 
+ 	switch tItem := nativeItem.(type) {
+ 	case *hclsyntax.Attribute:
+ 		item = parseAttribute(tItem, within, leadComments, lineComments, newline)
+ 	case *hclsyntax.Block:
+ 		item = parseBlock(tItem, within, leadComments, lineComments, newline)
+ 	default:
+ 		// should never happen if caller is behaving
+ 		panic("unsupported native item type")
+ 	}
+ 
+ 	return before, item, after
+ }
+ 
+ func parseAttribute(nativeAttr *hclsyntax.Attribute, from, leadComments, lineComments, newline inputTokens) *node {
+ 	attr := &Attribute{
+ 		inTree: newInTree(),
+ 	}
+ 	children := attr.children
+ 
+ 	{
+ 		cn := newNode(newComments(leadComments.Tokens()))
+ 		attr.leadComments = cn
+ 		children.AppendNode(cn)
+ 	}
+ 
+ 	before, nameTokens, from := from.Partition(nativeAttr.NameRange)
+ 	{
+ 		children.AppendUnstructuredTokens(before.Tokens())
+ 		if nameTokens.Len() != 1 {
+ 			// Should never happen with valid input
+ 			panic("attribute name is not exactly one token")
+ 		}
+ 		token := nameTokens.Tokens()[0]
+ 		in := newNode(newIdentifier(token))
+ 		attr.name = in
+ 		children.AppendNode(in)
+ 	}
+ 
+ 	before, equalsTokens, from := from.Partition(nativeAttr.EqualsRange)
+ 	children.AppendUnstructuredTokens(before.Tokens())
+ 	children.AppendUnstructuredTokens(equalsTokens.Tokens())
+ 
+ 	before, exprTokens, from := from.Partition(nativeAttr.Expr.Range())
+ 	{
+ 		children.AppendUnstructuredTokens(before.Tokens())
+ 		exprNode := parseExpression(nativeAttr.Expr, exprTokens)
+ 		attr.expr = exprNode
+ 		children.AppendNode(exprNode)
+ 	}
+ 
+ 	{
+ 		cn := newNode(newComments(lineComments.Tokens()))
+ 		attr.lineComments = cn
+ 		children.AppendNode(cn)
+ 	}
+ 
+ 	children.AppendUnstructuredTokens(newline.Tokens())
+ 
+ 	// Collect any stragglers, though there shouldn't be any
+ 	children.AppendUnstructuredTokens(from.Tokens())
+ 
+ 	n := newNode(attr)
+ 	attr.Expr().parent = n
+ 	return n
+ }
+ 
+ func parseBlock(nativeBlock *hclsyntax.Block, from, leadComments, lineComments, newline inputTokens) *node {
+ 	block := &Block{
+ 		inTree: newInTree(),
+ 	}
+ 	children := block.children
+ 
+ 	{
+ 		cn := newNode(newComments(leadComments.Tokens()))
+ 		block.leadComments = cn
+ 		children.AppendNode(cn)
+ 	}
+ 
+ 	before, typeTokens, from := from.Partition(nativeBlock.TypeRange)
+ 	{
+ 		children.AppendUnstructuredTokens(before.Tokens())
+ 		if typeTokens.Len() != 1 {
+ 			// Should never happen with valid input
+ 			panic("block type name is not exactly one token")
+ 		}
+ 		token := typeTokens.Tokens()[0]
+ 		in := newNode(newIdentifier(token))
+ 		block.typeName = in
+ 		children.AppendNode(in)
+ 	}
+ 
+ 	_, labelsNode, from := parseBlockLabels(nativeBlock, from)
+ 	block.labels = labelsNode
+ 	children.AppendNode(labelsNode)
+ 
+ 	before, oBrace, from := from.Partition(nativeBlock.OpenBraceRange)
+ 	children.AppendUnstructuredTokens(before.Tokens())
+ 	block.open = children.AppendUnstructuredTokens(oBrace.Tokens())
+ 
+ 	// We go a bit out of order here: we go hunting for the closing brace
+ 	// so that we have a delimited body, but then we'll deal with the body
+ 	// before we actually append the closing brace and any straggling tokens
+ 	// that appear after it.
+ 	bodyTokens, cBrace, from := from.Partition(nativeBlock.CloseBraceRange)
+ 	before, body, after := parseBody(nativeBlock.Body, bodyTokens)
+ 	children.AppendUnstructuredTokens(before.Tokens())
+ 	block.body = body
+ 	children.AppendNode(body)
+ 	children.AppendUnstructuredTokens(after.Tokens())
+ 
+ 	block.close = children.AppendUnstructuredTokens(cBrace.Tokens())
+ 
+ 	// stragglers
+ 	children.AppendUnstructuredTokens(from.Tokens())
+ 	if lineComments.Len() > 0 {
+ 		// blocks don't actually have line comments, so we'll just treat
+ 		// them as extra stragglers
+ 		children.AppendUnstructuredTokens(lineComments.Tokens())
+ 	}
+ 	children.AppendUnstructuredTokens(newline.Tokens())
+ 
+ 	return newNode(block)
+ }
+ 
+ func parseBlockLabels(nativeBlock *hclsyntax.Block, from inputTokens) (inputTokens, *node, inputTokens) {
+ 	labelsObj := newBlockLabels(nil)
+ 	children := labelsObj.children
+ 
+ 	var beforeAll inputTokens
+ 	for i, rng := range nativeBlock.LabelRanges {
+ 		var before, labelTokens inputTokens
+ 		before, labelTokens, from = from.Partition(rng)
+ 		if i == 0 {
+ 			beforeAll = before
+ 		} else {
+ 			children.AppendUnstructuredTokens(before.Tokens())
+ 		}
+ 		tokens := labelTokens.Tokens()
+ 		var ln *node
+ 		if len(tokens) == 1 && tokens[0].Type == hclsyntax.TokenIdent {
+ 			ln = newNode(newIdentifier(tokens[0]))
+ 		} else {
+ 			ln = newNode(newQuoted(tokens))
+ 		}
+ 		labelsObj.items.Add(ln)
+ 		children.AppendNode(ln)
+ 	}
+ 
+ 	after := from
+ 	return beforeAll, newNode(labelsObj), after
+ }
+ 
+ func parseExpression(nativeExpr hclsyntax.Expression, from inputTokens) *node {
+ 	switch tNativeExpr := nativeExpr.(type) {
+ 
+ 	// Object-construct expression
+ 	case *hclsyntax.ObjectConsExpr:
+ 		return parseObjectConsExpr(tNativeExpr, from)
+ 
+ 	case *hclsyntax.ObjectConsKeyExpr:
+ 		return parseObjectConsKeyExpr(tNativeExpr, from)
+ 
+ 	case *hclsyntax.FunctionCallExpr:
+ 		return parseFunctionCallExpr(tNativeExpr, from)
+ 
+ 	case *hclsyntax.TupleConsExpr:
+ 		return parseTupleConsExpr(tNativeExpr, from)
+ 
+ 	case *hclsyntax.TemplateExpr:
+ 		return parseTemplateExpr(tNativeExpr, from)
+ 
+ 	default:
+ 		return parseAnyExpression(nativeExpr, from)
+ 	}
+ }
+ 
+ func parseAnyExpression(nativeExpr hclsyntax.Expression, from inputTokens) *node {
+ 	expr := newExpression()
+ 	children := expr.children
+ 
+ 	nativeVars := nativeExpr.Variables()
+ 
+ 	for _, nativeTraversal := range nativeVars {
+ 		before, traversal, after := parseTraversal(nativeTraversal, from)
+ 		children.AppendUnstructuredTokens(before.Tokens())
+ 		children.AppendNode(traversal)
+ 		expr.absTraversals.Add(traversal)
+ 		from = after
+ 	}
+ 	// Attach any stragglers that don't belong to a traversal to the expression
+ 	// itself. In an expression with no traversals at all, this is just the
+ 	// entirety of "from".
+ 	children.AppendUnstructuredTokens(from.Tokens())
+ 
+ 	return newNode(expr)
+ }
+ 
+ // parseObjectConsExpr parses an object-construct expression, defined as:
+ //
+ //	object = "{" (
+ //	    (objectelem (( "," | Newline) objectelem)* ","?)?
+ //	) "}";
+ //	objectelem = (Identifier | Expression) ("=" | ":") Expression;
+ //
+ // It leaves any lead comments and line comments as unstructured tokens.
+ func parseObjectConsExpr(nativeExpr *hclsyntax.ObjectConsExpr, from inputTokens) *node {
+ 	expr := newObjectConsExpr()
+ 	children := expr.children
+ 
+ 	var before, open, keyTokens, valueTokens inputTokens
+ 
+ 	before, open, from = from.Partition(nativeExpr.StartRange())
+ 	children.AppendUnstructuredTokens(before.writerTokens)
+ 	children.AppendUnstructuredTokens(open.writerTokens)
+ 
+ 	for _, nativeItem := range nativeExpr.Items {
+ 		item := newObjectConsItem()
+ 		value := newObjectConsValue()
+ 
+ 		nativeKeyExpr := nativeItem.KeyExpr.(*hclsyntax.ObjectConsKeyExpr)
+ 
+ 		before, keyTokens, from = from.Partition(nativeKeyExpr.Range())
+ 		item.children.AppendUnstructuredTokens(before.writerTokens)
+ 		item.key = parseObjectConsKeyExpr(nativeKeyExpr, keyTokens)
+ 		item.children.AppendNode(item.key)
+ 
+ 		before, valueTokens, from = from.Partition(nativeItem.ValueExpr.Range())
+ 		item.children.AppendUnstructuredTokens(before.writerTokens)
+ 		value.expr = parseExpression(nativeItem.ValueExpr, valueTokens)
+ 		value.children.AppendNode(value.expr)
+ 		item.value = item.children.Append(value)
+ 		value.Expr().parent = item.value
+ 
+ 		node := expr.children.Append(item)
+ 		expr.items.Add(node)
+ 	}
+ 
+ 	_, from, _ = from.Partition(nativeExpr.Range())
+ 	children.AppendUnstructuredTokens(from.writerTokens)
+ 
+ 	// Wrap in an Expression
+ 	wrapExpr := newExpression()
+ 	wrapExpr.wrap(expr)
+ 	return newNode(wrapExpr)
+ }
+ 
+ // parseObjectConsKeyExpr parses an object-construct key expression.
+ // An object key is an Identifier or an Expression. In this context, a quoted
+ // literal is functionally equivalent to an Identifier.
+ func parseObjectConsKeyExpr(nativeExpr *hclsyntax.ObjectConsKeyExpr, from inputTokens) *node {
+ 	expr := parseExpression(nativeExpr.Wrapped, from)
+ 	wrapExpr := newObjectConsKeyExpr(expr)
+ 	// Use the same rule as hclsyntax.ObjectConsKeyExpr to decide whether
+ 	// the key is a literal name instead of an expression.
+ 	wrapExpr.literal = hcl.ExprAsKeyword(nativeExpr.Wrapped) != ""
+ 
+ 	return newNode(wrapExpr)
+ }
+ 
+ // parseFunctionCallExpr parses a function call expression, defined as:
+ //
+ //	FunctionCall = Identifier ("::" Identifier)* "(" Arguments ")";
+ //	Arguments = (
+ //	    () ||
+ //	    (Expression ("," Expression)* ("," | "...")?)
+ //	);
+ //
+ // Each argument becomes its own Expression. The tokens around the arguments
+ // stay as unstructured tokens of the call.
+ func parseFunctionCallExpr(nativeExpr *hclsyntax.FunctionCallExpr, from inputTokens) *node {
+ 	expr := newFunctionCallExpr(nativeExpr.Name)
+ 	return parseExprList(expr, expr.children, expr.args, nativeExpr.Args, from)
+ }
+ 
+ // parseTupleConsExpr parses a tuple-construct expression, defined as:
+ //
+ //	tuple = "[" (
+ //	    (Expression ("," Expression)* ","?)?
+ //	) "]";
+ //
+ // Each element becomes its own Expression. The tokens around the elements
+ // stay as unstructured tokens of the tuple.
+ func parseTupleConsExpr(nativeExpr *hclsyntax.TupleConsExpr, from inputTokens) *node {
+ 	expr := newTupleConsExpr()
+ 	return parseExprList(expr, expr.children, expr.elems, nativeExpr.Exprs, from)
+ }
+ 
+ // parseExprList parses each of nativeExprs into an Expression, appends it to
+ // children and adds it to set. The tokens before, between and after them are
+ // appended to children as unstructured tokens. It returns a node with an
+ // Expression that wraps content, which must own children.
+ func parseExprList(content nodeContent, children *nodes, set nodeSet, nativeExprs []hclsyntax.Expression, from inputTokens) *node {
+ 	var before, exprTokens inputTokens
+ 	for _, nativeExpr := range nativeExprs {
+ 		before, exprTokens, from = from.Partition(nativeExpr.Range())
+ 		children.AppendUnstructuredTokens(before.writerTokens)
+ 		n := parseExpression(nativeExpr, exprTokens)
+ 		children.AppendNode(n)
+ 		set.Add(n)
+ 	}
+ 	children.AppendUnstructuredTokens(from.writerTokens)
+ 
+ 	wrapExpr := newExpression()
+ 	wrapExpr.wrap(content)
+ 	for n := range set {
+ 		n.content.(*Expression).parent = wrapExpr.wrapped
+ 	}
+ 	return newNode(wrapExpr)
+ }
+ 
+ // parseTemplateExpr is specifically interested in string literal expressions
+ // at this time.
+ func parseTemplateExpr(nativeExpr *hclsyntax.TemplateExpr, from inputTokens) *node {
+ 	if nativeExpr.IsStringLiteral() {
+ 		quoted := newQuoted(from.writerTokens)
+ 
+ 		expr := newExpression()
+ 		expr.wrapped = expr.children.Append(quoted)
+ 		return newNode(expr)
+ 	} else {
+ 		return parseAnyExpression(nativeExpr, from)
+ 	}
+ }
+ 
+ func parseTraversal(nativeTraversal hcl.Traversal, from inputTokens) (before inputTokens, n *node, after inputTokens) {
+ 	traversal := newTraversal()
+ 	children := traversal.children
+ 	before, from, after = from.Partition(nativeTraversal.SourceRange())
+ 
+ 	stepAfter := from
+ 	for _, nativeStep := range nativeTraversal {
+ 		before, step, after := parseTraversalStep(nativeStep, stepAfter)
+ 		children.AppendUnstructuredTokens(before.Tokens())
+ 		children.AppendNode(step)
+ 		traversal.steps.Add(step)
+ 		stepAfter = after
+ 	}
+ 
+ 	return before, newNode(traversal), after
+ }
+ 
+ func parseTraversalStep(nativeStep hcl.Traverser, from inputTokens) (before inputTokens, n *node, after inputTokens) {
+ 	var children *nodes
+ 	switch tNativeStep := nativeStep.(type) {
+ 
+ 	case hcl.TraverseRoot, hcl.TraverseAttr:
+ 		step := newTraverseName()
+ 		children = step.children
+ 		before, from, after = from.Partition(nativeStep.SourceRange())
+ 		inBefore, token, inAfter := from.PartitionTypeSingle(hclsyntax.TokenIdent)
+ 		name := newIdentifier(token)
+ 		children.AppendUnstructuredTokens(inBefore.Tokens())
+ 		step.name = children.Append(name)
+ 		children.AppendUnstructuredTokens(inAfter.Tokens())
+ 		return before, newNode(step), after
+ 
+ 	case hcl.TraverseIndex:
+ 		step := newTraverseIndex()
+ 		children = step.children
+ 		before, from, after = from.Partition(nativeStep.SourceRange())
+ 
+ 		if inBefore, dot, from, ok := from.PartitionTypeOk(hclsyntax.TokenDot); ok {
+ 			children.AppendUnstructuredTokens(inBefore.Tokens())
+ 			children.AppendUnstructuredTokens(dot.Tokens())
+ 
+ 			valBefore, valToken, valAfter := from.PartitionTypeSingle(hclsyntax.TokenNumberLit)
+ 			children.AppendUnstructuredTokens(valBefore.Tokens())
+ 			key := newNumber(valToken)
+ 			step.key = children.Append(key)
+ 			children.AppendUnstructuredTokens(valAfter.Tokens())
+ 
+ 			return before, newNode(step), after
+ 		}
+ 
+ 		var inBefore, oBrack, keyTokens, cBrack inputTokens
+ 		inBefore, oBrack, from = from.PartitionType(hclsyntax.TokenOBrack)
+ 		children.AppendUnstructuredTokens(inBefore.Tokens())
+ 		children.AppendUnstructuredTokens(oBrack.Tokens())
+ 		keyTokens, cBrack, from = from.PartitionType(hclsyntax.TokenCBrack)
+ 
+ 		keyVal := tNativeStep.Key
+ 		switch keyVal.Type() {
+ 		case cty.String:
+ 			key := newQuoted(keyTokens.Tokens())
+ 			step.key = children.Append(key)
+ 		case cty.Number:
+ 			valBefore, valToken, valAfter := keyTokens.PartitionTypeSingle(hclsyntax.TokenNumberLit)
+ 			children.AppendUnstructuredTokens(valBefore.Tokens())
+ 			key := newNumber(valToken)
+ 			step.key = children.Append(key)
+ 			children.AppendUnstructuredTokens(valAfter.Tokens())
+ 		}
+ 
+ 		children.AppendUnstructuredTokens(cBrack.Tokens())
+ 		children.AppendUnstructuredTokens(from.Tokens())
+ 
+ 		return before, newNode(step), after
+ 	default:
+ 		panic(fmt.Sprintf("unsupported traversal step type %T", nativeStep))
+ 	}
+ 
+ }
+ 
+ // writerTokens takes a sequence of tokens as produced by the main hclsyntax
+ // package and transforms it into an equivalent sequence of tokens using
+ // this package's own token model.
+ //
+ // The resulting list contains the same number of tokens and uses the same
+ // indices as the input, allowing the two sets of tokens to be correlated
+ // by index.
+ func writerTokens(nativeTokens hclsyntax.Tokens) Tokens {
+ 	// Ultimately we want a slice of token _pointers_, but since we can
+ 	// predict how much memory we're going to devote to tokens we'll allocate
+ 	// it all as a single flat buffer and thus give the GC less work to do.
+ 	tokBuf := make([]Token, len(nativeTokens))
+ 	var lastByteOffset int
+ 	for i, mainToken := range nativeTokens {
+ 		// Create a copy of the bytes so that we can mutate without
+ 		// corrupting the original token stream.
+ 		bytes := make([]byte, len(mainToken.Bytes))
+ 		copy(bytes, mainToken.Bytes)
+ 
+ 		tokBuf[i] = Token{
+ 			Type:  mainToken.Type,
+ 			Bytes: bytes,
+ 
+ 			// We assume here that spaces are always ASCII spaces, since
+ 			// that's what the scanner also assumes, and thus the number
+ 			// of bytes skipped is also the number of space characters.
+ 			SpacesBefore: mainToken.Range.Start.Byte - lastByteOffset,
+ 		}
+ 
+ 		lastByteOffset = mainToken.Range.End.Byte
+ 	}
+ 
+ 	// Now make a slice of pointers into the previous slice.
+ 	ret := make(Tokens, len(tokBuf))
+ 	for i := range ret {
+ 		ret[i] = &tokBuf[i]
+ 	}
+ 
+ 	return ret
+ }
+ 
+ // partitionTokens takes a sequence of tokens and a hcl.Range and returns
+ // two indices within the token sequence that correspond with the range
+ // boundaries, such that the slice operator could be used to produce
+ // three token sequences for before, within, and after respectively:
+ //
+ //	start, end := partitionTokens(toks, rng)
+ //	before := toks[:start]
+ //	within := toks[start:end]
+ //	after := toks[end:]
+ //
+ // This works best when the range is aligned with token boundaries (e.g.
+ // because it was produced in terms of the scanner's result) but if that isn't
+ // true then it will make a best effort that may produce strange results at
+ // the boundaries.
+ //
+ // Native hclsyntax tokens are used here, because they contain the necessary
+ // absolute position information. However, since writerTokens produces a
+ // correlatable sequence of writer tokens, the resulting indices can be
+ // used also to index into its result, allowing the partitioning of writer
+ // tokens to be driven by the partitioning of native tokens.
+ //
+ // The tokens are assumed to be in source order and non-overlapping, which
+ // will be true if the token sequence from the scanner is used directly.
+ func partitionTokens(toks hclsyntax.Tokens, rng hcl.Range) (start, end int) {
+ 	// We use a linear search here because we assume that in most cases our
+ 	// target range is close to the beginning of the sequence, and the sequences
+ 	// are generally small for most reasonable files anyway.
+ 	for i := 0; ; i++ {
+ 		if i >= len(toks) {
+ 			// No tokens for the given range at all!
+ 			return len(toks), len(toks)
+ 		}
+ 
+ 		if toks[i].Range.Start.Byte >= rng.Start.Byte {
+ 			start = i
+ 			break
+ 		}
+ 	}
+ 
+ 	for i := start; ; i++ {
+ 		if i >= len(toks) {
+ 			// The range "hangs off" the end of the token sequence
+ 			return start, len(toks)
+ 		}
+ 
+ 		if toks[i].Range.Start.Byte >= rng.End.Byte {
+ 			end = i // end marker is exclusive
+ 			break
+ 		}
+ 	}
+ 
+ 	return start, end
+ }
+ 
+ // partitionLeadCommentTokens takes a sequence of tokens that is assumed
+ // to immediately precede a construct that can have lead comment tokens,
+ // and returns the index into that sequence where the lead comments begin.
+ //
+ // Lead comments are defined as whole lines containing only comment tokens
+ // with no blank lines between. If no such lines are found, the returned
+ // index will be len(toks).
+ func partitionLeadCommentTokens(toks hclsyntax.Tokens) int {
+ 	// single-line comments (which is what we're interested in here)
+ 	// consume their trailing newline, so we can just walk backwards
+ 	// until we stop seeing comment tokens.
+ 	for i := len(toks) - 1; i >= 0; i-- {
+ 		if toks[i].Type != hclsyntax.TokenComment {
+ 			return i + 1
+ 		}
+ 	}
+ 	return 0
+ }
+ 
+ // partitionLineEndTokens takes a sequence of tokens that is assumed
+ // to immediately follow a construct that can have a line comment, and
+ // returns first the index where any line comments end and then second
+ // the index immediately after the trailing newline.
+ //
+ // Line comments are defined as comments that appear immediately after
+ // a construct on the same line where its significant tokens ended.
+ //
+ // Since single-line comment tokens (# and //) include the newline that
+ // terminates them, in the presence of these the two returned indices
+ // will be the same since the comment itself serves as the line end.
+ func partitionLineEndTokens(toks hclsyntax.Tokens) (afterComment, afterNewline int) {
+ 	for i := 0; i < len(toks); i++ {
+ 		tok := toks[i]
+ 		if tok.Type != hclsyntax.TokenComment {
+ 			switch tok.Type {
+ 			case hclsyntax.TokenNewline:
+ 				return i, i + 1
+ 			case hclsyntax.TokenEOF:
+ 				// Although this is valid, we mustn't include the EOF
+ 				// itself as our "newline" or else strange things will
+ 				// happen when we try to append new items.
+ 				return i, i
+ 			default:
+ 				// If we have well-formed input here then nothing else should be
+ 				// possible. This path should never happen, because we only try
+ 				// to extract tokens from the sequence if the parser succeeded,
+ 				// and it should catch this problem itself.
+ 				panic("malformed line trailers: expected only comments and newlines")
+ 			}
+ 		}
+ 
+ 		if len(tok.Bytes) > 0 && tok.Bytes[len(tok.Bytes)-1] == '\n' {
+ 			// Newline at the end of a single-line comment serves both as
+ 			// the end of comments *and* the end of the line.
+ 			return i + 1, i + 1
+ 		}
+ 	}
+ 	return len(toks), len(toks)
+ }
+ 
+ // lexConfig uses the hclsyntax scanner to get a token stream and then
+ // rewrites it into this package's token model.
+ //
+ // Any errors produced during scanning are ignored, so the results of this
+ // function should be used with care.
+ func lexConfig(src []byte) Tokens {
+ 	mainTokens, _ := hclsyntax.LexConfig(src, "", hcl.Pos{Byte: 0, Line: 1, Column: 1})
+ 	return writerTokens(mainTokens)
+ }
+diff --git a/hclwrite/public.go b/hclwrite/public.go
+index 7c38ee1..c4f581a 100644
+--- a/hclwrite/public.go
++++ b/hclwrite/public.go
+@@ -1,48 +1,61 @@
+ // Copyright IBM Corp. 2014, 2025
+ // SPDX-License-Identifier: MPL-2.0
+ 
+ package hclwrite
+ 
+ import (
+ 	"bytes"
+ 
+ 	"github.com/hashicorp/hcl/v2"
+ )
+ 
+ // NewFile creates a new file object that is empty and ready to have constructs
+ // added t it.
+ func NewFile() *File {
+ 	body := &Body{
+ 		inTree: newInTree(),
+ 		items:  newNodeSet(),
+ 	}
+ 	file := &File{
+ 		inTree: newInTree(),
+ 	}
+ 	file.body = file.children.Append(body)
+ 	return file
+ }
+ 
+ // ParseConfig interprets the given source bytes into a *hclwrite.File. The
+ // resulting AST can be used to perform surgical edits on the source code
+ // before turning it back into bytes again.
+ func ParseConfig(src []byte, filename string, start hcl.Pos) (*File, hcl.Diagnostics) {
+ 	return parse(src, filename, start)
+ }
+ 
++// ParseExpression attempts to parse the given buffer as a HCL expression,
++// returning the resulting syntax element if successful.
++//
++// The result has the same structure as the expression of an attribute
++// parsed by ParseConfig. Any comments and newlines before or after the
++// expression are not part of the result.
++//
++// If the source is not a valid expression, the returned expression is nil
++// and the diagnostics describe the errors.
++func ParseExpression(src []byte, filename string, start hcl.Pos) (*Expression, hcl.Diagnostics) {
++	return parseExpr(src, filename, start)
++}
++
+ // Format takes source code and performs simple whitespace changes to transform
+ // it to a canonical layout style.
+ //
+ // Format skips constructing an AST and works directly with tokens, so it
+ // is less expensive than formatting via the AST for situations where no other
+ // changes will be made. It also ignores syntax errors and can thus be applied
+ // to partial source code, although the result in that case may not be
+ // desirable.
+ func Format(src []byte) []byte {
+ 	tokens := lexConfig(src)
+ 	format(tokens)
+ 	buf := &bytes.Buffer{}
+ 	//nolint:errcheck // FIXME: Propogate errors upward.
+ 	tokens.WriteTo(buf)
+ 	return buf.Bytes()
+ }
+diff --git a/hclwrite/public_test.go b/hclwrite/public_test.go
+new file mode 100644
+index 0000000..2505ffb
+--- /dev/null
++++ b/hclwrite/public_test.go
+@@ -0,0 +1,238 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: MPL-2.0
++
++package hclwrite
++
++import (
++	"testing"
++
++	"github.com/davecgh/go-spew/spew"
++	"github.com/google/go-cmp/cmp"
++
++	"github.com/hashicorp/hcl/v2"
++)
++
++// parseExpressionTests are the expressions that the ParseExpression tests
++// parse. kind is the structured expression type that the result wraps, or ""
++// if the expression is kept as tokens. want is the source text of the result,
++// if it is not the same as src.
++var parseExpressionTests = []struct {
++	src  string
++	kind string
++	want string
++}{
++	// Literals
++	{`1`, "", ""},
++	{`true`, "", ""},
++	{`null`, "", ""},
++	{`"hello"`, "quoted", ""},
++	{`"a\nb"`, "quoted", ""},
++
++	// Templates
++	{`"hello ${name}"`, "", ""},
++	{`"%{ if a }b%{ endif }"`, "", ""},
++	// The newline after the closing marker is not part of the expression.
++	{src: "<<EOT\nhello ${name}\nEOT\n", want: "<<EOT\nhello ${name}\nEOT"},
++
++	// Traversals and other expressions
++	{`foo`, "", ""},
++	{`foo.bar[0].baz`, "", ""},
++	{`foo.bar + baz`, "", ""},
++	{`a ? b : c`, "", ""},
++	{`[for x in xs : x]`, "", ""},
++	{`(foo)`, "", ""},
++
++	// Object-construct expressions with the different kinds of keys
++	{`{}`, "object", ""},
++	{`{ hat = "derby" }`, "object", ""},
++	{`{ "hat" = "derby" }`, "object", ""},
++	{`{ hat: "derby" }`, "object", ""},
++	{`{ (hat) = "derby" }`, "object", ""},
++	{`{ "${hat}" = "derby" }`, "object", ""},
++	{`{ hat.name = "derby" }`, "object", ""},
++	{"{\n  hat   = \"derby\" # comment\n  shoes = \"loafers\",\n}", "object", ""},
++
++	// Nested objects
++	{`{ a = { b = { c = 1 } } }`, "object", ""},
++	{"{\n  a = {\n    b = 1\n  }\n}", "object", ""},
++
++	// Function calls
++	{`foo()`, "call", ""},
++	{`foo(1, bar.baz, { a = 1 })`, "call", ""},
++	{`provider::local::foo(1)`, "call", ""},
++	{`foo(xs...)`, "call", ""},
++	{"foo(\n  1,\n  2,\n)", "call", ""},
++
++	// Tuples
++	{`[]`, "tuple", ""},
++	{`[1, "two", three]`, "tuple", ""},
++	{`[[1], { a = 2 }, foo()]`, "tuple", ""},
++	{"[\n  1,\n  2,\n]", "tuple", ""},
++}
++
++func TestParseExpression(t *testing.T) {
++	for _, test := range parseExpressionTests {
++		t.Run(test.src, func(t *testing.T) {
++			expr := testFn[*Expression](t)(ParseExpression([]byte(test.src), "", hcl.InitialPos))
++
++			want := test.want
++			if want == "" {
++				want = test.src
++			}
++			if got := string(expr.BuildTokens(nil).Bytes()); got != want {
++				t.Errorf("wrong tokens\ngot:  %q\nwant: %q", got, want)
++			}
++
++			kind := ""
++			switch {
++			case expr.AsObjectConsExpr() != nil:
++				kind = "object"
++			case expr.AsFunctionCallExpr() != nil:
++				kind = "call"
++			case expr.AsTupleConsExpr() != nil:
++				kind = "tuple"
++			case expr.asQuoted() != nil:
++				kind = "quoted"
++			}
++			if kind != test.kind {
++				t.Errorf("wrong kind\ngot:  %q\nwant: %q", kind, test.kind)
++			}
++		})
++	}
++}
++
++// TestParseExpression_SameAsParseConfig checks that ParseExpression builds
++// the same tree as ParseConfig builds for the expression of an attribute.
++func TestParseExpression_SameAsParseConfig(t *testing.T) {
++	for _, test := range parseExpressionTests {
++		t.Run(test.src, func(t *testing.T) {
++			expr := testFn[*Expression](t)(ParseExpression([]byte(test.src), "", hcl.InitialPos))
++
++			// No space after "=", so that the first token of the expression
++			// has no spaces before it, as in ParseExpression.
++			f := testFn[*File](t)(ParseConfig([]byte("a ="+test.src+"\n"), "", hcl.InitialPos))
++			attr := f.Body().GetAttribute("a")
++
++			got := makeTestTree(newNode(expr))
++			want := makeTestTree(attr.expr)
++			if !cmp.Equal(got, want) {
++				t.Errorf(
++					"wrong tree\ngot:\n%s\nwant:\n%s\ndiff:\n%s",
++					spew.Sdump(got), spew.Sdump(want), cmp.Diff(got, want),
++				)
++			}
++		})
++	}
++}
++
++func TestParseExpression_Tree(t *testing.T) {
++	expr := testFn[*Expression](t)(ParseExpression([]byte(`{ hat = foo.bar }`), "", hcl.InitialPos))
++
++	got := makeTestTree(newNode(expr))
++	want := TestTreeNode{
++		Type: "Expression",
++		Children: []TestTreeNode{
++			{
++				Type: "ObjectConsExpr",
++				Children: []TestTreeNode{
++					{Type: "Tokens", Val: "{"},
++					{
++						Type: "ObjectConsItem",
++						Children: []TestTreeNode{
++							{
++								Type: "ObjectConsKeyExpr",
++								Children: []TestTreeNode{
++									{
++										Type: "Expression",
++										Children: []TestTreeNode{
++											{Type: "Traversal", Children: []TestTreeNode{
++												{Type: "TraverseName", Children: []TestTreeNode{
++													{Type: "identifier", Val: " hat"},
++												}},
++											}},
++										},
++									},
++								},
++							},
++							{Type: "Tokens", Val: " ="},
++							{
++								Type: "ObjectConsValue",
++								Children: []TestTreeNode{
++									{
++										Type: "Expression",
++										Children: []TestTreeNode{
++											{Type: "Traversal", Children: []TestTreeNode{
++												{Type: "TraverseName", Children: []TestTreeNode{
++													{Type: "identifier", Val: " foo"},
++												}},
++												{Type: "TraverseName", Children: []TestTreeNode{
++													{Type: "Tokens", Val: "."},
++													{Type: "identifier", Val: "bar"},
++												}},
++											}},
++										},
++									},
++								},
++							},
++						},
++					},
++					{Type: "Tokens", Val: " }"},
++				},
++			},
++		},
++	}
++	if !cmp.Equal(got, want) {
++		t.Errorf("wrong tree\ngot:\n%s\ndiff:\n%s", spew.Sdump(got), cmp.Diff(got, want))
++	}
++}
++
++func TestParseExpression_SurroundingTokens(t *testing.T) {
++	tests := []struct {
++		src  string
++		want string
++	}{
++		{"# foo\n\n1\n# bar", "1"},
++		{"\n\n  1  \n\n", "1"},
++		{"/* foo */ 1 // bar\n", "1"},
++		{"# foo\n{ a = 1 }\n# bar\n", "{ a = 1 }"},
++	}
++
++	for _, test := range tests {
++		t.Run(test.src, func(t *testing.T) {
++			expr := testFn[*Expression](t)(ParseExpression([]byte(test.src), "", hcl.InitialPos))
++
++			// Strip the spaces before the first token, which are recorded on
++			// the token rather than as a separate token.
++			toks := expr.BuildTokens(nil)
++			if len(toks) > 0 {
++				toks[0].SpacesBefore = 0
++			}
++			if got := string(toks.Bytes()); got != test.want {
++				t.Errorf("wrong tokens\ngot:  %q\nwant: %q", got, test.want)
++			}
++		})
++	}
++}
++
++func TestParseExpression_Invalid(t *testing.T) {
++	tests := []string{
++		``,
++		`{`,
++		`1 +`,
++		`foo(`,
++		`1 2`,
++		`a = 1`,
++	}
++
++	for _, src := range tests {
++		t.Run(src, func(t *testing.T) {
++			expr, diags := ParseExpression([]byte(src), "", hcl.InitialPos)
++			if !diags.HasErrors() {
++				t.Errorf("no error diagnostics")
++			}
++			if expr != nil {
++				t.Errorf("expression is not nil: %#v", expr)
++			}
++		})
++	}
++}
