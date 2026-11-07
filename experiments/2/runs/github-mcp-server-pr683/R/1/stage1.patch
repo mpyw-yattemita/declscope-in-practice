@@ -1,0 +1,4214 @@
+diff --git a/README.md b/README.md
+index ae4d362..be9288e 100644
+--- a/README.md
++++ b/README.md
+@@ -449,21 +449,23 @@ The following sets of tools are available (all are on by default):
+   - `repo`: Repository name (string, required)
+ 
+ - **get_discussion_comments** - Get discussion comments
++  - `after`: Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs. (string, optional)
+   - `discussionNumber`: Discussion Number (number, required)
+   - `owner`: Repository owner (string, required)
++  - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_discussion_categories** - List discussion categories
+-  - `after`: Cursor for pagination, use the 'after' field from the previous response (string, optional)
+-  - `before`: Cursor for pagination, use the 'before' field from the previous response (string, optional)
+-  - `first`: Number of categories to return per page (min 1, max 100) (number, optional)
+-  - `last`: Number of categories to return from the end (min 1, max 100) (number, optional)
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
+ - **list_discussions** - List discussions
++  - `after`: Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs. (string, optional)
+   - `category`: Optional filter by discussion category ID. If provided, only discussions with this category are listed. (string, optional)
++  - `direction`: Order direction. (string, optional)
++  - `orderBy`: Order discussions by field. If provided, the 'direction' also needs to be provided. (string, optional)
+   - `owner`: Repository owner (string, required)
++  - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+   - `repo`: Repository name (string, required)
+ 
+ </details>
+@@ -478,6 +480,13 @@ The following sets of tools are available (all are on by default):
+   - `owner`: Repository owner (string, required)
+   - `repo`: Repository name (string, required)
+ 
++- **add_sub_issue** - Add sub-issue
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `replace_parent`: When true, replaces the sub-issue's current parent issue (boolean, optional)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to add. ID is not the same as issue number (number, required)
++
+ - **assign_copilot_to_issue** - Assign Copilot to issue
+   - `issueNumber`: Issue number (number, required)
+   - `owner`: Repository owner (string, required)
+@@ -515,6 +524,27 @@ The following sets of tools are available (all are on by default):
+   - `sort`: Sort order (string, optional)
+   - `state`: Filter by state (string, optional)
+ 
++- **list_sub_issues** - List sub-issues
++  - `issue_number`: Issue number (number, required)
++  - `owner`: Repository owner (string, required)
++  - `page`: Page number for pagination (default: 1) (number, optional)
++  - `per_page`: Number of results per page (max 100, default: 30) (number, optional)
++  - `repo`: Repository name (string, required)
++
++- **remove_sub_issue** - Remove sub-issue
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to remove. ID is not the same as issue number (number, required)
++
++- **reprioritize_sub_issue** - Reprioritize sub-issue
++  - `after_id`: The ID of the sub-issue to be prioritized after (either after_id OR before_id should be specified) (number, optional)
++  - `before_id`: The ID of the sub-issue to be prioritized before (either after_id OR before_id should be specified) (number, optional)
++  - `issue_number`: The number of the parent issue (number, required)
++  - `owner`: Repository owner (string, required)
++  - `repo`: Repository name (string, required)
++  - `sub_issue_id`: The ID of the sub-issue to reprioritize. ID is not the same as issue number (number, required)
++
+ - **search_issues** - Search issues
+   - `order`: Sort order (string, optional)
+   - `owner`: Optional repository owner. If provided with repo, only notifications for this repository are listed. (string, optional)
+@@ -808,7 +838,7 @@ The following sets of tools are available (all are on by default):
+   - `order`: Sort order (string, optional)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+-  - `q`: Search query using GitHub code search syntax (string, required)
++  - `query`: Search query using GitHub code search syntax (string, required)
+   - `sort`: Sort field ('indexed' only) (string, optional)
+ 
+ - **search_repositories** - Search repositories
+diff --git a/pkg/github/__toolsnaps__/add_sub_issue.snap b/pkg/github/__toolsnaps__/add_sub_issue.snap
+new file mode 100644
+index 0000000..2d462bc
+--- /dev/null
++++ b/pkg/github/__toolsnaps__/add_sub_issue.snap
+@@ -0,0 +1,39 @@
++{
++  "annotations": {
++    "title": "Add sub-issue",
++    "readOnlyHint": false
++  },
++  "description": "Add a sub-issue to a parent issue in a GitHub repository.",
++  "inputSchema": {
++    "properties": {
++      "issue_number": {
++        "description": "The number of the parent issue",
++        "type": "number"
++      },
++      "owner": {
++        "description": "Repository owner",
++        "type": "string"
++      },
++      "replace_parent": {
++        "description": "When true, replaces the sub-issue's current parent issue",
++        "type": "boolean"
++      },
++      "repo": {
++        "description": "Repository name",
++        "type": "string"
++      },
++      "sub_issue_id": {
++        "description": "The ID of the sub-issue to add. ID is not the same as issue number",
++        "type": "number"
++      }
++    },
++    "required": [
++      "owner",
++      "repo",
++      "issue_number",
++      "sub_issue_id"
++    ],
++    "type": "object"
++  },
++  "name": "add_sub_issue"
++}
+\ No newline at end of file
+diff --git a/pkg/github/__toolsnaps__/list_sub_issues.snap b/pkg/github/__toolsnaps__/list_sub_issues.snap
+new file mode 100644
+index 0000000..70640e2
+--- /dev/null
++++ b/pkg/github/__toolsnaps__/list_sub_issues.snap
+@@ -0,0 +1,38 @@
++{
++  "annotations": {
++    "title": "List sub-issues",
++    "readOnlyHint": true
++  },
++  "description": "List sub-issues for a specific issue in a GitHub repository.",
++  "inputSchema": {
++    "properties": {
++      "issue_number": {
++        "description": "Issue number",
++        "type": "number"
++      },
++      "owner": {
++        "description": "Repository owner",
++        "type": "string"
++      },
++      "page": {
++        "description": "Page number for pagination (default: 1)",
++        "type": "number"
++      },
++      "per_page": {
++        "description": "Number of results per page (max 100, default: 30)",
++        "type": "number"
++      },
++      "repo": {
++        "description": "Repository name",
++        "type": "string"
++      }
++    },
++    "required": [
++      "owner",
++      "repo",
++      "issue_number"
++    ],
++    "type": "object"
++  },
++  "name": "list_sub_issues"
++}
+\ No newline at end of file
+diff --git a/pkg/github/__toolsnaps__/remove_sub_issue.snap b/pkg/github/__toolsnaps__/remove_sub_issue.snap
+new file mode 100644
+index 0000000..a290200
+--- /dev/null
++++ b/pkg/github/__toolsnaps__/remove_sub_issue.snap
+@@ -0,0 +1,35 @@
++{
++  "annotations": {
++    "title": "Remove sub-issue",
++    "readOnlyHint": false
++  },
++  "description": "Remove a sub-issue from a parent issue in a GitHub repository.",
++  "inputSchema": {
++    "properties": {
++      "issue_number": {
++        "description": "The number of the parent issue",
++        "type": "number"
++      },
++      "owner": {
++        "description": "Repository owner",
++        "type": "string"
++      },
++      "repo": {
++        "description": "Repository name",
++        "type": "string"
++      },
++      "sub_issue_id": {
++        "description": "The ID of the sub-issue to remove. ID is not the same as issue number",
++        "type": "number"
++      }
++    },
++    "required": [
++      "owner",
++      "repo",
++      "issue_number",
++      "sub_issue_id"
++    ],
++    "type": "object"
++  },
++  "name": "remove_sub_issue"
++}
+\ No newline at end of file
+diff --git a/pkg/github/__toolsnaps__/reprioritize_sub_issue.snap b/pkg/github/__toolsnaps__/reprioritize_sub_issue.snap
+new file mode 100644
+index 0000000..43c258b
+--- /dev/null
++++ b/pkg/github/__toolsnaps__/reprioritize_sub_issue.snap
+@@ -0,0 +1,43 @@
++{
++  "annotations": {
++    "title": "Reprioritize sub-issue",
++    "readOnlyHint": false
++  },
++  "description": "Reprioritize a sub-issue to a different position in the parent issue's sub-issue list.",
++  "inputSchema": {
++    "properties": {
++      "after_id": {
++        "description": "The ID of the sub-issue to be prioritized after (either after_id OR before_id should be specified)",
++        "type": "number"
++      },
++      "before_id": {
++        "description": "The ID of the sub-issue to be prioritized before (either after_id OR before_id should be specified)",
++        "type": "number"
++      },
++      "issue_number": {
++        "description": "The number of the parent issue",
++        "type": "number"
++      },
++      "owner": {
++        "description": "Repository owner",
++        "type": "string"
++      },
++      "repo": {
++        "description": "Repository name",
++        "type": "string"
++      },
++      "sub_issue_id": {
++        "description": "The ID of the sub-issue to reprioritize. ID is not the same as issue number",
++        "type": "number"
++      }
++    },
++    "required": [
++      "owner",
++      "repo",
++      "issue_number",
++      "sub_issue_id"
++    ],
++    "type": "object"
++  },
++  "name": "reprioritize_sub_issue"
++}
+\ No newline at end of file
+diff --git a/pkg/github/__toolsnaps__/search_code.snap b/pkg/github/__toolsnaps__/search_code.snap
+index c85d667..e341f3e 100644
+--- a/pkg/github/__toolsnaps__/search_code.snap
++++ b/pkg/github/__toolsnaps__/search_code.snap
+@@ -25,7 +25,7 @@
+         "minimum": 1,
+         "type": "number"
+       },
+-      "q": {
++      "query": {
+         "description": "Search query using GitHub code search syntax",
+         "type": "string"
+       },
+@@ -35,7 +35,7 @@
+       }
+     },
+     "required": [
+-      "q"
++      "query"
+     ],
+     "type": "object"
+   },
+diff --git a/pkg/github/actions.go b/pkg/github/actions.go
+index 3c441d5..19b5638 100644
+--- a/pkg/github/actions.go
++++ b/pkg/github/actions.go
+@@ -62,8 +62,8 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc)
+ 
+ 			// Set up list options
+ 			opts := &github.ListOptions{
+-				PerPage: pagination.perPage,
+-				Page:    pagination.page,
++				PerPage: pagination.PerPage,
++				Page:    pagination.Page,
+ 			}
+ 
+ 			workflows, resp, err := client.Actions.ListWorkflows(ctx, owner, repo, opts)
+@@ -200,8 +200,8 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
+ 				Event:  event,
+ 				Status: status,
+ 				ListOptions: github.ListOptions{
+-					PerPage: pagination.perPage,
+-					Page:    pagination.page,
++					PerPage: pagination.PerPage,
++					Page:    pagination.Page,
+ 				},
+ 			}
+ 
+@@ -503,8 +503,8 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
+ 			opts := &github.ListWorkflowJobsOptions{
+ 				Filter: filter,
+ 				ListOptions: github.ListOptions{
+-					PerPage: pagination.perPage,
+-					Page:    pagination.page,
++					PerPage: pagination.PerPage,
++					Page:    pagination.Page,
+ 				},
+ 			}
+ 
+@@ -1025,8 +1025,8 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
+ 
+ 			// Set up list options
+ 			opts := &github.ListOptions{
+-				PerPage: pagination.perPage,
+-				Page:    pagination.page,
++				PerPage: pagination.PerPage,
++				Page:    pagination.Page,
+ 			}
+ 
+ 			artifacts, resp, err := client.Actions.ListWorkflowRunArtifacts(ctx, owner, repo, runID, opts)
+diff --git a/pkg/github/discussions.go b/pkg/github/discussions.go
+index 23e2724..3257c19 100644
+--- a/pkg/github/discussions.go
++++ b/pkg/github/discussions.go
+@@ -13,6 +13,111 @@ import (
+ 	"github.com/shurcooL/githubv4"
+ )
+ 
++// discussionCategoriesPageSize is the number of categories list_discussion_categories requests.
++// GitHub allows at most 25 categories per repository, so one page holds all of them.
++const discussionCategoriesPageSize = 25
++
++// discussionConnection is the discussions connection queried by list_discussions.
++type discussionConnection struct {
++	Nodes []struct {
++		Number    githubv4.Int
++		Title     githubv4.String
++		CreatedAt githubv4.DateTime
++		UpdatedAt githubv4.DateTime
++		Author    struct {
++			Login githubv4.String
++		}
++		Category struct {
++			Name githubv4.String
++		} `graphql:"category"`
++		URL githubv4.String `graphql:"url"`
++	}
++	PageInfo   pageInfoFragment
++	TotalCount githubv4.Int
++}
++
++// toResult converts the connection's nodes into go-github Discussions.
++func (c discussionConnection) toResult() []*github.Discussion {
++	discussions := make([]*github.Discussion, 0, len(c.Nodes))
++	for _, n := range c.Nodes {
++		discussions = append(discussions, &github.Discussion{
++			Number:    github.Ptr(int(n.Number)),
++			Title:     github.Ptr(string(n.Title)),
++			HTMLURL:   github.Ptr(string(n.URL)),
++			CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
++			UpdatedAt: &github.Timestamp{Time: n.UpdatedAt.Time},
++			User: &github.User{
++				Login: github.Ptr(string(n.Author.Login)),
++			},
++			DiscussionCategory: &github.DiscussionCategory{
++				Name: github.Ptr(string(n.Category.Name)),
++			},
++		})
++	}
++	return discussions
++}
++
++// discussionsQuery is a list_discussions query. githubv4 builds the GraphQL document
++// from struct tags, and a variable must not be declared when it is unused, so each
++// combination of the category filter and the ordering has its own query type.
++type discussionsQuery interface {
++	connection() discussionConnection
++}
++
++type discussionsQueryPlain struct {
++	Repository struct {
++		Discussions discussionConnection `graphql:"discussions(first: $first, after: $after)"`
++	} `graphql:"repository(owner: $owner, name: $repo)"`
++}
++
++type discussionsQueryByCategory struct {
++	Repository struct {
++		Discussions discussionConnection `graphql:"discussions(first: $first, after: $after, categoryId: $categoryId)"`
++	} `graphql:"repository(owner: $owner, name: $repo)"`
++}
++
++type discussionsQueryOrdered struct {
++	Repository struct {
++		Discussions discussionConnection `graphql:"discussions(first: $first, after: $after, orderBy: { field: $orderByField, direction: $orderByDirection })"`
++	} `graphql:"repository(owner: $owner, name: $repo)"`
++}
++
++type discussionsQueryByCategoryOrdered struct {
++	Repository struct {
++		Discussions discussionConnection `graphql:"discussions(first: $first, after: $after, categoryId: $categoryId, orderBy: { field: $orderByField, direction: $orderByDirection })"`
++	} `graphql:"repository(owner: $owner, name: $repo)"`
++}
++
++func (q *discussionsQueryPlain) connection() discussionConnection {
++	return q.Repository.Discussions
++}
++
++func (q *discussionsQueryByCategory) connection() discussionConnection {
++	return q.Repository.Discussions
++}
++
++func (q *discussionsQueryOrdered) connection() discussionConnection {
++	return q.Repository.Discussions
++}
++
++func (q *discussionsQueryByCategoryOrdered) connection() discussionConnection {
++	return q.Repository.Discussions
++}
++
++// newDiscussionsQuery returns the query that declares exactly the variables in use.
++func newDiscussionsQuery(byCategory, ordered bool) discussionsQuery {
++	switch {
++	case byCategory && ordered:
++		return &discussionsQueryByCategoryOrdered{}
++	case byCategory:
++		return &discussionsQueryByCategory{}
++	case ordered:
++		return &discussionsQueryOrdered{}
++	default:
++		return &discussionsQueryPlain{}
++	}
++}
++
+ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+ 	return mcp.NewTool("list_discussions",
+ 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
+@@ -31,6 +136,15 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
+ 			mcp.WithString("category",
+ 				mcp.Description("Optional filter by discussion category ID. If provided, only discussions with this category are listed."),
+ 			),
++			mcp.WithString("orderBy",
++				mcp.Description("Order discussions by field. If provided, the 'direction' also needs to be provided."),
++				mcp.Enum(string(githubv4.DiscussionOrderFieldCreatedAt), string(githubv4.DiscussionOrderFieldUpdatedAt)),
++			),
++			mcp.WithString("direction",
++				mcp.Description("Order direction."),
++				mcp.Enum(string(githubv4.OrderDirectionAsc), string(githubv4.OrderDirectionDesc)),
++			),
++			WithCursorPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			// Required params
+@@ -48,102 +162,57 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
++			orderBy, err := OptionalParam[string](request, "orderBy")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			direction, err := OptionalParam[string](request, "direction")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			pagination, err := OptionalCursorPaginationParams(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			paginationVars, err := pagination.ToGraphQLParams()
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
+ 
+ 			client, err := getGQLClient(ctx)
+ 			if err != nil {
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+ 			}
+ 
+-			// If category filter is specified, use it as the category ID for server-side filtering
+-			var categoryID *githubv4.ID
+-			if category != "" {
+-				id := githubv4.ID(category)
+-				categoryID = &id
++			vars := map[string]interface{}{
++				"owner": githubv4.String(owner),
++				"repo":  githubv4.String(repo),
+ 			}
++			paginationVars.addTo(vars)
+ 
+-			// Now execute the discussions query
+-			var discussions []*github.Discussion
+-			if categoryID != nil {
+-				// Query with category filter (server-side filtering)
+-				var query struct {
+-					Repository struct {
+-						Discussions struct {
+-							Nodes []struct {
+-								Number    githubv4.Int
+-								Title     githubv4.String
+-								CreatedAt githubv4.DateTime
+-								Category  struct {
+-									Name githubv4.String
+-								} `graphql:"category"`
+-								URL githubv4.String `graphql:"url"`
+-							}
+-						} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+-					} `graphql:"repository(owner: $owner, name: $repo)"`
+-				}
+-				vars := map[string]interface{}{
+-					"owner":      githubv4.String(owner),
+-					"repo":       githubv4.String(repo),
+-					"categoryId": *categoryID,
+-				}
+-				if err := client.Query(ctx, &query, vars); err != nil {
+-					return mcp.NewToolResultError(err.Error()), nil
+-				}
+-
+-				// Map nodes to GitHub Discussion objects
+-				for _, n := range query.Repository.Discussions.Nodes {
+-					di := &github.Discussion{
+-						Number:    github.Ptr(int(n.Number)),
+-						Title:     github.Ptr(string(n.Title)),
+-						HTMLURL:   github.Ptr(string(n.URL)),
+-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
+-						DiscussionCategory: &github.DiscussionCategory{
+-							Name: github.Ptr(string(n.Category.Name)),
+-						},
+-					}
+-					discussions = append(discussions, di)
+-				}
+-			} else {
+-				// Query without category filter
+-				var query struct {
+-					Repository struct {
+-						Discussions struct {
+-							Nodes []struct {
+-								Number    githubv4.Int
+-								Title     githubv4.String
+-								CreatedAt githubv4.DateTime
+-								Category  struct {
+-									Name githubv4.String
+-								} `graphql:"category"`
+-								URL githubv4.String `graphql:"url"`
+-							}
+-						} `graphql:"discussions(first: 100)"`
+-					} `graphql:"repository(owner: $owner, name: $repo)"`
+-				}
+-				vars := map[string]interface{}{
+-					"owner": githubv4.String(owner),
+-					"repo":  githubv4.String(repo),
+-				}
+-				if err := client.Query(ctx, &query, vars); err != nil {
+-					return mcp.NewToolResultError(err.Error()), nil
+-				}
+-
+-				// Map nodes to GitHub Discussion objects
+-				for _, n := range query.Repository.Discussions.Nodes {
+-					di := &github.Discussion{
+-						Number:    github.Ptr(int(n.Number)),
+-						Title:     github.Ptr(string(n.Title)),
+-						HTMLURL:   github.Ptr(string(n.URL)),
+-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
+-						DiscussionCategory: &github.DiscussionCategory{
+-							Name: github.Ptr(string(n.Category.Name)),
+-						},
+-					}
+-					discussions = append(discussions, di)
+-				}
+-			}
+-
+-			// Marshal and return
+-			out, err := json.Marshal(discussions)
++			// Filtering and ordering are done server-side. Ordering is used only when
++			// both orderBy and direction are given; otherwise the default order applies.
++			byCategory := category != ""
++			if byCategory {
++				vars["categoryId"] = githubv4.ID(category)
++			}
++			ordered := orderBy != "" && direction != ""
++			if ordered {
++				vars["orderByField"] = githubv4.DiscussionOrderField(orderBy)
++				vars["orderByDirection"] = githubv4.OrderDirection(direction)
++			}
++
++			query := newDiscussionsQuery(byCategory, ordered)
++			if err := client.Query(ctx, query, vars); err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			conn := query.connection()
++
++			out, err := json.Marshal(map[string]any{
++				"discussions": conn.toResult(),
++				"pageInfo":    conn.PageInfo.toResult(),
++				"totalCount":  int(conn.TotalCount),
++			})
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal discussions: %w", err)
+ 			}
+@@ -236,6 +305,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 			mcp.WithString("owner", mcp.Required(), mcp.Description("Repository owner")),
+ 			mcp.WithString("repo", mcp.Required(), mcp.Description("Repository name")),
+ 			mcp.WithNumber("discussionNumber", mcp.Required(), mcp.Description("Discussion Number")),
++			WithCursorPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			// Decode params
+@@ -247,6 +317,14 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 			if err := mapstructure.Decode(request.Params.Arguments, &params); err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
++			pagination, err := OptionalCursorPaginationParams(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			paginationVars, err := pagination.ToGraphQLParams()
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
+ 
+ 			client, err := getGQLClient(ctx)
+ 			if err != nil {
+@@ -260,7 +338,9 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 							Nodes []struct {
+ 								Body githubv4.String
+ 							}
+-						} `graphql:"comments(first:100)"`
++							PageInfo   pageInfoFragment
++							TotalCount githubv4.Int
++						} `graphql:"comments(first: $first, after: $after)"`
+ 					} `graphql:"discussion(number: $discussionNumber)"`
+ 				} `graphql:"repository(owner: $owner, name: $repo)"`
+ 			}
+@@ -269,15 +349,21 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
+ 				"repo":             githubv4.String(params.Repo),
+ 				"discussionNumber": githubv4.Int(params.DiscussionNumber),
+ 			}
++			paginationVars.addTo(vars)
+ 			if err := client.Query(ctx, &q, vars); err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+-			var comments []*github.IssueComment
+-			for _, c := range q.Repository.Discussion.Comments.Nodes {
++			conn := q.Repository.Discussion.Comments
++			comments := make([]*github.IssueComment, 0, len(conn.Nodes))
++			for _, c := range conn.Nodes {
+ 				comments = append(comments, &github.IssueComment{Body: github.Ptr(string(c.Body))})
+ 			}
+ 
+-			out, err := json.Marshal(comments)
++			out, err := json.Marshal(map[string]any{
++				"comments":   comments,
++				"pageInfo":   conn.PageInfo.toResult(),
++				"totalCount": int(conn.TotalCount),
++			})
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal comments: %w", err)
+ 			}
+@@ -301,51 +387,17 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
+ 				mcp.Required(),
+ 				mcp.Description("Repository name"),
+ 			),
+-			mcp.WithNumber("first",
+-				mcp.Description("Number of categories to return per page (min 1, max 100)"),
+-				mcp.Min(1),
+-				mcp.Max(100),
+-			),
+-			mcp.WithNumber("last",
+-				mcp.Description("Number of categories to return from the end (min 1, max 100)"),
+-				mcp.Min(1),
+-				mcp.Max(100),
+-			),
+-			mcp.WithString("after",
+-				mcp.Description("Cursor for pagination, use the 'after' field from the previous response"),
+-			),
+-			mcp.WithString("before",
+-				mcp.Description("Cursor for pagination, use the 'before' field from the previous response"),
+-			),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+ 			// Decode params
+ 			var params struct {
+-				Owner  string
+-				Repo   string
+-				First  int32
+-				Last   int32
+-				After  string
+-				Before string
++				Owner string
++				Repo  string
+ 			}
+ 			if err := mapstructure.Decode(request.Params.Arguments, &params); err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 
+-			// Validate pagination parameters
+-			if params.First != 0 && params.Last != 0 {
+-				return mcp.NewToolResultError("only one of 'first' or 'last' may be specified"), nil
+-			}
+-			if params.After != "" && params.Before != "" {
+-				return mcp.NewToolResultError("only one of 'after' or 'before' may be specified"), nil
+-			}
+-			if params.After != "" && params.Last != 0 {
+-				return mcp.NewToolResultError("'after' cannot be used with 'last'. Did you mean to use 'before' instead?"), nil
+-			}
+-			if params.Before != "" && params.First != 0 {
+-				return mcp.NewToolResultError("'before' cannot be used with 'first'. Did you mean to use 'after' instead?"), nil
+-			}
+-
+ 			client, err := getGQLClient(ctx)
+ 			if err != nil {
+ 				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+@@ -357,24 +409,32 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
+ 							ID   githubv4.ID
+ 							Name githubv4.String
+ 						}
+-					} `graphql:"discussionCategories(first: 100)"`
++						PageInfo   pageInfoFragment
++						TotalCount githubv4.Int
++					} `graphql:"discussionCategories(first: $first)"`
+ 				} `graphql:"repository(owner: $owner, name: $repo)"`
+ 			}
+ 			vars := map[string]interface{}{
+ 				"owner": githubv4.String(params.Owner),
+ 				"repo":  githubv4.String(params.Repo),
++				"first": githubv4.Int(discussionCategoriesPageSize),
+ 			}
+ 			if err := client.Query(ctx, &q, vars); err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+-			var categories []map[string]string
+-			for _, c := range q.Repository.DiscussionCategories.Nodes {
++			conn := q.Repository.DiscussionCategories
++			categories := make([]map[string]string, 0, len(conn.Nodes))
++			for _, c := range conn.Nodes {
+ 				categories = append(categories, map[string]string{
+ 					"id":   fmt.Sprint(c.ID),
+ 					"name": string(c.Name),
+ 				})
+ 			}
+-			out, err := json.Marshal(categories)
++			out, err := json.Marshal(map[string]any{
++				"categories": categories,
++				"pageInfo":   conn.PageInfo.toResult(),
++				"totalCount": int(conn.TotalCount),
++			})
+ 			if err != nil {
+ 				return nil, fmt.Errorf("failed to marshal discussion categories: %w", err)
+ 			}
+diff --git a/pkg/github/discussions_test.go b/pkg/github/discussions_test.go
+index c6688a5..4160fc7 100644
+--- a/pkg/github/discussions_test.go
++++ b/pkg/github/discussions_test.go
+@@ -3,6 +3,7 @@ package github
+ import (
+ 	"context"
+ 	"encoding/json"
++	"fmt"
+ 	"net/http"
+ 	"testing"
+ 	"time"
+@@ -15,28 +16,57 @@ import (
+ 	"github.com/stretchr/testify/require"
+ )
+ 
++// The GraphQL documents the discussion tools send. They are written out in full
++// so that the tests catch any change to what is sent to the API.
++const (
++	qListDiscussions                  = "query($after:String$first:Int!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussions(first: $first, after: $after){nodes{number,title,createdAt,updatedAt,author{login},category{name},url},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}"
++	qListDiscussionsByCategory        = "query($after:String$categoryId:ID!$first:Int!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussions(first: $first, after: $after, categoryId: $categoryId){nodes{number,title,createdAt,updatedAt,author{login},category{name},url},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}"
++	qListDiscussionsOrdered           = "query($after:String$first:Int!$orderByDirection:OrderDirection!$orderByField:DiscussionOrderField!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussions(first: $first, after: $after, orderBy: { field: $orderByField, direction: $orderByDirection }){nodes{number,title,createdAt,updatedAt,author{login},category{name},url},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}"
++	qListDiscussionsByCategoryOrdered = "query($after:String$categoryId:ID!$first:Int!$orderByDirection:OrderDirection!$orderByField:DiscussionOrderField!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussions(first: $first, after: $after, categoryId: $categoryId, orderBy: { field: $orderByField, direction: $orderByDirection }){nodes{number,title,createdAt,updatedAt,author{login},category{name},url},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}"
++	qGetDiscussionComments            = "query($after:String$discussionNumber:Int!$first:Int!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussion(number: $discussionNumber){comments(first: $first, after: $after){nodes{body},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}}"
++	qListDiscussionCategories         = "query($first:Int!$owner:String!$repo:String!){repository(owner: $owner, name: $repo){discussionCategories(first: $first){nodes{id,name},pageInfo{hasNextPage,hasPreviousPage,startCursor,endCursor},totalCount}}}"
++)
++
+ var (
+ 	discussionsGeneral = []map[string]any{
+-		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/1", "category": map[string]any{"name": "General"}},
+-		{"number": 3, "title": "Discussion 3 title", "createdAt": "2023-03-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/3", "category": map[string]any{"name": "General"}},
++		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "updatedAt": "2023-01-15T00:00:00Z", "author": map[string]any{"login": "user1"}, "url": "https://github.com/owner/repo/discussions/1", "category": map[string]any{"name": "General"}},
++		{"number": 3, "title": "Discussion 3 title", "createdAt": "2023-03-01T00:00:00Z", "updatedAt": "2023-03-15T00:00:00Z", "author": map[string]any{"login": "user3"}, "url": "https://github.com/owner/repo/discussions/3", "category": map[string]any{"name": "General"}},
+ 	}
+ 	discussionsAll = []map[string]any{
+-		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/1", "category": map[string]any{"name": "General"}},
+-		{"number": 2, "title": "Discussion 2 title", "createdAt": "2023-02-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/2", "category": map[string]any{"name": "Questions"}},
+-		{"number": 3, "title": "Discussion 3 title", "createdAt": "2023-03-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/3", "category": map[string]any{"name": "General"}},
++		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "updatedAt": "2023-01-15T00:00:00Z", "author": map[string]any{"login": "user1"}, "url": "https://github.com/owner/repo/discussions/1", "category": map[string]any{"name": "General"}},
++		{"number": 2, "title": "Discussion 2 title", "createdAt": "2023-02-01T00:00:00Z", "updatedAt": "2023-02-15T00:00:00Z", "author": map[string]any{"login": "user2"}, "url": "https://github.com/owner/repo/discussions/2", "category": map[string]any{"name": "Questions"}},
++		{"number": 3, "title": "Discussion 3 title", "createdAt": "2023-03-01T00:00:00Z", "updatedAt": "2023-03-15T00:00:00Z", "author": map[string]any{"login": "user3"}, "url": "https://github.com/owner/repo/discussions/3", "category": map[string]any{"name": "General"}},
+ 	}
+-	mockResponseListAll = githubv4mock.DataResponse(map[string]any{
+-		"repository": map[string]any{
+-			"discussions": map[string]any{"nodes": discussionsAll},
+-		},
+-	})
+-	mockResponseListGeneral = githubv4mock.DataResponse(map[string]any{
++	mockErrorRepoNotFound = githubv4mock.ErrorResponse("repository not found")
++)
++
++func mockPageInfo(hasNext bool, endCursor string) map[string]any {
++	return map[string]any{
++		"hasNextPage":     hasNext,
++		"hasPreviousPage": false,
++		"startCursor":     "start",
++		"endCursor":       endCursor,
++	}
++}
++
++func discussionsResponse(nodes []map[string]any, hasNext bool, endCursor string, total int) githubv4mock.GQLResponse {
++	return githubv4mock.DataResponse(map[string]any{
+ 		"repository": map[string]any{
+-			"discussions": map[string]any{"nodes": discussionsGeneral},
++			"discussions": map[string]any{
++				"nodes":      nodes,
++				"pageInfo":   mockPageInfo(hasNext, endCursor),
++				"totalCount": total,
++			},
+ 		},
+ 	})
+-	mockErrorRepoNotFound = githubv4mock.ErrorResponse("repository not found")
+-)
++}
++
++type pageInfoOutput struct {
++	HasNextPage     bool   `json:"hasNextPage"`
++	HasPreviousPage bool   `json:"hasPreviousPage"`
++	StartCursor     string `json:"startCursor"`
++	EndCursor       string `json:"endCursor"`
++}
+ 
+ func Test_ListDiscussions(t *testing.T) {
+ 	mockClient := githubv4.NewClient(nil)
+@@ -46,73 +76,63 @@ func Test_ListDiscussions(t *testing.T) {
+ 	assert.NotEmpty(t, toolDef.Description)
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "owner")
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "repo")
++	assert.Contains(t, toolDef.InputSchema.Properties, "category")
++	assert.Contains(t, toolDef.InputSchema.Properties, "orderBy")
++	assert.Contains(t, toolDef.InputSchema.Properties, "direction")
++	assert.ElementsMatch(t, []any{"CREATED_AT", "UPDATED_AT"}, toolDef.InputSchema.Properties["orderBy"].(map[string]any)["enum"])
++	assert.ElementsMatch(t, []any{"ASC", "DESC"}, toolDef.InputSchema.Properties["direction"].(map[string]any)["enum"])
++	assert.Contains(t, toolDef.InputSchema.Properties, "perPage")
++	assert.Contains(t, toolDef.InputSchema.Properties, "after")
++	assert.NotContains(t, toolDef.InputSchema.Properties, "page")
+ 	assert.ElementsMatch(t, toolDef.InputSchema.Required, []string{"owner", "repo"})
+ 
+-	// mock for the call to ListDiscussions without category filter
+-	var qDiscussions struct {
+-		Repository struct {
+-			Discussions struct {
+-				Nodes []struct {
+-					Number    githubv4.Int
+-					Title     githubv4.String
+-					CreatedAt githubv4.DateTime
+-					Category  struct {
+-						Name githubv4.String
+-					} `graphql:"category"`
+-					URL githubv4.String `graphql:"url"`
+-				}
+-			} `graphql:"discussions(first: 100)"`
+-		} `graphql:"repository(owner: $owner, name: $repo)"`
+-	}
+-
+-	// mock for the call to get discussions with category filter
+-	var qDiscussionsFiltered struct {
+-		Repository struct {
+-			Discussions struct {
+-				Nodes []struct {
+-					Number    githubv4.Int
+-					Title     githubv4.String
+-					CreatedAt githubv4.DateTime
+-					Category  struct {
+-						Name githubv4.String
+-					} `graphql:"category"`
+-					URL githubv4.String `graphql:"url"`
+-				}
+-			} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+-		} `graphql:"repository(owner: $owner, name: $repo)"`
+-	}
+-
+-	varsListAll := map[string]interface{}{
+-		"owner": githubv4.String("owner"),
+-		"repo":  githubv4.String("repo"),
+-	}
+-
+-	varsRepoNotFound := map[string]interface{}{
+-		"owner": githubv4.String("owner"),
+-		"repo":  githubv4.String("nonexistent-repo"),
+-	}
+-
+-	varsDiscussionsFiltered := map[string]interface{}{
+-		"owner":      githubv4.String("owner"),
+-		"repo":       githubv4.String("repo"),
+-		"categoryId": githubv4.ID("DIC_kwDOABC123"),
+-	}
+-
+ 	tests := []struct {
+-		name          string
+-		reqParams     map[string]interface{}
+-		expectError   bool
+-		errContains   string
+-		expectedCount int
++		name              string
++		reqParams         map[string]interface{}
++		query             string
++		vars              map[string]interface{}
++		response          githubv4mock.GQLResponse
++		expectError       bool
++		errContains       string
++		expectedCount     int
++		expectedPageInfo  pageInfoOutput
++		expectedTotal     int
++		expectCategoryCol bool
+ 	}{
+ 		{
+-			name: "list all discussions without category filter",
++			name:      "list all discussions with default pagination",
++			reqParams: map[string]interface{}{"owner": "owner", "repo": "repo"},
++			query:     qListDiscussions,
++			vars: map[string]interface{}{
++				"owner": "owner",
++				"repo":  "repo",
++				"first": float64(30),
++				"after": nil,
++			},
++			response:         discussionsResponse(discussionsAll, true, "cursor-3", 5),
++			expectedCount:    3,
++			expectedPageInfo: pageInfoOutput{HasNextPage: true, StartCursor: "start", EndCursor: "cursor-3"},
++			expectedTotal:    5,
++		},
++		{
++			name: "list discussions with perPage and after",
+ 			reqParams: map[string]interface{}{
++				"owner":   "owner",
++				"repo":    "repo",
++				"perPage": float64(2),
++				"after":   "cursor-3",
++			},
++			query: qListDiscussions,
++			vars: map[string]interface{}{
+ 				"owner": "owner",
+ 				"repo":  "repo",
++				"first": float64(2),
++				"after": "cursor-3",
+ 			},
+-			expectError:   false,
+-			expectedCount: 3, // All discussions
++			response:         discussionsResponse(discussionsGeneral, false, "cursor-5", 5),
++			expectedCount:    2,
++			expectedPageInfo: pageInfoOutput{HasNextPage: false, StartCursor: "start", EndCursor: "cursor-5"},
++			expectedTotal:    5,
+ 		},
+ 		{
+ 			name: "filter by category ID",
+@@ -121,15 +141,150 @@ func Test_ListDiscussions(t *testing.T) {
+ 				"repo":     "repo",
+ 				"category": "DIC_kwDOABC123",
+ 			},
+-			expectError:   false,
+-			expectedCount: 2, // Only General discussions (matching the category ID)
++			query: qListDiscussionsByCategory,
++			vars: map[string]interface{}{
++				"owner":      "owner",
++				"repo":       "repo",
++				"categoryId": "DIC_kwDOABC123",
++				"first":      float64(30),
++				"after":      nil,
++			},
++			response:          discussionsResponse(discussionsGeneral, false, "cursor-2", 2),
++			expectedCount:     2,
++			expectedPageInfo:  pageInfoOutput{StartCursor: "start", EndCursor: "cursor-2"},
++			expectedTotal:     2,
++			expectCategoryCol: true,
++		},
++		{
++			name: "order by updated time descending",
++			reqParams: map[string]interface{}{
++				"owner":     "owner",
++				"repo":      "repo",
++				"orderBy":   "UPDATED_AT",
++				"direction": "DESC",
++			},
++			query: qListDiscussionsOrdered,
++			vars: map[string]interface{}{
++				"owner":            "owner",
++				"repo":             "repo",
++				"orderByField":     "UPDATED_AT",
++				"orderByDirection": "DESC",
++				"first":            float64(30),
++				"after":            nil,
++			},
++			response:         discussionsResponse(discussionsAll, true, "cursor-3", 5),
++			expectedCount:    3,
++			expectedPageInfo: pageInfoOutput{HasNextPage: true, StartCursor: "start", EndCursor: "cursor-3"},
++			expectedTotal:    5,
++		},
++		{
++			name: "order by creation time ascending with category and pagination",
++			reqParams: map[string]interface{}{
++				"owner":     "owner",
++				"repo":      "repo",
++				"category":  "DIC_kwDOABC123",
++				"orderBy":   "CREATED_AT",
++				"direction": "ASC",
++				"perPage":   float64(2),
++				"after":     "cursor-1",
++			},
++			query: qListDiscussionsByCategoryOrdered,
++			vars: map[string]interface{}{
++				"owner":            "owner",
++				"repo":             "repo",
++				"categoryId":       "DIC_kwDOABC123",
++				"orderByField":     "CREATED_AT",
++				"orderByDirection": "ASC",
++				"first":            float64(2),
++				"after":            "cursor-1",
++			},
++			response:          discussionsResponse(discussionsGeneral, false, "cursor-2", 2),
++			expectedCount:     2,
++			expectedPageInfo:  pageInfoOutput{StartCursor: "start", EndCursor: "cursor-2"},
++			expectedTotal:     2,
++			expectCategoryCol: true,
+ 		},
+ 		{
+-			name: "repository not found error",
++			name: "orderBy without direction uses default order",
+ 			reqParams: map[string]interface{}{
++				"owner":   "owner",
++				"repo":    "repo",
++				"orderBy": "UPDATED_AT",
++			},
++			query: qListDiscussions,
++			vars: map[string]interface{}{
++				"owner": "owner",
++				"repo":  "repo",
++				"first": float64(30),
++				"after": nil,
++			},
++			response:         discussionsResponse(discussionsAll, false, "cursor-3", 3),
++			expectedCount:    3,
++			expectedPageInfo: pageInfoOutput{StartCursor: "start", EndCursor: "cursor-3"},
++			expectedTotal:    3,
++		},
++		{
++			name: "direction without orderBy uses default order",
++			reqParams: map[string]interface{}{
++				"owner":     "owner",
++				"repo":      "repo",
++				"direction": "DESC",
++			},
++			query: qListDiscussions,
++			vars: map[string]interface{}{
++				"owner": "owner",
++				"repo":  "repo",
++				"first": float64(30),
++				"after": nil,
++			},
++			response:         discussionsResponse(discussionsAll, false, "cursor-3", 3),
++			expectedCount:    3,
++			expectedPageInfo: pageInfoOutput{StartCursor: "start", EndCursor: "cursor-3"},
++			expectedTotal:    3,
++		},
++		{
++			name: "orderBy without direction keeps category filter",
++			reqParams: map[string]interface{}{
++				"owner":    "owner",
++				"repo":     "repo",
++				"category": "DIC_kwDOABC123",
++				"orderBy":  "CREATED_AT",
++			},
++			query: qListDiscussionsByCategory,
++			vars: map[string]interface{}{
++				"owner":      "owner",
++				"repo":       "repo",
++				"categoryId": "DIC_kwDOABC123",
++				"first":      float64(30),
++				"after":      nil,
++			},
++			response:          discussionsResponse(discussionsGeneral, false, "cursor-2", 2),
++			expectedCount:     2,
++			expectedPageInfo:  pageInfoOutput{StartCursor: "start", EndCursor: "cursor-2"},
++			expectedTotal:     2,
++			expectCategoryCol: true,
++		},
++		{
++			name: "perPage above maximum",
++			reqParams: map[string]interface{}{
++				"owner":   "owner",
++				"repo":    "repo",
++				"perPage": float64(101),
++			},
++			expectError: true,
++			errContains: "perPage value 101 exceeds maximum of 100",
++		},
++		{
++			name:      "repository not found error",
++			reqParams: map[string]interface{}{"owner": "owner", "repo": "nonexistent-repo"},
++			query:     qListDiscussions,
++			vars: map[string]interface{}{
+ 				"owner": "owner",
+ 				"repo":  "nonexistent-repo",
++				"first": float64(30),
++				"after": nil,
+ 			},
++			response:    mockErrorRepoNotFound,
+ 			expectError: true,
+ 			errContains: "repository not found",
+ 		},
+@@ -138,19 +293,10 @@ func Test_ListDiscussions(t *testing.T) {
+ 	for _, tc := range tests {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			var httpClient *http.Client
+-
+-			switch tc.name {
+-			case "list all discussions without category filter":
+-				// Simple case - no category filter
+-				matcher := githubv4mock.NewQueryMatcher(qDiscussions, varsListAll, mockResponseListAll)
+-				httpClient = githubv4mock.NewMockedHTTPClient(matcher)
+-			case "filter by category ID":
+-				// Simple case - category filter using category ID directly
+-				matcher := githubv4mock.NewQueryMatcher(qDiscussionsFiltered, varsDiscussionsFiltered, mockResponseListGeneral)
+-				httpClient = githubv4mock.NewMockedHTTPClient(matcher)
+-			case "repository not found error":
+-				matcher := githubv4mock.NewQueryMatcher(qDiscussions, varsRepoNotFound, mockErrorRepoNotFound)
+-				httpClient = githubv4mock.NewMockedHTTPClient(matcher)
++			if tc.query != "" {
++				httpClient = githubv4mock.NewMockedHTTPClient(githubv4mock.NewQueryMatcher(tc.query, tc.vars, tc.response))
++			} else {
++				httpClient = githubv4mock.NewMockedHTTPClient()
+ 			}
+ 
+ 			gqlClient := githubv4.NewClient(httpClient)
+@@ -158,6 +304,7 @@ func Test_ListDiscussions(t *testing.T) {
+ 
+ 			req := createMCPRequest(tc.reqParams)
+ 			res, err := handler(context.Background(), req)
++			require.NoError(t, err)
+ 			text := getTextResult(t, res).Text
+ 
+ 			if tc.expectError {
+@@ -165,19 +312,32 @@ func Test_ListDiscussions(t *testing.T) {
+ 				assert.Contains(t, text, tc.errContains)
+ 				return
+ 			}
+-			require.NoError(t, err)
++			require.False(t, res.IsError, text)
+ 
+-			var returnedDiscussions []*github.Discussion
+-			err = json.Unmarshal([]byte(text), &returnedDiscussions)
+-			require.NoError(t, err)
++			var out struct {
++				Discussions []*github.Discussion `json:"discussions"`
++				PageInfo    pageInfoOutput       `json:"pageInfo"`
++				TotalCount  int                  `json:"totalCount"`
++			}
++			require.NoError(t, json.Unmarshal([]byte(text), &out))
+ 
+-			assert.Len(t, returnedDiscussions, tc.expectedCount, "Expected %d discussions, got %d", tc.expectedCount, len(returnedDiscussions))
++			assert.Len(t, out.Discussions, tc.expectedCount)
++			assert.Equal(t, tc.expectedPageInfo, out.PageInfo)
++			assert.Equal(t, tc.expectedTotal, out.TotalCount)
++
++			// The mock data gives discussion N the author "userN" and the update time 2023-0N-15.
++			for _, discussion := range out.Discussions {
++				n := discussion.GetNumber()
++				require.NotNil(t, discussion.User)
++				assert.Equal(t, fmt.Sprintf("user%d", n), discussion.User.GetLogin())
++				require.NotNil(t, discussion.UpdatedAt)
++				assert.Equal(t, time.Date(2023, time.Month(n), 15, 0, 0, 0, 0, time.UTC), discussion.UpdatedAt.UTC())
++			}
+ 
+-			// Verify that all returned discussions have a category if filtered
+-			if _, hasCategory := tc.reqParams["category"]; hasCategory {
+-				for _, discussion := range returnedDiscussions {
++			if tc.expectCategoryCol {
++				for _, discussion := range out.Discussions {
+ 					require.NotNil(t, discussion.DiscussionCategory, "Discussion should have category")
+-					assert.NotEmpty(t, *discussion.DiscussionCategory.Name, "Discussion should have category name")
++					assert.Equal(t, "General", *discussion.DiscussionCategory.Name)
+ 				}
+ 			}
+ 		})
+@@ -285,24 +445,10 @@ func Test_GetDiscussionComments(t *testing.T) {
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "owner")
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "repo")
+ 	assert.Contains(t, toolDef.InputSchema.Properties, "discussionNumber")
++	assert.Contains(t, toolDef.InputSchema.Properties, "perPage")
++	assert.Contains(t, toolDef.InputSchema.Properties, "after")
+ 	assert.ElementsMatch(t, toolDef.InputSchema.Required, []string{"owner", "repo", "discussionNumber"})
+ 
+-	var q struct {
+-		Repository struct {
+-			Discussion struct {
+-				Comments struct {
+-					Nodes []struct {
+-						Body githubv4.String
+-					}
+-				} `graphql:"comments(first:100)"`
+-			} `graphql:"discussion(number: $discussionNumber)"`
+-		} `graphql:"repository(owner: $owner, name: $repo)"`
+-	}
+-	vars := map[string]interface{}{
+-		"owner":            githubv4.String("owner"),
+-		"repo":             githubv4.String("repo"),
+-		"discussionNumber": githubv4.Int(1),
+-	}
+ 	mockResponse := githubv4mock.DataResponse(map[string]any{
+ 		"repository": map[string]any{
+ 			"discussion": map[string]any{
+@@ -311,50 +457,87 @@ func Test_GetDiscussionComments(t *testing.T) {
+ 						{"body": "This is the first comment"},
+ 						{"body": "This is the second comment"},
+ 					},
++					"pageInfo":   mockPageInfo(true, "comment-cursor"),
++					"totalCount": 7,
+ 				},
+ 			},
+ 		},
+ 	})
+-	matcher := githubv4mock.NewQueryMatcher(q, vars, mockResponse)
+-	httpClient := githubv4mock.NewMockedHTTPClient(matcher)
+-	gqlClient := githubv4.NewClient(httpClient)
+-	_, handler := GetDiscussionComments(stubGetGQLClientFn(gqlClient), translations.NullTranslationHelper)
+ 
+-	request := createMCPRequest(map[string]interface{}{
+-		"owner":            "owner",
+-		"repo":             "repo",
+-		"discussionNumber": int32(1),
+-	})
++	tests := []struct {
++		name      string
++		reqParams map[string]interface{}
++		vars      map[string]interface{}
++	}{
++		{
++			name: "default pagination",
++			reqParams: map[string]interface{}{
++				"owner":            "owner",
++				"repo":             "repo",
++				"discussionNumber": int32(1),
++			},
++			vars: map[string]interface{}{
++				"owner":            "owner",
++				"repo":             "repo",
++				"discussionNumber": float64(1),
++				"first":            float64(30),
++				"after":            nil,
++			},
++		},
++		{
++			name: "perPage and after",
++			reqParams: map[string]interface{}{
++				"owner":            "owner",
++				"repo":             "repo",
++				"discussionNumber": int32(1),
++				"perPage":          float64(2),
++				"after":            "prev-cursor",
++			},
++			vars: map[string]interface{}{
++				"owner":            "owner",
++				"repo":             "repo",
++				"discussionNumber": float64(1),
++				"first":            float64(2),
++				"after":            "prev-cursor",
++			},
++		},
++	}
+ 
+-	result, err := handler(context.Background(), request)
+-	require.NoError(t, err)
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			matcher := githubv4mock.NewQueryMatcher(qGetDiscussionComments, tc.vars, mockResponse)
++			httpClient := githubv4mock.NewMockedHTTPClient(matcher)
++			gqlClient := githubv4.NewClient(httpClient)
++			_, handler := GetDiscussionComments(stubGetGQLClientFn(gqlClient), translations.NullTranslationHelper)
++
++			result, err := handler(context.Background(), createMCPRequest(tc.reqParams))
++			require.NoError(t, err)
+ 
+-	textContent := getTextResult(t, result)
++			textContent := getTextResult(t, result)
++			require.False(t, result.IsError, textContent.Text)
+ 
+-	var returnedComments []*github.IssueComment
+-	err = json.Unmarshal([]byte(textContent.Text), &returnedComments)
+-	require.NoError(t, err)
+-	assert.Len(t, returnedComments, 2)
+-	expectedBodies := []string{"This is the first comment", "This is the second comment"}
+-	for i, comment := range returnedComments {
+-		assert.Equal(t, expectedBodies[i], *comment.Body)
++			var out struct {
++				Comments   []*github.IssueComment `json:"comments"`
++				PageInfo   pageInfoOutput         `json:"pageInfo"`
++				TotalCount int                    `json:"totalCount"`
++			}
++			require.NoError(t, json.Unmarshal([]byte(textContent.Text), &out))
++			require.Len(t, out.Comments, 2)
++			expectedBodies := []string{"This is the first comment", "This is the second comment"}
++			for i, comment := range out.Comments {
++				assert.Equal(t, expectedBodies[i], *comment.Body)
++			}
++			assert.Equal(t, pageInfoOutput{HasNextPage: true, StartCursor: "start", EndCursor: "comment-cursor"}, out.PageInfo)
++			assert.Equal(t, 7, out.TotalCount)
++		})
+ 	}
+ }
+ 
+ func Test_ListDiscussionCategories(t *testing.T) {
+-	var q struct {
+-		Repository struct {
+-			DiscussionCategories struct {
+-				Nodes []struct {
+-					ID   githubv4.ID
+-					Name githubv4.String
+-				}
+-			} `graphql:"discussionCategories(first: 100)"`
+-		} `graphql:"repository(owner: $owner, name: $repo)"`
+-	}
+ 	vars := map[string]interface{}{
+-		"owner": githubv4.String("owner"),
+-		"repo":  githubv4.String("repo"),
++		"owner": "owner",
++		"repo":  "repo",
++		"first": float64(25),
+ 	}
+ 	mockResp := githubv4mock.DataResponse(map[string]any{
+ 		"repository": map[string]any{
+@@ -363,10 +546,12 @@ func Test_ListDiscussionCategories(t *testing.T) {
+ 					{"id": "123", "name": "CategoryOne"},
+ 					{"id": "456", "name": "CategoryTwo"},
+ 				},
++				"pageInfo":   mockPageInfo(false, "end"),
++				"totalCount": 2,
+ 			},
+ 		},
+ 	})
+-	matcher := githubv4mock.NewQueryMatcher(q, vars, mockResp)
++	matcher := githubv4mock.NewQueryMatcher(qListDiscussionCategories, vars, mockResp)
+ 	httpClient := githubv4mock.NewMockedHTTPClient(matcher)
+ 	gqlClient := githubv4.NewClient(httpClient)
+ 
+@@ -375,6 +560,9 @@ func Test_ListDiscussionCategories(t *testing.T) {
+ 	assert.NotEmpty(t, tool.Description)
+ 	assert.Contains(t, tool.InputSchema.Properties, "owner")
+ 	assert.Contains(t, tool.InputSchema.Properties, "repo")
++	for _, removed := range []string{"first", "last", "after", "before"} {
++		assert.NotContains(t, tool.InputSchema.Properties, removed)
++	}
+ 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"owner", "repo"})
+ 
+ 	request := createMCPRequest(map[string]interface{}{"owner": "owner", "repo": "repo"})
+@@ -382,11 +570,19 @@ func Test_ListDiscussionCategories(t *testing.T) {
+ 	require.NoError(t, err)
+ 
+ 	text := getTextResult(t, result).Text
+-	var categories []map[string]string
+-	require.NoError(t, json.Unmarshal([]byte(text), &categories))
+-	assert.Len(t, categories, 2)
+-	assert.Equal(t, "123", categories[0]["id"])
+-	assert.Equal(t, "CategoryOne", categories[0]["name"])
+-	assert.Equal(t, "456", categories[1]["id"])
+-	assert.Equal(t, "CategoryTwo", categories[1]["name"])
++	require.False(t, result.IsError, text)
++
++	var out struct {
++		Categories []map[string]string `json:"categories"`
++		PageInfo   pageInfoOutput      `json:"pageInfo"`
++		TotalCount int                 `json:"totalCount"`
++	}
++	require.NoError(t, json.Unmarshal([]byte(text), &out))
++	require.Len(t, out.Categories, 2)
++	assert.Equal(t, "123", out.Categories[0]["id"])
++	assert.Equal(t, "CategoryOne", out.Categories[0]["name"])
++	assert.Equal(t, "456", out.Categories[1]["id"])
++	assert.Equal(t, "CategoryTwo", out.Categories[1]["name"])
++	assert.Equal(t, pageInfoOutput{StartCursor: "start", EndCursor: "end"}, out.PageInfo)
++	assert.Equal(t, 2, out.TotalCount)
+ }
+diff --git a/pkg/github/helper_test.go b/pkg/github/helper_test.go
+index bc1ae41..842e121 100644
+--- a/pkg/github/helper_test.go
++++ b/pkg/github/helper_test.go
+@@ -161,115 +161,3 @@ func getBlobResourceResult(t *testing.T, result *mcp.CallToolResult) mcp.BlobRes
+ 	require.IsType(t, mcp.BlobResourceContents{}, resource.Resource)
+ 	return resource.Resource.(mcp.BlobResourceContents)
+ }
+-
+-func TestOptionalParamOK(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		args        map[string]interface{}
+-		paramName   string
+-		expectedVal interface{}
+-		expectedOk  bool
+-		expectError bool
+-		errorMsg    string
+-	}{
+-		{
+-			name:        "present and correct type (string)",
+-			args:        map[string]interface{}{"myParam": "hello"},
+-			paramName:   "myParam",
+-			expectedVal: "hello",
+-			expectedOk:  true,
+-			expectError: false,
+-		},
+-		{
+-			name:        "present and correct type (bool)",
+-			args:        map[string]interface{}{"myParam": true},
+-			paramName:   "myParam",
+-			expectedVal: true,
+-			expectedOk:  true,
+-			expectError: false,
+-		},
+-		{
+-			name:        "present and correct type (number)",
+-			args:        map[string]interface{}{"myParam": float64(123)},
+-			paramName:   "myParam",
+-			expectedVal: float64(123),
+-			expectedOk:  true,
+-			expectError: false,
+-		},
+-		{
+-			name:        "present but wrong type (string expected, got bool)",
+-			args:        map[string]interface{}{"myParam": true},
+-			paramName:   "myParam",
+-			expectedVal: "",   // Zero value for string
+-			expectedOk:  true, // ok is true because param exists
+-			expectError: true,
+-			errorMsg:    "parameter myParam is not of type string, is bool",
+-		},
+-		{
+-			name:        "present but wrong type (bool expected, got string)",
+-			args:        map[string]interface{}{"myParam": "true"},
+-			paramName:   "myParam",
+-			expectedVal: false, // Zero value for bool
+-			expectedOk:  true,  // ok is true because param exists
+-			expectError: true,
+-			errorMsg:    "parameter myParam is not of type bool, is string",
+-		},
+-		{
+-			name:        "parameter not present",
+-			args:        map[string]interface{}{"anotherParam": "value"},
+-			paramName:   "myParam",
+-			expectedVal: "", // Zero value for string
+-			expectedOk:  false,
+-			expectError: false,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.args)
+-
+-			// Test with string type assertion
+-			if _, isString := tc.expectedVal.(string); isString || tc.errorMsg == "parameter myParam is not of type string, is bool" {
+-				val, ok, err := OptionalParamOK[string](request, tc.paramName)
+-				if tc.expectError {
+-					require.Error(t, err)
+-					assert.Contains(t, err.Error(), tc.errorMsg)
+-					assert.Equal(t, tc.expectedOk, ok)   // Check ok even on error
+-					assert.Equal(t, tc.expectedVal, val) // Check zero value on error
+-				} else {
+-					require.NoError(t, err)
+-					assert.Equal(t, tc.expectedOk, ok)
+-					assert.Equal(t, tc.expectedVal, val)
+-				}
+-			}
+-
+-			// Test with bool type assertion
+-			if _, isBool := tc.expectedVal.(bool); isBool || tc.errorMsg == "parameter myParam is not of type bool, is string" {
+-				val, ok, err := OptionalParamOK[bool](request, tc.paramName)
+-				if tc.expectError {
+-					require.Error(t, err)
+-					assert.Contains(t, err.Error(), tc.errorMsg)
+-					assert.Equal(t, tc.expectedOk, ok)   // Check ok even on error
+-					assert.Equal(t, tc.expectedVal, val) // Check zero value on error
+-				} else {
+-					require.NoError(t, err)
+-					assert.Equal(t, tc.expectedOk, ok)
+-					assert.Equal(t, tc.expectedVal, val)
+-				}
+-			}
+-
+-			// Test with float64 type assertion (for number case)
+-			if _, isFloat := tc.expectedVal.(float64); isFloat {
+-				val, ok, err := OptionalParamOK[float64](request, tc.paramName)
+-				if tc.expectError {
+-					// This case shouldn't happen for float64 in the defined tests
+-					require.Fail(t, "Unexpected error case for float64")
+-				} else {
+-					require.NoError(t, err)
+-					assert.Equal(t, tc.expectedOk, ok)
+-					assert.Equal(t, tc.expectedVal, val)
+-				}
+-			}
+-		})
+-	}
+-}
+diff --git a/pkg/github/issues.go b/pkg/github/issues.go
+index 29d32bd..80a150a 100644
+--- a/pkg/github/issues.go
++++ b/pkg/github/issues.go
+@@ -630,8 +630,8 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
+ 
+ 			opts := &github.IssueListCommentsOptions{
+ 				ListOptions: github.ListOptions{
+-					Page:    pagination.page,
+-					PerPage: pagination.perPage,
++					Page:    pagination.Page,
++					PerPage: pagination.PerPage,
+ 				},
+ 			}
+ 
+diff --git a/pkg/github/notifications.go b/pkg/github/notifications.go
+index a41edaf..fdd4180 100644
+--- a/pkg/github/notifications.go
++++ b/pkg/github/notifications.go
+@@ -88,8 +88,8 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
+ 				All:           filter == FilterIncludeRead,
+ 				Participating: filter == FilterOnlyParticipating,
+ 				ListOptions: github.ListOptions{
+-					Page:    paginationParams.page,
+-					PerPage: paginationParams.perPage,
++					Page:    paginationParams.Page,
++					PerPage: paginationParams.PerPage,
+ 				},
+ 			}
+ 
+diff --git a/pkg/github/pagination.go b/pkg/github/pagination.go
+new file mode 100644
+index 0000000..8412ff2
+--- /dev/null
++++ b/pkg/github/pagination.go
+@@ -0,0 +1,196 @@
++package github
++
++import (
++	"fmt"
++
++	"github.com/mark3labs/mcp-go/mcp"
++	"github.com/shurcooL/githubv4"
++)
++
++const (
++	// DefaultGraphQLPageSize is the page size used for GraphQL connections
++	// when the caller does not set "perPage".
++	DefaultGraphQLPageSize = 30
++
++	// maxGraphQLPageSize is the largest "first" value GitHub's GraphQL API accepts.
++	maxGraphQLPageSize = 100
++)
++
++func withPageParam() mcp.ToolOption {
++	return mcp.WithNumber("page",
++		mcp.Description("Page number for pagination (min 1)"),
++		mcp.Min(1),
++	)
++}
++
++func withPerPageParam() mcp.ToolOption {
++	return mcp.WithNumber("perPage",
++		mcp.Description("Results per page for pagination (min 1, max 100)"),
++		mcp.Min(1),
++		mcp.Max(100),
++	)
++}
++
++func withAfterParam() mcp.ToolOption {
++	return mcp.WithString("after",
++		mcp.Description("Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs."),
++	)
++}
++
++// WithPagination returns a ToolOption that adds "page" and "perPage" parameters to the tool.
++// The "page" parameter is optional, min 1.
++// The "perPage" parameter is optional, min 1, max 100. If unset, defaults to 30.
++// https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api
++func WithPagination() mcp.ToolOption {
++	return func(tool *mcp.Tool) {
++		withPageParam()(tool)
++		withPerPageParam()(tool)
++	}
++}
++
++// WithUnifiedPagination returns a ToolOption that adds "page", "perPage" and "after"
++// parameters to the tool. It is meant for GraphQL tools that accept page/perPage and
++// convert them to a cursor internally.
++func WithUnifiedPagination() mcp.ToolOption {
++	return func(tool *mcp.Tool) {
++		withPageParam()(tool)
++		withPerPageParam()(tool)
++		withAfterParam()(tool)
++	}
++}
++
++// WithCursorPagination returns a ToolOption that adds "perPage" and "after" parameters
++// to the tool, for cursor-based (GraphQL connection) pagination.
++// https://docs.github.com/en/graphql/guides/using-pagination-in-the-graphql-api
++func WithCursorPagination() mcp.ToolOption {
++	return func(tool *mcp.Tool) {
++		withPerPageParam()(tool)
++		withAfterParam()(tool)
++	}
++}
++
++// PaginationParams holds the "page", "perPage" and "after" parameters of a request.
++type PaginationParams struct {
++	Page    int
++	PerPage int
++	After   string
++}
++
++// OptionalPaginationParams returns the "page", "perPage" and "after" parameters from the request,
++// or their default values if not present, "page" default is 1, "perPage" default is 30.
++// In future, we may want to make the default values configurable, or even have this
++// function returned from `withPagination`, where the defaults are provided alongside
++// the min/max values.
++func OptionalPaginationParams(r mcp.CallToolRequest) (PaginationParams, error) {
++	page, err := OptionalIntParamWithDefault(r, "page", 1)
++	if err != nil {
++		return PaginationParams{}, err
++	}
++	perPage, err := OptionalIntParamWithDefault(r, "perPage", 30)
++	if err != nil {
++		return PaginationParams{}, err
++	}
++	after, err := OptionalParam[string](r, "after")
++	if err != nil {
++		return PaginationParams{}, err
++	}
++	return PaginationParams{
++		Page:    page,
++		PerPage: perPage,
++		After:   after,
++	}, nil
++}
++
++// ToGraphQLParams converts REST pagination parameters to GraphQL parameters.
++// If After is set, it is used as the cursor. Page is not translated into a cursor,
++// because GraphQL connections cannot jump to an arbitrary page.
++func (p PaginationParams) ToGraphQLParams() (*GraphQLPaginationParams, error) {
++	return CursorPaginationParams{PerPage: p.PerPage, After: p.After}.ToGraphQLParams()
++}
++
++// CursorPaginationParams holds the "perPage" and "after" parameters of a request.
++type CursorPaginationParams struct {
++	PerPage int
++	After   string
++}
++
++// OptionalCursorPaginationParams returns the "perPage" and "after" parameters from the request,
++// or their default values if not present, "perPage" default is DefaultGraphQLPageSize.
++func OptionalCursorPaginationParams(r mcp.CallToolRequest) (CursorPaginationParams, error) {
++	perPage, err := OptionalIntParamWithDefault(r, "perPage", DefaultGraphQLPageSize)
++	if err != nil {
++		return CursorPaginationParams{}, err
++	}
++	after, err := OptionalParam[string](r, "after")
++	if err != nil {
++		return CursorPaginationParams{}, err
++	}
++	return CursorPaginationParams{
++		PerPage: perPage,
++		After:   after,
++	}, nil
++}
++
++// ToGraphQLParams converts cursor pagination parameters to GraphQL parameters.
++func (p CursorPaginationParams) ToGraphQLParams() (*GraphQLPaginationParams, error) {
++	if p.PerPage > maxGraphQLPageSize {
++		return nil, fmt.Errorf("perPage value %d exceeds maximum of %d", p.PerPage, maxGraphQLPageSize)
++	}
++	if p.PerPage < 0 {
++		return nil, fmt.Errorf("perPage value %d cannot be negative", p.PerPage)
++	}
++	first := int32(p.PerPage) // #nosec G115 - bounded to [0, 100] above
++	var after *string
++	if p.After != "" {
++		after = &p.After
++	}
++	return &GraphQLPaginationParams{
++		First: &first,
++		After: after,
++	}, nil
++}
++
++// GraphQLPaginationParams holds the "first" and "after" arguments of a GraphQL connection.
++type GraphQLPaginationParams struct {
++	First *int32
++	After *string
++}
++
++// addTo sets the "first" and "after" variables of a GraphQL query.
++// "after" is always declared, and is sent as null when there is no cursor.
++func (p *GraphQLPaginationParams) addTo(vars map[string]any) {
++	if p.First != nil {
++		vars["first"] = githubv4.Int(*p.First)
++	}
++	var after *githubv4.String
++	if p.After != nil {
++		after = githubv4.NewString(githubv4.String(*p.After))
++	}
++	vars["after"] = after
++}
++
++// pageInfoFragment is the PageInfo object of a GraphQL connection.
++// https://docs.github.com/en/graphql/reference/objects#pageinfo
++type pageInfoFragment struct {
++	HasNextPage     githubv4.Boolean
++	HasPreviousPage githubv4.Boolean
++	StartCursor     githubv4.String
++	EndCursor       githubv4.String
++}
++
++// pageInfoResult is the JSON form of a connection's PageInfo returned by GraphQL tools.
++type pageInfoResult struct {
++	HasNextPage     bool   `json:"hasNextPage"`
++	HasPreviousPage bool   `json:"hasPreviousPage"`
++	StartCursor     string `json:"startCursor"`
++	EndCursor       string `json:"endCursor"`
++}
++
++func (p pageInfoFragment) toResult() pageInfoResult {
++	return pageInfoResult{
++		HasNextPage:     bool(p.HasNextPage),
++		HasPreviousPage: bool(p.HasPreviousPage),
++		StartCursor:     string(p.StartCursor),
++		EndCursor:       string(p.EndCursor),
++	}
++}
+diff --git a/pkg/github/pagination_test.go b/pkg/github/pagination_test.go
+new file mode 100644
+index 0000000..6acd4c0
+--- /dev/null
++++ b/pkg/github/pagination_test.go
+@@ -0,0 +1,258 @@
++package github
++
++import (
++	"testing"
++
++	"github.com/mark3labs/mcp-go/mcp"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++func TestOptionalPaginationParams(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]any
++		expected    PaginationParams
++		expectError bool
++	}{
++		{
++			name:   "no pagination parameters, default values",
++			params: map[string]any{},
++			expected: PaginationParams{
++				Page:    1,
++				PerPage: 30,
++			},
++			expectError: false,
++		},
++		{
++			name: "page parameter, default perPage",
++			params: map[string]any{
++				"page": float64(2),
++			},
++			expected: PaginationParams{
++				Page:    2,
++				PerPage: 30,
++			},
++			expectError: false,
++		},
++		{
++			name: "perPage parameter, default page",
++			params: map[string]any{
++				"perPage": float64(50),
++			},
++			expected: PaginationParams{
++				Page:    1,
++				PerPage: 50,
++			},
++			expectError: false,
++		},
++		{
++			name: "page and perPage parameters",
++			params: map[string]any{
++				"page":    float64(2),
++				"perPage": float64(50),
++			},
++			expected: PaginationParams{
++				Page:    2,
++				PerPage: 50,
++			},
++			expectError: false,
++		},
++		{
++			name: "after parameter",
++			params: map[string]any{
++				"after": "cursor123",
++			},
++			expected: PaginationParams{
++				Page:    1,
++				PerPage: 30,
++				After:   "cursor123",
++			},
++			expectError: false,
++		},
++		{
++			name: "invalid after parameter",
++			params: map[string]any{
++				"after": float64(1),
++			},
++			expected:    PaginationParams{},
++			expectError: true,
++		},
++		{
++			name: "invalid page parameter",
++			params: map[string]any{
++				"page": "not-a-number",
++			},
++			expected:    PaginationParams{},
++			expectError: true,
++		},
++		{
++			name: "invalid perPage parameter",
++			params: map[string]any{
++				"perPage": "not-a-number",
++			},
++			expected:    PaginationParams{},
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.params)
++			result, err := OptionalPaginationParams(request)
++
++			if tc.expectError {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tc.expected, result)
++			}
++		})
++	}
++}
++
++func TestOptionalCursorPaginationParams(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]any
++		expected    CursorPaginationParams
++		expectError bool
++	}{
++		{
++			name:     "no pagination parameters, default values",
++			params:   map[string]any{},
++			expected: CursorPaginationParams{PerPage: DefaultGraphQLPageSize},
++		},
++		{
++			name:     "perPage and after parameters",
++			params:   map[string]any{"perPage": float64(50), "after": "cursor123"},
++			expected: CursorPaginationParams{PerPage: 50, After: "cursor123"},
++		},
++		{
++			name:        "invalid perPage parameter",
++			params:      map[string]any{"perPage": "not-a-number"},
++			expectError: true,
++		},
++		{
++			name:        "invalid after parameter",
++			params:      map[string]any{"after": float64(1)},
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			result, err := OptionalCursorPaginationParams(createMCPRequest(tc.params))
++			if tc.expectError {
++				assert.Error(t, err)
++				return
++			}
++			require.NoError(t, err)
++			assert.Equal(t, tc.expected, result)
++		})
++	}
++}
++
++func TestToGraphQLParams(t *testing.T) {
++	ptr32 := func(v int32) *int32 { return &v }
++	ptrStr := func(v string) *string { return &v }
++
++	tests := []struct {
++		name        string
++		params      CursorPaginationParams
++		expected    *GraphQLPaginationParams
++		errContains string
++	}{
++		{
++			name:     "no cursor",
++			params:   CursorPaginationParams{PerPage: 30},
++			expected: &GraphQLPaginationParams{First: ptr32(30)},
++		},
++		{
++			name:     "with cursor",
++			params:   CursorPaginationParams{PerPage: 10, After: "cursor123"},
++			expected: &GraphQLPaginationParams{First: ptr32(10), After: ptrStr("cursor123")},
++		},
++		{
++			name:     "maximum perPage",
++			params:   CursorPaginationParams{PerPage: 100},
++			expected: &GraphQLPaginationParams{First: ptr32(100)},
++		},
++		{
++			name:        "perPage above maximum",
++			params:      CursorPaginationParams{PerPage: 101},
++			errContains: "perPage value 101 exceeds maximum of 100",
++		},
++		{
++			name:        "negative perPage",
++			params:      CursorPaginationParams{PerPage: -1},
++			errContains: "perPage value -1 cannot be negative",
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run("cursor/"+tc.name, func(t *testing.T) {
++			result, err := tc.params.ToGraphQLParams()
++			if tc.errContains != "" {
++				assert.EqualError(t, err, tc.errContains)
++				assert.Nil(t, result)
++				return
++			}
++			require.NoError(t, err)
++			assert.Equal(t, tc.expected, result)
++		})
++
++		t.Run("rest/"+tc.name, func(t *testing.T) {
++			rest := PaginationParams{Page: 3, PerPage: tc.params.PerPage, After: tc.params.After}
++			result, err := rest.ToGraphQLParams()
++			if tc.errContains != "" {
++				assert.EqualError(t, err, tc.errContains)
++				assert.Nil(t, result)
++				return
++			}
++			require.NoError(t, err)
++			assert.Equal(t, tc.expected, result)
++		})
++	}
++}
++
++func TestPaginationToolOptions(t *testing.T) {
++	tests := []struct {
++		name     string
++		option   mcp.ToolOption
++		expected []string
++	}{
++		{name: "WithPagination", option: WithPagination(), expected: []string{"page", "perPage"}},
++		{name: "WithCursorPagination", option: WithCursorPagination(), expected: []string{"perPage", "after"}},
++		{name: "WithUnifiedPagination", option: WithUnifiedPagination(), expected: []string{"page", "perPage", "after"}},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			tool := mcp.NewTool("test", tc.option)
++			props := tool.InputSchema.Properties
++			keys := make([]string, 0, len(props))
++			for k := range props {
++				keys = append(keys, k)
++			}
++			assert.ElementsMatch(t, tc.expected, keys)
++			assert.Empty(t, tool.InputSchema.Required)
++
++			if p, ok := props["perPage"].(map[string]any); ok {
++				assert.Equal(t, "number", p["type"])
++				assert.Equal(t, "Results per page for pagination (min 1, max 100)", p["description"])
++				assert.EqualValues(t, 1, p["minimum"])
++				assert.EqualValues(t, 100, p["maximum"])
++			}
++			if p, ok := props["after"].(map[string]any); ok {
++				assert.Equal(t, "string", p["type"])
++				assert.Equal(t, "Cursor for pagination. Use the endCursor from the previous page's PageInfo for GraphQL APIs.", p["description"])
++			}
++			if p, ok := props["page"].(map[string]any); ok {
++				assert.Equal(t, "number", p["type"])
++				assert.Equal(t, "Page number for pagination (min 1)", p["description"])
++				assert.EqualValues(t, 1, p["minimum"])
++			}
++		})
++	}
++}
+diff --git a/pkg/github/params.go b/pkg/github/params.go
+new file mode 100644
+index 0000000..091d1cc
+--- /dev/null
++++ b/pkg/github/params.go
+@@ -0,0 +1,166 @@
++package github
++
++import (
++	"fmt"
++
++	"github.com/mark3labs/mcp-go/mcp"
++)
++
++// OptionalParamOK is a helper function that can be used to fetch a requested parameter from the request.
++// It returns the value, a boolean indicating if the parameter was present, and an error if the type is wrong.
++func OptionalParamOK[T any](r mcp.CallToolRequest, p string) (value T, ok bool, err error) {
++	// Check if the parameter is present in the request
++	val, exists := r.GetArguments()[p]
++	if !exists {
++		// Not present, return zero value, false, no error
++		return
++	}
++
++	// Check if the parameter is of the expected type
++	value, ok = val.(T)
++	if !ok {
++		// Present but wrong type
++		err = fmt.Errorf("parameter %s is not of type %T, is %T", p, value, val)
++		ok = true // Set ok to true because the parameter *was* present, even if wrong type
++		return
++	}
++
++	// Present and correct type
++	ok = true
++	return
++}
++
++// RequiredParam is a helper function that can be used to fetch a requested parameter from the request.
++// It does the following checks:
++// 1. Checks if the parameter is present in the request.
++// 2. Checks if the parameter is of the expected type.
++// 3. Checks if the parameter is not empty, i.e: non-zero value
++func RequiredParam[T comparable](r mcp.CallToolRequest, p string) (T, error) {
++	var zero T
++
++	// Check if the parameter is present in the request
++	if _, ok := r.GetArguments()[p]; !ok {
++		return zero, fmt.Errorf("missing required parameter: %s", p)
++	}
++
++	// Check if the parameter is of the expected type
++	val, ok := r.GetArguments()[p].(T)
++	if !ok {
++		return zero, fmt.Errorf("parameter %s is not of type %T", p, zero)
++	}
++
++	if val == zero {
++		return zero, fmt.Errorf("missing required parameter: %s", p)
++	}
++
++	return val, nil
++}
++
++// RequiredInt is a helper function that can be used to fetch a requested parameter from the request.
++// It does the following checks:
++// 1. Checks if the parameter is present in the request.
++// 2. Checks if the parameter is of the expected type.
++// 3. Checks if the parameter is not empty, i.e: non-zero value
++func RequiredInt(r mcp.CallToolRequest, p string) (int, error) {
++	v, err := RequiredParam[float64](r, p)
++	if err != nil {
++		return 0, err
++	}
++	return int(v), nil
++}
++
++// OptionalParam is a helper function that can be used to fetch a requested parameter from the request.
++// It does the following checks:
++// 1. Checks if the parameter is present in the request, if not, it returns its zero-value
++// 2. If it is present, it checks if the parameter is of the expected type and returns it
++func OptionalParam[T any](r mcp.CallToolRequest, p string) (T, error) {
++	var zero T
++
++	// Check if the parameter is present in the request
++	if _, ok := r.GetArguments()[p]; !ok {
++		return zero, nil
++	}
++
++	// Check if the parameter is of the expected type
++	if _, ok := r.GetArguments()[p].(T); !ok {
++		return zero, fmt.Errorf("parameter %s is not of type %T, is %T", p, zero, r.GetArguments()[p])
++	}
++
++	return r.GetArguments()[p].(T), nil
++}
++
++// OptionalIntParam is a helper function that can be used to fetch a requested parameter from the request.
++// It does the following checks:
++// 1. Checks if the parameter is present in the request, if not, it returns its zero-value
++// 2. If it is present, it checks if the parameter is of the expected type and returns it
++func OptionalIntParam(r mcp.CallToolRequest, p string) (int, error) {
++	v, err := OptionalParam[float64](r, p)
++	if err != nil {
++		return 0, err
++	}
++	return int(v), nil
++}
++
++// OptionalIntParamWithDefault is a helper function that can be used to fetch a requested parameter from the request
++// similar to optionalIntParam, but it also takes a default value.
++func OptionalIntParamWithDefault(r mcp.CallToolRequest, p string, d int) (int, error) {
++	v, err := OptionalIntParam(r, p)
++	if err != nil {
++		return 0, err
++	}
++	if v == 0 {
++		return d, nil
++	}
++	return v, nil
++}
++
++// OptionalStringArrayParam is a helper function that can be used to fetch a requested parameter from the request.
++// It does the following checks:
++// 1. Checks if the parameter is present in the request, if not, it returns its zero-value
++// 2. If it is present, iterates the elements and checks each is a string
++func OptionalStringArrayParam(r mcp.CallToolRequest, p string) ([]string, error) {
++	// Check if the parameter is present in the request
++	if _, ok := r.GetArguments()[p]; !ok {
++		return []string{}, nil
++	}
++
++	switch v := r.GetArguments()[p].(type) {
++	case nil:
++		return []string{}, nil
++	case []string:
++		return v, nil
++	case []any:
++		strSlice := make([]string, len(v))
++		for i, v := range v {
++			s, ok := v.(string)
++			if !ok {
++				return []string{}, fmt.Errorf("parameter %s is not of type string, is %T", p, v)
++			}
++			strSlice[i] = s
++		}
++		return strSlice, nil
++	default:
++		return []string{}, fmt.Errorf("parameter %s could not be coerced to []string, is %T", p, r.GetArguments()[p])
++	}
++}
++
++// requiredInt64 fetches a required number parameter as an int64. Use it for
++// GitHub database IDs, which can exceed the range of a 32-bit int.
++// It applies the same checks as RequiredInt.
++func requiredInt64(r mcp.CallToolRequest, p string) (int64, error) {
++	v, err := RequiredParam[float64](r, p)
++	if err != nil {
++		return 0, err
++	}
++	return int64(v), nil
++}
++
++// optionalInt64Param fetches an optional number parameter as an int64.
++// It returns 0 when the parameter is absent, like OptionalIntParam.
++func optionalInt64Param(r mcp.CallToolRequest, p string) (int64, error) {
++	v, err := OptionalParam[float64](r, p)
++	if err != nil {
++		return 0, err
++	}
++	return int64(v), nil
++}
+diff --git a/pkg/github/params_test.go b/pkg/github/params_test.go
+new file mode 100644
+index 0000000..ba6b00b
+--- /dev/null
++++ b/pkg/github/params_test.go
+@@ -0,0 +1,536 @@
++package github
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++func Test_RequiredStringParam(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]interface{}
++		paramName   string
++		expected    string
++		expectError bool
++	}{
++		{
++			name:        "valid string parameter",
++			params:      map[string]interface{}{"name": "test-value"},
++			paramName:   "name",
++			expected:    "test-value",
++			expectError: false,
++		},
++		{
++			name:        "missing parameter",
++			params:      map[string]interface{}{},
++			paramName:   "name",
++			expected:    "",
++			expectError: true,
++		},
++		{
++			name:        "empty string parameter",
++			params:      map[string]interface{}{"name": ""},
++			paramName:   "name",
++			expected:    "",
++			expectError: true,
++		},
++		{
++			name:        "wrong type parameter",
++			params:      map[string]interface{}{"name": 123},
++			paramName:   "name",
++			expected:    "",
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.params)
++			result, err := RequiredParam[string](request, tc.paramName)
++
++			if tc.expectError {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tc.expected, result)
++			}
++		})
++	}
++}
++
++func Test_OptionalStringParam(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]interface{}
++		paramName   string
++		expected    string
++		expectError bool
++	}{
++		{
++			name:        "valid string parameter",
++			params:      map[string]interface{}{"name": "test-value"},
++			paramName:   "name",
++			expected:    "test-value",
++			expectError: false,
++		},
++		{
++			name:        "missing parameter",
++			params:      map[string]interface{}{},
++			paramName:   "name",
++			expected:    "",
++			expectError: false,
++		},
++		{
++			name:        "empty string parameter",
++			params:      map[string]interface{}{"name": ""},
++			paramName:   "name",
++			expected:    "",
++			expectError: false,
++		},
++		{
++			name:        "wrong type parameter",
++			params:      map[string]interface{}{"name": 123},
++			paramName:   "name",
++			expected:    "",
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.params)
++			result, err := OptionalParam[string](request, tc.paramName)
++
++			if tc.expectError {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tc.expected, result)
++			}
++		})
++	}
++}
++
++func Test_RequiredInt(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]interface{}
++		paramName   string
++		expected    int
++		expectError bool
++	}{
++		{
++			name:        "valid number parameter",
++			params:      map[string]interface{}{"count": float64(42)},
++			paramName:   "count",
++			expected:    42,
++			expectError: false,
++		},
++		{
++			name:        "missing parameter",
++			params:      map[string]interface{}{},
++			paramName:   "count",
++			expected:    0,
++			expectError: true,
++		},
++		{
++			name:        "wrong type parameter",
++			params:      map[string]interface{}{"count": "not-a-number"},
++			paramName:   "count",
++			expected:    0,
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.params)
++			result, err := RequiredInt(request, tc.paramName)
++
++			if tc.expectError {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tc.expected, result)
++			}
++		})
++	}
++}
++func Test_OptionalIntParam(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]interface{}
++		paramName   string
++		expected    int
++		expectError bool
++	}{
++		{
++			name:        "valid number parameter",
++			params:      map[string]interface{}{"count": float64(42)},
++			paramName:   "count",
++			expected:    42,
++			expectError: false,
++		},
++		{
++			name:        "missing parameter",
++			params:      map[string]interface{}{},
++			paramName:   "count",
++			expected:    0,
++			expectError: false,
++		},
++		{
++			name:        "zero value",
++			params:      map[string]interface{}{"count": float64(0)},
++			paramName:   "count",
++			expected:    0,
++			expectError: false,
++		},
++		{
++			name:        "wrong type parameter",
++			params:      map[string]interface{}{"count": "not-a-number"},
++			paramName:   "count",
++			expected:    0,
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.params)
++			result, err := OptionalIntParam(request, tc.paramName)
++
++			if tc.expectError {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tc.expected, result)
++			}
++		})
++	}
++}
++
++func Test_OptionalNumberParamWithDefault(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]interface{}
++		paramName   string
++		defaultVal  int
++		expected    int
++		expectError bool
++	}{
++		{
++			name:        "valid number parameter",
++			params:      map[string]interface{}{"count": float64(42)},
++			paramName:   "count",
++			defaultVal:  10,
++			expected:    42,
++			expectError: false,
++		},
++		{
++			name:        "missing parameter",
++			params:      map[string]interface{}{},
++			paramName:   "count",
++			defaultVal:  10,
++			expected:    10,
++			expectError: false,
++		},
++		{
++			name:        "zero value",
++			params:      map[string]interface{}{"count": float64(0)},
++			paramName:   "count",
++			defaultVal:  10,
++			expected:    10,
++			expectError: false,
++		},
++		{
++			name:        "wrong type parameter",
++			params:      map[string]interface{}{"count": "not-a-number"},
++			paramName:   "count",
++			defaultVal:  10,
++			expected:    0,
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.params)
++			result, err := OptionalIntParamWithDefault(request, tc.paramName, tc.defaultVal)
++
++			if tc.expectError {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tc.expected, result)
++			}
++		})
++	}
++}
++
++func Test_OptionalBooleanParam(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]interface{}
++		paramName   string
++		expected    bool
++		expectError bool
++	}{
++		{
++			name:        "true value",
++			params:      map[string]interface{}{"flag": true},
++			paramName:   "flag",
++			expected:    true,
++			expectError: false,
++		},
++		{
++			name:        "false value",
++			params:      map[string]interface{}{"flag": false},
++			paramName:   "flag",
++			expected:    false,
++			expectError: false,
++		},
++		{
++			name:        "missing parameter",
++			params:      map[string]interface{}{},
++			paramName:   "flag",
++			expected:    false,
++			expectError: false,
++		},
++		{
++			name:        "wrong type parameter",
++			params:      map[string]interface{}{"flag": "not-a-boolean"},
++			paramName:   "flag",
++			expected:    false,
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.params)
++			result, err := OptionalParam[bool](request, tc.paramName)
++
++			if tc.expectError {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tc.expected, result)
++			}
++		})
++	}
++}
++
++func TestOptionalStringArrayParam(t *testing.T) {
++	tests := []struct {
++		name        string
++		params      map[string]interface{}
++		paramName   string
++		expected    []string
++		expectError bool
++	}{
++		{
++			name:        "parameter not in request",
++			params:      map[string]any{},
++			paramName:   "flag",
++			expected:    []string{},
++			expectError: false,
++		},
++		{
++			name: "valid any array parameter",
++			params: map[string]any{
++				"flag": []any{"v1", "v2"},
++			},
++			paramName:   "flag",
++			expected:    []string{"v1", "v2"},
++			expectError: false,
++		},
++		{
++			name: "valid string array parameter",
++			params: map[string]any{
++				"flag": []string{"v1", "v2"},
++			},
++			paramName:   "flag",
++			expected:    []string{"v1", "v2"},
++			expectError: false,
++		},
++		{
++			name: "wrong type parameter",
++			params: map[string]any{
++				"flag": 1,
++			},
++			paramName:   "flag",
++			expected:    []string{},
++			expectError: true,
++		},
++		{
++			name: "wrong slice type parameter",
++			params: map[string]any{
++				"flag": []any{"foo", 2},
++			},
++			paramName:   "flag",
++			expected:    []string{},
++			expectError: true,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.params)
++			result, err := OptionalStringArrayParam(request, tc.paramName)
++
++			if tc.expectError {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tc.expected, result)
++			}
++		})
++	}
++}
++
++func TestOptionalParamOK(t *testing.T) {
++	tests := []struct {
++		name        string
++		args        map[string]interface{}
++		paramName   string
++		expectedVal interface{}
++		expectedOk  bool
++		expectError bool
++		errorMsg    string
++	}{
++		{
++			name:        "present and correct type (string)",
++			args:        map[string]interface{}{"myParam": "hello"},
++			paramName:   "myParam",
++			expectedVal: "hello",
++			expectedOk:  true,
++			expectError: false,
++		},
++		{
++			name:        "present and correct type (bool)",
++			args:        map[string]interface{}{"myParam": true},
++			paramName:   "myParam",
++			expectedVal: true,
++			expectedOk:  true,
++			expectError: false,
++		},
++		{
++			name:        "present and correct type (number)",
++			args:        map[string]interface{}{"myParam": float64(123)},
++			paramName:   "myParam",
++			expectedVal: float64(123),
++			expectedOk:  true,
++			expectError: false,
++		},
++		{
++			name:        "present but wrong type (string expected, got bool)",
++			args:        map[string]interface{}{"myParam": true},
++			paramName:   "myParam",
++			expectedVal: "",   // Zero value for string
++			expectedOk:  true, // ok is true because param exists
++			expectError: true,
++			errorMsg:    "parameter myParam is not of type string, is bool",
++		},
++		{
++			name:        "present but wrong type (bool expected, got string)",
++			args:        map[string]interface{}{"myParam": "true"},
++			paramName:   "myParam",
++			expectedVal: false, // Zero value for bool
++			expectedOk:  true,  // ok is true because param exists
++			expectError: true,
++			errorMsg:    "parameter myParam is not of type bool, is string",
++		},
++		{
++			name:        "parameter not present",
++			args:        map[string]interface{}{"anotherParam": "value"},
++			paramName:   "myParam",
++			expectedVal: "", // Zero value for string
++			expectedOk:  false,
++			expectError: false,
++		},
++	}
++
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			request := createMCPRequest(tc.args)
++
++			// Test with string type assertion
++			if _, isString := tc.expectedVal.(string); isString || tc.errorMsg == "parameter myParam is not of type string, is bool" {
++				val, ok, err := OptionalParamOK[string](request, tc.paramName)
++				if tc.expectError {
++					require.Error(t, err)
++					assert.Contains(t, err.Error(), tc.errorMsg)
++					assert.Equal(t, tc.expectedOk, ok)   // Check ok even on error
++					assert.Equal(t, tc.expectedVal, val) // Check zero value on error
++				} else {
++					require.NoError(t, err)
++					assert.Equal(t, tc.expectedOk, ok)
++					assert.Equal(t, tc.expectedVal, val)
++				}
++			}
++
++			// Test with bool type assertion
++			if _, isBool := tc.expectedVal.(bool); isBool || tc.errorMsg == "parameter myParam is not of type bool, is string" {
++				val, ok, err := OptionalParamOK[bool](request, tc.paramName)
++				if tc.expectError {
++					require.Error(t, err)
++					assert.Contains(t, err.Error(), tc.errorMsg)
++					assert.Equal(t, tc.expectedOk, ok)   // Check ok even on error
++					assert.Equal(t, tc.expectedVal, val) // Check zero value on error
++				} else {
++					require.NoError(t, err)
++					assert.Equal(t, tc.expectedOk, ok)
++					assert.Equal(t, tc.expectedVal, val)
++				}
++			}
++
++			// Test with float64 type assertion (for number case)
++			if _, isFloat := tc.expectedVal.(float64); isFloat {
++				val, ok, err := OptionalParamOK[float64](request, tc.paramName)
++				if tc.expectError {
++					// This case shouldn't happen for float64 in the defined tests
++					require.Fail(t, "Unexpected error case for float64")
++				} else {
++					require.NoError(t, err)
++					assert.Equal(t, tc.expectedOk, ok)
++					assert.Equal(t, tc.expectedVal, val)
++				}
++			}
++		})
++	}
++}
++
++func Test_Int64Params(t *testing.T) {
++	// 2^40 does not fit in an int32, but GitHub issue IDs can be this large.
++	const bigID = float64(1 << 40)
++
++	t.Run("requiredInt64", func(t *testing.T) {
++		v, err := requiredInt64(createMCPRequest(map[string]any{"id": bigID}), "id")
++		require.NoError(t, err)
++		assert.Equal(t, int64(1<<40), v)
++
++		_, err = requiredInt64(createMCPRequest(map[string]any{}), "id")
++		assert.EqualError(t, err, "missing required parameter: id")
++
++		_, err = requiredInt64(createMCPRequest(map[string]any{"id": float64(0)}), "id")
++		assert.EqualError(t, err, "missing required parameter: id")
++
++		_, err = requiredInt64(createMCPRequest(map[string]any{"id": "123"}), "id")
++		assert.Error(t, err)
++	})
++
++	t.Run("optionalInt64Param", func(t *testing.T) {
++		v, err := optionalInt64Param(createMCPRequest(map[string]any{"id": bigID}), "id")
++		require.NoError(t, err)
++		assert.Equal(t, int64(1<<40), v)
++
++		v, err = optionalInt64Param(createMCPRequest(map[string]any{}), "id")
++		require.NoError(t, err)
++		assert.Zero(t, v)
++
++		_, err = optionalInt64Param(createMCPRequest(map[string]any{"id": "123"}), "id")
++		assert.Error(t, err)
++	})
++}
+diff --git a/pkg/github/pullrequests.go b/pkg/github/pullrequests.go
+index d98dc33..47b7c6b 100644
+--- a/pkg/github/pullrequests.go
++++ b/pkg/github/pullrequests.go
+@@ -403,8 +403,8 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
+ 				Sort:      sort,
+ 				Direction: direction,
+ 				ListOptions: github.ListOptions{
+-					PerPage: pagination.perPage,
+-					Page:    pagination.page,
++					PerPage: pagination.PerPage,
++					Page:    pagination.Page,
+ 				},
+ 			}
+ 
+@@ -622,8 +622,8 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
+ 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+ 			}
+ 			opts := &github.ListOptions{
+-				PerPage: pagination.perPage,
+-				Page:    pagination.page,
++				PerPage: pagination.PerPage,
++				Page:    pagination.Page,
+ 			}
+ 			files, resp, err := client.PullRequests.ListFiles(ctx, owner, repo, pullNumber, opts)
+ 			if err != nil {
+diff --git a/pkg/github/repositories.go b/pkg/github/repositories.go
+index 2e56c86..ecd36d7 100644
+--- a/pkg/github/repositories.go
++++ b/pkg/github/repositories.go
+@@ -58,8 +58,8 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
+ 			}
+ 
+ 			opts := &github.ListOptions{
+-				Page:    pagination.page,
+-				PerPage: pagination.perPage,
++				Page:    pagination.Page,
++				PerPage: pagination.PerPage,
+ 			}
+ 
+ 			client, err := getClient(ctx)
+@@ -139,7 +139,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+ 			// Set default perPage to 30 if not provided
+-			perPage := pagination.perPage
++			perPage := pagination.PerPage
+ 			if perPage == 0 {
+ 				perPage = 30
+ 			}
+@@ -147,7 +147,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
+ 				SHA:    sha,
+ 				Author: author,
+ 				ListOptions: github.ListOptions{
+-					Page:    pagination.page,
++					Page:    pagination.Page,
+ 					PerPage: perPage,
+ 				},
+ 			}
+@@ -217,8 +217,8 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
+ 
+ 			opts := &github.BranchListOptions{
+ 				ListOptions: github.ListOptions{
+-					Page:    pagination.page,
+-					PerPage: pagination.perPage,
++					Page:    pagination.Page,
++					PerPage: pagination.PerPage,
+ 				},
+ 			}
+ 
+@@ -1198,8 +1198,8 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
+ 			}
+ 
+ 			opts := &github.ListOptions{
+-				Page:    pagination.page,
+-				PerPage: pagination.perPage,
++				Page:    pagination.Page,
++				PerPage: pagination.PerPage,
+ 			}
+ 
+ 			client, err := getClient(ctx)
+diff --git a/pkg/github/search.go b/pkg/github/search.go
+index 04a1fac..476ac01 100644
+--- a/pkg/github/search.go
++++ b/pkg/github/search.go
+@@ -39,8 +39,8 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
+ 
+ 			opts := &github.SearchOptions{
+ 				ListOptions: github.ListOptions{
+-					Page:    pagination.page,
+-					PerPage: pagination.perPage,
++					Page:    pagination.Page,
++					PerPage: pagination.PerPage,
+ 				},
+ 			}
+ 
+@@ -83,7 +83,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
+ 				Title:        t("TOOL_SEARCH_CODE_USER_TITLE", "Search code"),
+ 				ReadOnlyHint: ToBoolPtr(true),
+ 			}),
+-			mcp.WithString("q",
++			mcp.WithString("query",
+ 				mcp.Required(),
+ 				mcp.Description("Search query using GitHub code search syntax"),
+ 			),
+@@ -97,7 +97,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
+ 			WithPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+-			query, err := RequiredParam[string](request, "q")
++			query, err := RequiredParam[string](request, "query")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+@@ -118,8 +118,8 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
+ 				Sort:  sort,
+ 				Order: order,
+ 				ListOptions: github.ListOptions{
+-					PerPage: pagination.perPage,
+-					Page:    pagination.page,
++					PerPage: pagination.PerPage,
++					Page:    pagination.Page,
+ 				},
+ 			}
+ 
+@@ -193,8 +193,8 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
+ 			Sort:  sort,
+ 			Order: order,
+ 			ListOptions: github.ListOptions{
+-				PerPage: pagination.perPage,
+-				Page:    pagination.page,
++				PerPage: pagination.PerPage,
++				Page:    pagination.Page,
+ 			},
+ 		}
+ 
+diff --git a/pkg/github/search_test.go b/pkg/github/search_test.go
+index 21f7a0c..9ea8e71 100644
+--- a/pkg/github/search_test.go
++++ b/pkg/github/search_test.go
+@@ -173,12 +173,12 @@ func Test_SearchCode(t *testing.T) {
+ 
+ 	assert.Equal(t, "search_code", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+-	assert.Contains(t, tool.InputSchema.Properties, "q")
++	assert.Contains(t, tool.InputSchema.Properties, "query")
+ 	assert.Contains(t, tool.InputSchema.Properties, "sort")
+ 	assert.Contains(t, tool.InputSchema.Properties, "order")
+ 	assert.Contains(t, tool.InputSchema.Properties, "perPage")
+ 	assert.Contains(t, tool.InputSchema.Properties, "page")
+-	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"q"})
++	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"query"})
+ 
+ 	// Setup mock search results
+ 	mockSearchResult := &github.CodeSearchResult{
+@@ -227,7 +227,7 @@ func Test_SearchCode(t *testing.T) {
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+-				"q":       "fmt.Println language:go",
++				"query":   "fmt.Println language:go",
+ 				"sort":    "indexed",
+ 				"order":   "desc",
+ 				"page":    float64(1),
+@@ -251,7 +251,7 @@ func Test_SearchCode(t *testing.T) {
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+-				"q": "fmt.Println language:go",
++				"query": "fmt.Println language:go",
+ 			},
+ 			expectError:    false,
+ 			expectedResult: mockSearchResult,
+@@ -268,7 +268,7 @@ func Test_SearchCode(t *testing.T) {
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+-				"q": "invalid:query",
++				"query": "invalid:query",
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "failed to search code",
+diff --git a/pkg/github/search_utils.go b/pkg/github/search_utils.go
+index 5dd4804..a6ff1f7 100644
+--- a/pkg/github/search_utils.go
++++ b/pkg/github/search_utils.go
+@@ -56,8 +56,8 @@ func searchHandler(
+ 		Sort:  sort,
+ 		Order: order,
+ 		ListOptions: github.ListOptions{
+-			Page:    pagination.page,
+-			PerPage: pagination.perPage,
++			Page:    pagination.Page,
++			PerPage: pagination.PerPage,
+ 		},
+ 	}
+ 
+diff --git a/pkg/github/server.go b/pkg/github/server.go
+index ea476e3..63c40d1 100644
+--- a/pkg/github/server.go
++++ b/pkg/github/server.go
+@@ -3,7 +3,6 @@ package github
+ import (
+ 	"encoding/json"
+ 	"errors"
+-	"fmt"
+ 
+ 	"github.com/google/go-github/v73/github"
+ 	"github.com/mark3labs/mcp-go/mcp"
+@@ -30,194 +29,12 @@ func NewServer(version string, opts ...server.ServerOption) *server.MCPServer {
+ 	return s
+ }
+ 
+-// OptionalParamOK is a helper function that can be used to fetch a requested parameter from the request.
+-// It returns the value, a boolean indicating if the parameter was present, and an error if the type is wrong.
+-func OptionalParamOK[T any](r mcp.CallToolRequest, p string) (value T, ok bool, err error) {
+-	// Check if the parameter is present in the request
+-	val, exists := r.GetArguments()[p]
+-	if !exists {
+-		// Not present, return zero value, false, no error
+-		return
+-	}
+-
+-	// Check if the parameter is of the expected type
+-	value, ok = val.(T)
+-	if !ok {
+-		// Present but wrong type
+-		err = fmt.Errorf("parameter %s is not of type %T, is %T", p, value, val)
+-		ok = true // Set ok to true because the parameter *was* present, even if wrong type
+-		return
+-	}
+-
+-	// Present and correct type
+-	ok = true
+-	return
+-}
+-
+ // isAcceptedError checks if the error is an accepted error.
+ func isAcceptedError(err error) bool {
+ 	var acceptedError *github.AcceptedError
+ 	return errors.As(err, &acceptedError)
+ }
+ 
+-// RequiredParam is a helper function that can be used to fetch a requested parameter from the request.
+-// It does the following checks:
+-// 1. Checks if the parameter is present in the request.
+-// 2. Checks if the parameter is of the expected type.
+-// 3. Checks if the parameter is not empty, i.e: non-zero value
+-func RequiredParam[T comparable](r mcp.CallToolRequest, p string) (T, error) {
+-	var zero T
+-
+-	// Check if the parameter is present in the request
+-	if _, ok := r.GetArguments()[p]; !ok {
+-		return zero, fmt.Errorf("missing required parameter: %s", p)
+-	}
+-
+-	// Check if the parameter is of the expected type
+-	val, ok := r.GetArguments()[p].(T)
+-	if !ok {
+-		return zero, fmt.Errorf("parameter %s is not of type %T", p, zero)
+-	}
+-
+-	if val == zero {
+-		return zero, fmt.Errorf("missing required parameter: %s", p)
+-	}
+-
+-	return val, nil
+-}
+-
+-// RequiredInt is a helper function that can be used to fetch a requested parameter from the request.
+-// It does the following checks:
+-// 1. Checks if the parameter is present in the request.
+-// 2. Checks if the parameter is of the expected type.
+-// 3. Checks if the parameter is not empty, i.e: non-zero value
+-func RequiredInt(r mcp.CallToolRequest, p string) (int, error) {
+-	v, err := RequiredParam[float64](r, p)
+-	if err != nil {
+-		return 0, err
+-	}
+-	return int(v), nil
+-}
+-
+-// OptionalParam is a helper function that can be used to fetch a requested parameter from the request.
+-// It does the following checks:
+-// 1. Checks if the parameter is present in the request, if not, it returns its zero-value
+-// 2. If it is present, it checks if the parameter is of the expected type and returns it
+-func OptionalParam[T any](r mcp.CallToolRequest, p string) (T, error) {
+-	var zero T
+-
+-	// Check if the parameter is present in the request
+-	if _, ok := r.GetArguments()[p]; !ok {
+-		return zero, nil
+-	}
+-
+-	// Check if the parameter is of the expected type
+-	if _, ok := r.GetArguments()[p].(T); !ok {
+-		return zero, fmt.Errorf("parameter %s is not of type %T, is %T", p, zero, r.GetArguments()[p])
+-	}
+-
+-	return r.GetArguments()[p].(T), nil
+-}
+-
+-// OptionalIntParam is a helper function that can be used to fetch a requested parameter from the request.
+-// It does the following checks:
+-// 1. Checks if the parameter is present in the request, if not, it returns its zero-value
+-// 2. If it is present, it checks if the parameter is of the expected type and returns it
+-func OptionalIntParam(r mcp.CallToolRequest, p string) (int, error) {
+-	v, err := OptionalParam[float64](r, p)
+-	if err != nil {
+-		return 0, err
+-	}
+-	return int(v), nil
+-}
+-
+-// OptionalIntParamWithDefault is a helper function that can be used to fetch a requested parameter from the request
+-// similar to optionalIntParam, but it also takes a default value.
+-func OptionalIntParamWithDefault(r mcp.CallToolRequest, p string, d int) (int, error) {
+-	v, err := OptionalIntParam(r, p)
+-	if err != nil {
+-		return 0, err
+-	}
+-	if v == 0 {
+-		return d, nil
+-	}
+-	return v, nil
+-}
+-
+-// OptionalStringArrayParam is a helper function that can be used to fetch a requested parameter from the request.
+-// It does the following checks:
+-// 1. Checks if the parameter is present in the request, if not, it returns its zero-value
+-// 2. If it is present, iterates the elements and checks each is a string
+-func OptionalStringArrayParam(r mcp.CallToolRequest, p string) ([]string, error) {
+-	// Check if the parameter is present in the request
+-	if _, ok := r.GetArguments()[p]; !ok {
+-		return []string{}, nil
+-	}
+-
+-	switch v := r.GetArguments()[p].(type) {
+-	case nil:
+-		return []string{}, nil
+-	case []string:
+-		return v, nil
+-	case []any:
+-		strSlice := make([]string, len(v))
+-		for i, v := range v {
+-			s, ok := v.(string)
+-			if !ok {
+-				return []string{}, fmt.Errorf("parameter %s is not of type string, is %T", p, v)
+-			}
+-			strSlice[i] = s
+-		}
+-		return strSlice, nil
+-	default:
+-		return []string{}, fmt.Errorf("parameter %s could not be coerced to []string, is %T", p, r.GetArguments()[p])
+-	}
+-}
+-
+-// WithPagination returns a ToolOption that adds "page" and "perPage" parameters to the tool.
+-// The "page" parameter is optional, min 1.
+-// The "perPage" parameter is optional, min 1, max 100. If unset, defaults to 30.
+-// https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api
+-func WithPagination() mcp.ToolOption {
+-	return func(tool *mcp.Tool) {
+-		mcp.WithNumber("page",
+-			mcp.Description("Page number for pagination (min 1)"),
+-			mcp.Min(1),
+-		)(tool)
+-
+-		mcp.WithNumber("perPage",
+-			mcp.Description("Results per page for pagination (min 1, max 100)"),
+-			mcp.Min(1),
+-			mcp.Max(100),
+-		)(tool)
+-	}
+-}
+-
+-type PaginationParams struct {
+-	page    int
+-	perPage int
+-}
+-
+-// OptionalPaginationParams returns the "page" and "perPage" parameters from the request,
+-// or their default values if not present, "page" default is 1, "perPage" default is 30.
+-// In future, we may want to make the default values configurable, or even have this
+-// function returned from `withPagination`, where the defaults are provided alongside
+-// the min/max values.
+-func OptionalPaginationParams(r mcp.CallToolRequest) (PaginationParams, error) {
+-	page, err := OptionalIntParamWithDefault(r, "page", 1)
+-	if err != nil {
+-		return PaginationParams{}, err
+-	}
+-	perPage, err := OptionalIntParamWithDefault(r, "perPage", 30)
+-	if err != nil {
+-		return PaginationParams{}, err
+-	}
+-	return PaginationParams{
+-		page:    page,
+-		perPage: perPage,
+-	}, nil
+-}
+-
+ func MarshalledTextResult(v any) *mcp.CallToolResult {
+ 	data, err := json.Marshal(v)
+ 	if err != nil {
+diff --git a/pkg/github/server_test.go b/pkg/github/server_test.go
+index 6353f25..fc73a5c 100644
+--- a/pkg/github/server_test.go
++++ b/pkg/github/server_test.go
+@@ -94,469 +94,3 @@ func Test_IsAcceptedError(t *testing.T) {
+ 		})
+ 	}
+ }
+-
+-func Test_RequiredStringParam(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		params      map[string]interface{}
+-		paramName   string
+-		expected    string
+-		expectError bool
+-	}{
+-		{
+-			name:        "valid string parameter",
+-			params:      map[string]interface{}{"name": "test-value"},
+-			paramName:   "name",
+-			expected:    "test-value",
+-			expectError: false,
+-		},
+-		{
+-			name:        "missing parameter",
+-			params:      map[string]interface{}{},
+-			paramName:   "name",
+-			expected:    "",
+-			expectError: true,
+-		},
+-		{
+-			name:        "empty string parameter",
+-			params:      map[string]interface{}{"name": ""},
+-			paramName:   "name",
+-			expected:    "",
+-			expectError: true,
+-		},
+-		{
+-			name:        "wrong type parameter",
+-			params:      map[string]interface{}{"name": 123},
+-			paramName:   "name",
+-			expected:    "",
+-			expectError: true,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.params)
+-			result, err := RequiredParam[string](request, tc.paramName)
+-
+-			if tc.expectError {
+-				assert.Error(t, err)
+-			} else {
+-				assert.NoError(t, err)
+-				assert.Equal(t, tc.expected, result)
+-			}
+-		})
+-	}
+-}
+-
+-func Test_OptionalStringParam(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		params      map[string]interface{}
+-		paramName   string
+-		expected    string
+-		expectError bool
+-	}{
+-		{
+-			name:        "valid string parameter",
+-			params:      map[string]interface{}{"name": "test-value"},
+-			paramName:   "name",
+-			expected:    "test-value",
+-			expectError: false,
+-		},
+-		{
+-			name:        "missing parameter",
+-			params:      map[string]interface{}{},
+-			paramName:   "name",
+-			expected:    "",
+-			expectError: false,
+-		},
+-		{
+-			name:        "empty string parameter",
+-			params:      map[string]interface{}{"name": ""},
+-			paramName:   "name",
+-			expected:    "",
+-			expectError: false,
+-		},
+-		{
+-			name:        "wrong type parameter",
+-			params:      map[string]interface{}{"name": 123},
+-			paramName:   "name",
+-			expected:    "",
+-			expectError: true,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.params)
+-			result, err := OptionalParam[string](request, tc.paramName)
+-
+-			if tc.expectError {
+-				assert.Error(t, err)
+-			} else {
+-				assert.NoError(t, err)
+-				assert.Equal(t, tc.expected, result)
+-			}
+-		})
+-	}
+-}
+-
+-func Test_RequiredInt(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		params      map[string]interface{}
+-		paramName   string
+-		expected    int
+-		expectError bool
+-	}{
+-		{
+-			name:        "valid number parameter",
+-			params:      map[string]interface{}{"count": float64(42)},
+-			paramName:   "count",
+-			expected:    42,
+-			expectError: false,
+-		},
+-		{
+-			name:        "missing parameter",
+-			params:      map[string]interface{}{},
+-			paramName:   "count",
+-			expected:    0,
+-			expectError: true,
+-		},
+-		{
+-			name:        "wrong type parameter",
+-			params:      map[string]interface{}{"count": "not-a-number"},
+-			paramName:   "count",
+-			expected:    0,
+-			expectError: true,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.params)
+-			result, err := RequiredInt(request, tc.paramName)
+-
+-			if tc.expectError {
+-				assert.Error(t, err)
+-			} else {
+-				assert.NoError(t, err)
+-				assert.Equal(t, tc.expected, result)
+-			}
+-		})
+-	}
+-}
+-func Test_OptionalIntParam(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		params      map[string]interface{}
+-		paramName   string
+-		expected    int
+-		expectError bool
+-	}{
+-		{
+-			name:        "valid number parameter",
+-			params:      map[string]interface{}{"count": float64(42)},
+-			paramName:   "count",
+-			expected:    42,
+-			expectError: false,
+-		},
+-		{
+-			name:        "missing parameter",
+-			params:      map[string]interface{}{},
+-			paramName:   "count",
+-			expected:    0,
+-			expectError: false,
+-		},
+-		{
+-			name:        "zero value",
+-			params:      map[string]interface{}{"count": float64(0)},
+-			paramName:   "count",
+-			expected:    0,
+-			expectError: false,
+-		},
+-		{
+-			name:        "wrong type parameter",
+-			params:      map[string]interface{}{"count": "not-a-number"},
+-			paramName:   "count",
+-			expected:    0,
+-			expectError: true,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.params)
+-			result, err := OptionalIntParam(request, tc.paramName)
+-
+-			if tc.expectError {
+-				assert.Error(t, err)
+-			} else {
+-				assert.NoError(t, err)
+-				assert.Equal(t, tc.expected, result)
+-			}
+-		})
+-	}
+-}
+-
+-func Test_OptionalNumberParamWithDefault(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		params      map[string]interface{}
+-		paramName   string
+-		defaultVal  int
+-		expected    int
+-		expectError bool
+-	}{
+-		{
+-			name:        "valid number parameter",
+-			params:      map[string]interface{}{"count": float64(42)},
+-			paramName:   "count",
+-			defaultVal:  10,
+-			expected:    42,
+-			expectError: false,
+-		},
+-		{
+-			name:        "missing parameter",
+-			params:      map[string]interface{}{},
+-			paramName:   "count",
+-			defaultVal:  10,
+-			expected:    10,
+-			expectError: false,
+-		},
+-		{
+-			name:        "zero value",
+-			params:      map[string]interface{}{"count": float64(0)},
+-			paramName:   "count",
+-			defaultVal:  10,
+-			expected:    10,
+-			expectError: false,
+-		},
+-		{
+-			name:        "wrong type parameter",
+-			params:      map[string]interface{}{"count": "not-a-number"},
+-			paramName:   "count",
+-			defaultVal:  10,
+-			expected:    0,
+-			expectError: true,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.params)
+-			result, err := OptionalIntParamWithDefault(request, tc.paramName, tc.defaultVal)
+-
+-			if tc.expectError {
+-				assert.Error(t, err)
+-			} else {
+-				assert.NoError(t, err)
+-				assert.Equal(t, tc.expected, result)
+-			}
+-		})
+-	}
+-}
+-
+-func Test_OptionalBooleanParam(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		params      map[string]interface{}
+-		paramName   string
+-		expected    bool
+-		expectError bool
+-	}{
+-		{
+-			name:        "true value",
+-			params:      map[string]interface{}{"flag": true},
+-			paramName:   "flag",
+-			expected:    true,
+-			expectError: false,
+-		},
+-		{
+-			name:        "false value",
+-			params:      map[string]interface{}{"flag": false},
+-			paramName:   "flag",
+-			expected:    false,
+-			expectError: false,
+-		},
+-		{
+-			name:        "missing parameter",
+-			params:      map[string]interface{}{},
+-			paramName:   "flag",
+-			expected:    false,
+-			expectError: false,
+-		},
+-		{
+-			name:        "wrong type parameter",
+-			params:      map[string]interface{}{"flag": "not-a-boolean"},
+-			paramName:   "flag",
+-			expected:    false,
+-			expectError: true,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.params)
+-			result, err := OptionalParam[bool](request, tc.paramName)
+-
+-			if tc.expectError {
+-				assert.Error(t, err)
+-			} else {
+-				assert.NoError(t, err)
+-				assert.Equal(t, tc.expected, result)
+-			}
+-		})
+-	}
+-}
+-
+-func TestOptionalStringArrayParam(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		params      map[string]interface{}
+-		paramName   string
+-		expected    []string
+-		expectError bool
+-	}{
+-		{
+-			name:        "parameter not in request",
+-			params:      map[string]any{},
+-			paramName:   "flag",
+-			expected:    []string{},
+-			expectError: false,
+-		},
+-		{
+-			name: "valid any array parameter",
+-			params: map[string]any{
+-				"flag": []any{"v1", "v2"},
+-			},
+-			paramName:   "flag",
+-			expected:    []string{"v1", "v2"},
+-			expectError: false,
+-		},
+-		{
+-			name: "valid string array parameter",
+-			params: map[string]any{
+-				"flag": []string{"v1", "v2"},
+-			},
+-			paramName:   "flag",
+-			expected:    []string{"v1", "v2"},
+-			expectError: false,
+-		},
+-		{
+-			name: "wrong type parameter",
+-			params: map[string]any{
+-				"flag": 1,
+-			},
+-			paramName:   "flag",
+-			expected:    []string{},
+-			expectError: true,
+-		},
+-		{
+-			name: "wrong slice type parameter",
+-			params: map[string]any{
+-				"flag": []any{"foo", 2},
+-			},
+-			paramName:   "flag",
+-			expected:    []string{},
+-			expectError: true,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.params)
+-			result, err := OptionalStringArrayParam(request, tc.paramName)
+-
+-			if tc.expectError {
+-				assert.Error(t, err)
+-			} else {
+-				assert.NoError(t, err)
+-				assert.Equal(t, tc.expected, result)
+-			}
+-		})
+-	}
+-}
+-
+-func TestOptionalPaginationParams(t *testing.T) {
+-	tests := []struct {
+-		name        string
+-		params      map[string]any
+-		expected    PaginationParams
+-		expectError bool
+-	}{
+-		{
+-			name:   "no pagination parameters, default values",
+-			params: map[string]any{},
+-			expected: PaginationParams{
+-				page:    1,
+-				perPage: 30,
+-			},
+-			expectError: false,
+-		},
+-		{
+-			name: "page parameter, default perPage",
+-			params: map[string]any{
+-				"page": float64(2),
+-			},
+-			expected: PaginationParams{
+-				page:    2,
+-				perPage: 30,
+-			},
+-			expectError: false,
+-		},
+-		{
+-			name: "perPage parameter, default page",
+-			params: map[string]any{
+-				"perPage": float64(50),
+-			},
+-			expected: PaginationParams{
+-				page:    1,
+-				perPage: 50,
+-			},
+-			expectError: false,
+-		},
+-		{
+-			name: "page and perPage parameters",
+-			params: map[string]any{
+-				"page":    float64(2),
+-				"perPage": float64(50),
+-			},
+-			expected: PaginationParams{
+-				page:    2,
+-				perPage: 50,
+-			},
+-			expectError: false,
+-		},
+-		{
+-			name: "invalid page parameter",
+-			params: map[string]any{
+-				"page": "not-a-number",
+-			},
+-			expected:    PaginationParams{},
+-			expectError: true,
+-		},
+-		{
+-			name: "invalid perPage parameter",
+-			params: map[string]any{
+-				"perPage": "not-a-number",
+-			},
+-			expected:    PaginationParams{},
+-			expectError: true,
+-		},
+-	}
+-
+-	for _, tc := range tests {
+-		t.Run(tc.name, func(t *testing.T) {
+-			request := createMCPRequest(tc.params)
+-			result, err := OptionalPaginationParams(request)
+-
+-			if tc.expectError {
+-				assert.Error(t, err)
+-			} else {
+-				assert.NoError(t, err)
+-				assert.Equal(t, tc.expected, result)
+-			}
+-		})
+-	}
+-}
+diff --git a/pkg/github/sub_issues.go b/pkg/github/sub_issues.go
+new file mode 100644
+index 0000000..ff03540
+--- /dev/null
++++ b/pkg/github/sub_issues.go
+@@ -0,0 +1,294 @@
++package github
++
++import (
++	"context"
++	"fmt"
++	"net/http"
++
++	ghErrors "github.com/github/github-mcp-server/pkg/errors"
++	"github.com/github/github-mcp-server/pkg/translations"
++	"github.com/google/go-github/v73/github"
++	"github.com/mark3labs/mcp-go/mcp"
++	"github.com/mark3labs/mcp-go/server"
++)
++
++// Tools for the sub-issue REST endpoints.
++// https://docs.github.com/en/rest/issues/sub-issues
++
++// ListSubIssues creates a tool to list the sub-issues of an issue.
++func ListSubIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("list_sub_issues",
++			mcp.WithDescription(t("TOOL_LIST_SUB_ISSUES_DESCRIPTION", "List sub-issues for a specific issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_LIST_SUB_ISSUES_USER_TITLE", "List sub-issues"),
++				ReadOnlyHint: ToBoolPtr(true),
++			}),
++			mcp.WithString("owner",
++				mcp.Required(),
++				mcp.Description("Repository owner"),
++			),
++			mcp.WithString("repo",
++				mcp.Required(),
++				mcp.Description("Repository name"),
++			),
++			mcp.WithNumber("issue_number",
++				mcp.Required(),
++				mcp.Description("Issue number"),
++			),
++			// These are not WithPagination: the tool uses "per_page" rather than "perPage".
++			mcp.WithNumber("page",
++				mcp.Description("Page number for pagination (default: 1)"),
++			),
++			mcp.WithNumber("per_page",
++				mcp.Description("Number of results per page (max 100, default: 30)"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			const failure = "failed to list sub-issues"
++
++			owner, repo, issueNumber, err := subIssueParentParams(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			page, err := OptionalIntParamWithDefault(request, "page", 1)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			perPage, err := OptionalIntParamWithDefault(request, "per_page", 30)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++			opts := &github.IssueListOptions{
++				ListOptions: github.ListOptions{Page: page, PerPage: perPage},
++			}
++			subIssues, resp, err := client.SubIssue.ListByIssue(ctx, owner, repo, int64(issueNumber), opts)
++			if err != nil {
++				return ghErrors.NewGitHubAPIErrorResponse(ctx, failure, resp, err), nil
++			}
++			if resp.StatusCode != http.StatusOK {
++				return unexpectedStatusResult(failure, resp), nil
++			}
++
++			return MarshalledTextResult(subIssues), nil
++		}
++}
++
++// AddSubIssue creates a tool to add a sub-issue to a parent issue.
++func AddSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("add_sub_issue",
++			mcp.WithDescription(t("TOOL_ADD_SUB_ISSUE_DESCRIPTION", "Add a sub-issue to a parent issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_ADD_SUB_ISSUE_USER_TITLE", "Add sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			withSubIssueParentParams(),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to add. ID is not the same as issue number"),
++			),
++			mcp.WithBoolean("replace_parent",
++				mcp.Description("When true, replaces the sub-issue's current parent issue"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			const failure = "failed to add sub-issue"
++
++			owner, repo, issueNumber, err := subIssueParentParams(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := requiredInt64(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			replaceParent, err := OptionalParam[bool](request, "replace_parent")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			body := github.SubIssueRequest{SubIssueID: subIssueID}
++			if replaceParent {
++				body.ReplaceParent = github.Ptr(true)
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++			subIssue, resp, err := client.SubIssue.Add(ctx, owner, repo, int64(issueNumber), body)
++			if err != nil {
++				return ghErrors.NewGitHubAPIErrorResponse(ctx, failure, resp, err), nil
++			}
++			if resp.StatusCode != http.StatusCreated {
++				return unexpectedStatusResult(failure, resp), nil
++			}
++
++			return MarshalledTextResult(subIssue), nil
++		}
++}
++
++// RemoveSubIssue creates a tool to remove a sub-issue from a parent issue.
++func RemoveSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("remove_sub_issue",
++			mcp.WithDescription(t("TOOL_REMOVE_SUB_ISSUE_DESCRIPTION", "Remove a sub-issue from a parent issue in a GitHub repository.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_REMOVE_SUB_ISSUE_USER_TITLE", "Remove sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			withSubIssueParentParams(),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to remove. ID is not the same as issue number"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			const failure = "failed to remove sub-issue"
++
++			owner, repo, issueNumber, err := subIssueParentParams(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := requiredInt64(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++
++			// SubIssueService.Remove sends the request to ".../sub_issues" instead of
++			// ".../sub_issue" (google/go-github#3613), so build the request here.
++			u := fmt.Sprintf("repos/%s/%s/issues/%d/sub_issue", owner, repo, issueNumber)
++			req, err := client.NewRequest(http.MethodDelete, u, github.SubIssueRequest{SubIssueID: subIssueID})
++			if err != nil {
++				return nil, fmt.Errorf("failed to create request: %w", err)
++			}
++			// The response body is the parent issue.
++			var parent github.Issue
++			resp, err := client.Do(ctx, req, &parent)
++			if err != nil {
++				return ghErrors.NewGitHubAPIErrorResponse(ctx, failure, resp, err), nil
++			}
++			if resp.StatusCode != http.StatusOK {
++				return unexpectedStatusResult(failure, resp), nil
++			}
++
++			return MarshalledTextResult(&parent), nil
++		}
++}
++
++// ReprioritizeSubIssue creates a tool to move a sub-issue to a different
++// position in the parent issue's sub-issue list.
++func ReprioritizeSubIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
++	return mcp.NewTool("reprioritize_sub_issue",
++			mcp.WithDescription(t("TOOL_REPRIORITIZE_SUB_ISSUE_DESCRIPTION", "Reprioritize a sub-issue to a different position in the parent issue's sub-issue list.")),
++			mcp.WithToolAnnotation(mcp.ToolAnnotation{
++				Title:        t("TOOL_REPRIORITIZE_SUB_ISSUE_USER_TITLE", "Reprioritize sub-issue"),
++				ReadOnlyHint: ToBoolPtr(false),
++			}),
++			withSubIssueParentParams(),
++			mcp.WithNumber("sub_issue_id",
++				mcp.Required(),
++				mcp.Description("The ID of the sub-issue to reprioritize. ID is not the same as issue number"),
++			),
++			mcp.WithNumber("after_id",
++				mcp.Description("The ID of the sub-issue to be prioritized after (either after_id OR before_id should be specified)"),
++			),
++			mcp.WithNumber("before_id",
++				mcp.Description("The ID of the sub-issue to be prioritized before (either after_id OR before_id should be specified)"),
++			),
++		),
++		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
++			const failure = "failed to reprioritize sub-issue"
++
++			owner, repo, issueNumber, err := subIssueParentParams(request)
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			subIssueID, err := requiredInt64(request, "sub_issue_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			afterID, err := optionalInt64Param(request, "after_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++			beforeID, err := optionalInt64Param(request, "before_id")
++			if err != nil {
++				return mcp.NewToolResultError(err.Error()), nil
++			}
++
++			body := github.SubIssueRequest{SubIssueID: subIssueID}
++			switch {
++			case afterID == 0 && beforeID == 0:
++				return mcp.NewToolResultError("either after_id or before_id must be specified"), nil
++			case afterID != 0 && beforeID != 0:
++				return mcp.NewToolResultError("only one of after_id or before_id should be specified, not both"), nil
++			case afterID != 0:
++				body.AfterID = github.Ptr(afterID)
++			default:
++				body.BeforeID = github.Ptr(beforeID)
++			}
++
++			client, err := getClient(ctx)
++			if err != nil {
++				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
++			}
++			subIssue, resp, err := client.SubIssue.Reprioritize(ctx, owner, repo, int64(issueNumber), body)
++			if err != nil {
++				return ghErrors.NewGitHubAPIErrorResponse(ctx, failure, resp, err), nil
++			}
++			if resp.StatusCode != http.StatusOK {
++				return unexpectedStatusResult(failure, resp), nil
++			}
++
++			return MarshalledTextResult(subIssue), nil
++		}
++}
++
++// withSubIssueParentParams adds the "owner", "repo" and "issue_number" parameters
++// that identify the parent issue for the sub-issue write tools.
++func withSubIssueParentParams() mcp.ToolOption {
++	return func(tool *mcp.Tool) {
++		mcp.WithString("owner",
++			mcp.Required(),
++			mcp.Description("Repository owner"),
++		)(tool)
++		mcp.WithString("repo",
++			mcp.Required(),
++			mcp.Description("Repository name"),
++		)(tool)
++		mcp.WithNumber("issue_number",
++			mcp.Required(),
++			mcp.Description("The number of the parent issue"),
++		)(tool)
++	}
++}
++
++// subIssueParentParams reads the "owner", "repo" and "issue_number" parameters.
++func subIssueParentParams(r mcp.CallToolRequest) (owner, repo string, issueNumber int, err error) {
++	if owner, err = RequiredParam[string](r, "owner"); err != nil {
++		return "", "", 0, err
++	}
++	if repo, err = RequiredParam[string](r, "repo"); err != nil {
++		return "", "", 0, err
++	}
++	if issueNumber, err = RequiredInt(r, "issue_number"); err != nil {
++		return "", "", 0, err
++	}
++	return owner, repo, issueNumber, nil
++}
++
++// unexpectedStatusResult reports a successful (2xx) response whose status is not
++// the one the endpoint documents. The client has already read and closed the
++// body by this point, so only the status is reported.
++func unexpectedStatusResult(message string, resp *github.Response) *mcp.CallToolResult {
++	return mcp.NewToolResultError(fmt.Sprintf("%s: unexpected status %d", message, resp.StatusCode))
++}
+diff --git a/pkg/github/sub_issues_test.go b/pkg/github/sub_issues_test.go
+new file mode 100644
+index 0000000..8b914b2
+--- /dev/null
++++ b/pkg/github/sub_issues_test.go
+@@ -0,0 +1,272 @@
++package github
++
++import (
++	"context"
++	"encoding/json"
++	"net/http"
++	"strings"
++	"testing"
++
++	"github.com/github/github-mcp-server/internal/toolsnaps"
++	"github.com/github/github-mcp-server/pkg/translations"
++	"github.com/google/go-github/v73/github"
++	"github.com/mark3labs/mcp-go/mcp"
++	"github.com/mark3labs/mcp-go/server"
++	"github.com/migueleliasweb/go-github-mock/src/mock"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++// subIssueTestCase is one call of a sub-issue tool against a mocked API.
++type subIssueTestCase struct {
++	name        string
++	handlers    []mock.MockBackendOption
++	args        map[string]any
++	expectedErr string // prefix of the tool error text; empty means success
++	expected    any    // value the successful result must equal when decoded
++}
++
++func runSubIssueTests(t *testing.T, newTool func(GetClientFn, translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc), tests []subIssueTestCase) {
++	t.Helper()
++	for _, tc := range tests {
++		t.Run(tc.name, func(t *testing.T) {
++			client := github.NewClient(mock.NewMockedHTTPClient(tc.handlers...))
++			_, handler := newTool(stubGetClientFn(client), translations.NullTranslationHelper)
++
++			result, err := handler(context.Background(), createMCPRequest(tc.args))
++			require.NoError(t, err)
++
++			if tc.expectedErr != "" {
++				text := getErrorResult(t, result).Text
++				assert.Truef(t, strings.HasPrefix(text, tc.expectedErr), "error %q does not start with %q", text, tc.expectedErr)
++				return
++			}
++
++			require.False(t, result.IsError, getTextResult(t, result).Text)
++			expected, err := json.Marshal(tc.expected)
++			require.NoError(t, err)
++			assert.JSONEq(t, string(expected), getTextResult(t, result).Text)
++		})
++	}
++}
++
++// noRequest fails the test if the tool calls the API.
++func noRequest(t *testing.T) http.HandlerFunc {
++	return func(_ http.ResponseWriter, r *http.Request) {
++		t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
++	}
++}
++
++var (
++	mockSubIssue = &github.SubIssue{
++		ID:     github.Ptr(int64(123)),
++		Number: github.Ptr(43),
++		Title:  github.Ptr("Sub-issue"),
++	}
++	mockParentIssue = &github.Issue{
++		ID:     github.Ptr(int64(100)),
++		Number: github.Ptr(42),
++		Title:  github.Ptr("Parent issue"),
++	}
++	notFoundBody = map[string]string{"message": "Not Found"}
++)
++
++func Test_ListSubIssues(t *testing.T) {
++	tool, _ := ListSubIssues(stubGetClientFn(github.NewClient(nil)), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	endpoint := mock.GetReposIssuesSubIssuesByOwnerByRepoByIssueNumber
++	path := "/repos/owner/repo/issues/42/sub_issues"
++	subIssues := []*github.SubIssue{mockSubIssue}
++
++	runSubIssueTests(t, ListSubIssues, []subIssueTestCase{
++		{
++			name: "default pagination",
++			handlers: []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint,
++				expect(t, expectations{path: path, queryParams: map[string]string{"page": "1", "per_page": "30"}}).
++					andThen(mockResponse(t, http.StatusOK, subIssues)))},
++			args:     map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42)},
++			expected: subIssues,
++		},
++		{
++			name: "explicit pagination",
++			handlers: []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint,
++				expect(t, expectations{path: path, queryParams: map[string]string{"page": "2", "per_page": "10"}}).
++					andThen(mockResponse(t, http.StatusOK, subIssues)))},
++			args:     map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42), "page": float64(2), "per_page": float64(10)},
++			expected: subIssues,
++		},
++		{
++			name:        "missing issue_number",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, noRequest(t))},
++			args:        map[string]any{"owner": "owner", "repo": "repo"},
++			expectedErr: "missing required parameter: issue_number",
++		},
++		{
++			name:        "API error",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, mockResponse(t, http.StatusNotFound, notFoundBody))},
++			args:        map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42)},
++			expectedErr: "failed to list sub-issues",
++		},
++		{
++			name:        "unexpected status",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, mockResponse(t, http.StatusNonAuthoritativeInfo, subIssues))},
++			args:        map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42)},
++			expectedErr: "failed to list sub-issues: unexpected status 203",
++		},
++	})
++}
++
++func Test_AddSubIssue(t *testing.T) {
++	tool, _ := AddSubIssue(stubGetClientFn(github.NewClient(nil)), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	endpoint := mock.PostReposIssuesSubIssuesByOwnerByRepoByIssueNumber
++	path := "/repos/owner/repo/issues/42/sub_issues"
++
++	runSubIssueTests(t, AddSubIssue, []subIssueTestCase{
++		{
++			name: "add",
++			handlers: []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint,
++				expect(t, expectations{path: path, requestBody: map[string]any{"sub_issue_id": float64(123)}}).
++					andThen(mockResponse(t, http.StatusCreated, mockSubIssue)))},
++			args:     map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42), "sub_issue_id": float64(123)},
++			expected: mockSubIssue,
++		},
++		{
++			name: "add with replace_parent",
++			handlers: []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint,
++				expect(t, expectations{path: path, requestBody: map[string]any{"sub_issue_id": float64(123), "replace_parent": true}}).
++					andThen(mockResponse(t, http.StatusCreated, mockSubIssue)))},
++			args:     map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42), "sub_issue_id": float64(123), "replace_parent": true},
++			expected: mockSubIssue,
++		},
++		{
++			name:        "missing sub_issue_id",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, noRequest(t))},
++			args:        map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42)},
++			expectedErr: "missing required parameter: sub_issue_id",
++		},
++		{
++			name:        "missing owner",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, noRequest(t))},
++			args:        map[string]any{"repo": "repo", "issue_number": float64(42), "sub_issue_id": float64(123)},
++			expectedErr: "missing required parameter: owner",
++		},
++		{
++			name: "API error",
++			handlers: []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint,
++				mockResponse(t, http.StatusUnprocessableEntity, map[string]string{"message": "Validation Failed"}))},
++			args:        map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42), "sub_issue_id": float64(123)},
++			expectedErr: "failed to add sub-issue",
++		},
++		{
++			name:        "unexpected status",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, mockResponse(t, http.StatusOK, mockSubIssue))},
++			args:        map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42), "sub_issue_id": float64(123)},
++			expectedErr: "failed to add sub-issue: unexpected status 200",
++		},
++	})
++}
++
++func Test_RemoveSubIssue(t *testing.T) {
++	tool, _ := RemoveSubIssue(stubGetClientFn(github.NewClient(nil)), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	endpoint := mock.DeleteReposIssuesSubIssueByOwnerByRepoByIssueNumber
++	args := map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42), "sub_issue_id": float64(123)}
++
++	runSubIssueTests(t, RemoveSubIssue, []subIssueTestCase{
++		{
++			// The path is singular "sub_issue"; go-github's Remove gets this wrong.
++			name: "remove",
++			handlers: []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint,
++				expect(t, expectations{path: "/repos/owner/repo/issues/42/sub_issue", requestBody: map[string]any{"sub_issue_id": float64(123)}}).
++					andThen(mockResponse(t, http.StatusOK, mockParentIssue)))},
++			args:     args,
++			expected: mockParentIssue,
++		},
++		{
++			name:        "missing sub_issue_id",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, noRequest(t))},
++			args:        map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42)},
++			expectedErr: "missing required parameter: sub_issue_id",
++		},
++		{
++			name:        "API error",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, mockResponse(t, http.StatusNotFound, notFoundBody))},
++			args:        args,
++			expectedErr: "failed to remove sub-issue",
++		},
++		{
++			name:        "unexpected status",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, mockResponse(t, http.StatusNoContent, ""))},
++			args:        args,
++			expectedErr: "failed to remove sub-issue: unexpected status 204",
++		},
++	})
++}
++
++func Test_ReprioritizeSubIssue(t *testing.T) {
++	tool, _ := ReprioritizeSubIssue(stubGetClientFn(github.NewClient(nil)), translations.NullTranslationHelper)
++	require.NoError(t, toolsnaps.Test(tool.Name, tool))
++
++	endpoint := mock.PatchReposIssuesSubIssuesPriorityByOwnerByRepoByIssueNumber
++	path := "/repos/owner/repo/issues/42/sub_issues/priority"
++	args := func(extra map[string]any) map[string]any {
++		a := map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42), "sub_issue_id": float64(123)}
++		for k, v := range extra {
++			a[k] = v
++		}
++		return a
++	}
++
++	runSubIssueTests(t, ReprioritizeSubIssue, []subIssueTestCase{
++		{
++			name: "after_id",
++			handlers: []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint,
++				expect(t, expectations{path: path, requestBody: map[string]any{"sub_issue_id": float64(123), "after_id": float64(456)}}).
++					andThen(mockResponse(t, http.StatusOK, mockSubIssue)))},
++			args:     args(map[string]any{"after_id": float64(456)}),
++			expected: mockSubIssue,
++		},
++		{
++			name: "before_id",
++			handlers: []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint,
++				expect(t, expectations{path: path, requestBody: map[string]any{"sub_issue_id": float64(123), "before_id": float64(789)}}).
++					andThen(mockResponse(t, http.StatusOK, mockSubIssue)))},
++			args:     args(map[string]any{"before_id": float64(789)}),
++			expected: mockSubIssue,
++		},
++		{
++			name:        "neither after_id nor before_id",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, noRequest(t))},
++			args:        args(nil),
++			expectedErr: "either after_id or before_id must be specified",
++		},
++		{
++			name:        "both after_id and before_id",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, noRequest(t))},
++			args:        args(map[string]any{"after_id": float64(456), "before_id": float64(789)}),
++			expectedErr: "only one of after_id or before_id should be specified, not both",
++		},
++		{
++			name:        "missing sub_issue_id",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, noRequest(t))},
++			args:        map[string]any{"owner": "owner", "repo": "repo", "issue_number": float64(42), "after_id": float64(456)},
++			expectedErr: "missing required parameter: sub_issue_id",
++		},
++		{
++			name:        "API error",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, mockResponse(t, http.StatusNotFound, notFoundBody))},
++			args:        args(map[string]any{"after_id": float64(456)}),
++			expectedErr: "failed to reprioritize sub-issue",
++		},
++		{
++			name:        "unexpected status",
++			handlers:    []mock.MockBackendOption{mock.WithRequestMatchHandler(endpoint, mockResponse(t, http.StatusCreated, mockSubIssue))},
++			args:        args(map[string]any{"after_id": float64(456)}),
++			expectedErr: "failed to reprioritize sub-issue: unexpected status 201",
++		},
++	})
++}
+diff --git a/pkg/github/tools.go b/pkg/github/tools.go
+index bd34917..e01b7cc 100644
+--- a/pkg/github/tools.go
++++ b/pkg/github/tools.go
+@@ -53,12 +53,16 @@ func DefaultToolsetGroup(readOnly bool, getClient GetClientFn, getGQLClient GetG
+ 			toolsets.NewServerTool(SearchIssues(getClient, t)),
+ 			toolsets.NewServerTool(ListIssues(getClient, t)),
+ 			toolsets.NewServerTool(GetIssueComments(getClient, t)),
++			toolsets.NewServerTool(ListSubIssues(getClient, t)),
+ 		).
+ 		AddWriteTools(
+ 			toolsets.NewServerTool(CreateIssue(getClient, t)),
+ 			toolsets.NewServerTool(AddIssueComment(getClient, t)),
+ 			toolsets.NewServerTool(UpdateIssue(getClient, t)),
+ 			toolsets.NewServerTool(AssignCopilotToIssue(getGQLClient, t)),
++			toolsets.NewServerTool(AddSubIssue(getClient, t)),
++			toolsets.NewServerTool(RemoveSubIssue(getClient, t)),
++			toolsets.NewServerTool(ReprioritizeSubIssue(getClient, t)),
+ 		).AddPrompts(toolsets.NewServerPrompt(AssignCodingAgentPrompt(t)))
+ 	users := toolsets.NewToolset("users", "GitHub User related tools").
+ 		AddReadTools(
+diff --git a/script/get-discussions b/script/get-discussions
+index 3e68abf..d8d88f3 100755
+--- a/script/get-discussions
++++ b/script/get-discussions
+@@ -1,5 +1,5 @@
+ #!/bin/bash
+ 
+-# echo '{"jsonrpc":"2.0","id":3,"params":{"name":"list_discussions","arguments": {"owner": "github", "repo": "securitylab", "first": 10, "since": "2025-04-01T00:00:00Z"}},"method":"tools/call"}' | go run  cmd/github-mcp-server/main.go stdio  | jq .
+-echo '{"jsonrpc":"2.0","id":3,"params":{"name":"list_discussions","arguments": {"owner": "github", "repo": "securitylab", "first": 10, "since": "2025-04-01T00:00:00Z", "sort": "CREATED_AT", "direction": "DESC"}},"method":"tools/call"}' | go run  cmd/github-mcp-server/main.go stdio  | jq .
++# echo '{"jsonrpc":"2.0","id":3,"params":{"name":"list_discussions","arguments": {"owner": "github", "repo": "securitylab", "perPage": 10, "since": "2025-04-01T00:00:00Z"}},"method":"tools/call"}' | go run  cmd/github-mcp-server/main.go stdio  | jq .
++echo '{"jsonrpc":"2.0","id":3,"params":{"name":"list_discussions","arguments": {"owner": "github", "repo": "securitylab", "perPage": 10, "since": "2025-04-01T00:00:00Z", "sort": "CREATED_AT", "direction": "DESC"}},"method":"tools/call"}' | go run  cmd/github-mcp-server/main.go stdio  | jq .
+ 
