@@ -1,0 +1,27 @@
+This directory holds one Go package, `pkg/`. A reviewer listed the findings
+below. Check each one against the code.
+
+0. pkg/sub_issues.go:37: list_sub_issues declares its own `page` and `per_page` parameters and reads them with OptionalIntParamWithDefault. Every other REST list tool uses WithPagination() and OptionalPaginationParams, whose parameter is named `perPage` and has min/max limits. This new tool therefore exposes a different parameter name (`per_page`), has no 1–100 limit in its schema, and repeats the default of 30. Fix: Replace the two mcp.WithNumber options with WithPagination(). In the handler, replace the two OptionalIntParamWithDefault calls with `pagination, err := OptionalPaginationParams(request)` and build `github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`. Update the sub_issues_test.go args from `per_page` to `perPage` and regenerate the toolsnap.
+1. pkg/pagination.go:18: The REST type PaginationParams has an `After` field and a ToGraphQLParams method. In production code, only GraphQL tools convert to GraphQL params, and they use CursorPaginationParams. The `After` field also makes OptionalPaginationParams read an `after` argument that no WithPagination tool declares. WithUnifiedPagination (line 116) is likewise used only by tests. Fix: Remove `After` from PaginationParams. Remove PaginationParams.ToGraphQLParams, the `after` read in OptionalPaginationParams, and WithUnifiedPagination. Add them back when a tool actually needs them. Update TestOptionalPaginationParams, TestToGraphQLParams and TestPaginationToolOptions to match.
+2. pkg/pagination.go:135: OptionalPaginationParams hard-codes 30 as the default page size, while OptionalCursorPaginationParams uses DefaultGraphQLPageSize, which is also 30. The two defaults can drift apart even though both schemas show the same `perPage` description. Fix: Add a `DefaultPageSize = 30` constant and use it in both functions. Keep DefaultGraphQLPageSize only if it is meant to change on its own; otherwise set it equal to DefaultPageSize.
+3. pkg/pagination.go:11: Three doc comments end with an empty `//` line: above DefaultGraphQLPageSize (line 11), queryVariables (line 68) and paginationPageInfo (line 84). The same happens in helper_test.go line 14 above `expectations`. Fix: Delete the trailing `//` lines.
+4. pkg/helper_test.go:34: The new expect(t, expectations{...}) helper makes expectPath, expectQueryParams and expectRequestBody redundant. Each of them builds partialMock again by hand, so a new expectation field has to be added in four places. Fix: Make each of these helpers a one-line wrapper. For example: `func expectPath(t *testing.T, p string) *partialMock { return expect(t, expectations{path: p}) }`. Do the same for queryParams and requestBody.
+5. pkg/search.go:243: userOrOrgHandler sets TotalCount and IncompleteResults through result.GetTotal() and result.GetIncompleteResults(). The `if result.Total != nil` and `if result.IncompleteResults != nil` blocks then assign the same values again. Fix: Delete both if-blocks (lines 243–248).
+6. pkg/search_utils.go:55: The comment says the sort defaults to "created", but the code passes the caller's `sort` unchanged, which can be empty. The comment is wrong. Fix: Delete the comment.
+7. pkg/search_utils.go:70: searchHandler returns a Go error when the API call fails. The other search tools in search.go use ghErrors.NewGitHubAPIErrorResponse, which returns a tool error. As a result, search_issues and search_pull_requests report failures differently from search_code and the other search tools. Fix: Replace it with `return ghErrors.NewGitHubAPIErrorResponse(ctx, errorPrefix, resp, err), nil` and import ghErrors.
+8. pkg/repositories.go:143: OptionalPaginationParams already defaults perPage to 30, so `if perPage == 0 { perPage = 30 }` in ListCommits never runs. Fix: Delete the perPage local and its check. Use pagination.PerPage directly in ListOptions.
+9. pkg/issues.go:410: ListIssues declares WithPagination() but reads `page` and `perPage` straight from GetArguments() with type assertions. It skips OptionalPaginationParams, so it does not apply the defaults and silently ignores arguments of the wrong type. Fix: Call `pagination, err := OptionalPaginationParams(request)` and return a tool error if it fails. Then set `opts.ListOptions = github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`.
+10. pkg/actions.go:19: DescriptionRepositoryOwner and DescriptionRepositoryName are package-wide constants but are defined in actions.go. The changed files discussions.go, issues.go and sub_issues.go repeat the literals "Repository owner" and "Repository name" instead. Fix: Move the const block to a shared file such as server.go or tools.go. Use the constants in place of the literals in discussions.go and sub_issues.go, the new and changed tools.
+
+For each finding, decide whether it is real and worth fixing now. For each
+kept finding, give one category:
+
+- naming: a name does not match its role, or one idea has two names
+- duplication: the same logic is written twice
+- over-abstraction: a shared helper couples callers that are not related
+- mixed-job: one function or type does two unrelated jobs
+- dead: a definition is unused
+- other: none of the above
+
+Answer with one JSON object and nothing else:
+{"verdicts": [{"index": 0, "keep": true, "category": "naming", "why": "..."}]}

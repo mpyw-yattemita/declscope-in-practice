@@ -1,0 +1,218 @@
+{
+  "arm": "RD",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/sub_issues.go",
+      "line": 37,
+      "problem": "list_sub_issues declares its own `page` and `per_page` parameters and reads them with OptionalIntParamWithDefault. Every other REST list tool uses WithPagination() and OptionalPaginationParams, whose parameter is named `perPage` and has min/max limits. This new tool therefore exposes a different parameter name (`per_page`), has no 1–100 limit in its schema, and repeats the default of 30.",
+      "fix": "Replace the two mcp.WithNumber options with WithPagination(). In the handler, replace the two OptionalIntParamWithDefault calls with `pagination, err := OptionalPaginationParams(request)` and build `github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`. Update the sub_issues_test.go args from `per_page` to `perPage` and regenerate the toolsnap."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 18,
+      "problem": "The REST type PaginationParams has an `After` field and a ToGraphQLParams method. In production code, only GraphQL tools convert to GraphQL params, and they use CursorPaginationParams. The `After` field also makes OptionalPaginationParams read an `after` argument that no WithPagination tool declares. WithUnifiedPagination (line 116) is likewise used only by tests.",
+      "fix": "Remove `After` from PaginationParams. Remove PaginationParams.ToGraphQLParams, the `after` read in OptionalPaginationParams, and WithUnifiedPagination. Add them back when a tool actually needs them. Update TestOptionalPaginationParams, TestToGraphQLParams and TestPaginationToolOptions to match."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 135,
+      "problem": "OptionalPaginationParams hard-codes 30 as the default page size, while OptionalCursorPaginationParams uses DefaultGraphQLPageSize, which is also 30. The two defaults can drift apart even though both schemas show the same `perPage` description.",
+      "fix": "Add a `DefaultPageSize = 30` constant and use it in both functions. Keep DefaultGraphQLPageSize only if it is meant to change on its own; otherwise set it equal to DefaultPageSize."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 11,
+      "problem": "Three doc comments end with an empty `//` line: above DefaultGraphQLPageSize (line 11), queryVariables (line 68) and paginationPageInfo (line 84). The same happens in helper_test.go line 14 above `expectations`.",
+      "fix": "Delete the trailing `//` lines."
+    },
+    {
+      "file": "pkg/helper_test.go",
+      "line": 34,
+      "problem": "The new expect(t, expectations{...}) helper makes expectPath, expectQueryParams and expectRequestBody redundant. Each of them builds partialMock again by hand, so a new expectation field has to be added in four places.",
+      "fix": "Make each of these helpers a one-line wrapper. For example: `func expectPath(t *testing.T, p string) *partialMock { return expect(t, expectations{path: p}) }`. Do the same for queryParams and requestBody."
+    },
+    {
+      "file": "pkg/search.go",
+      "line": 243,
+      "problem": "userOrOrgHandler sets TotalCount and IncompleteResults through result.GetTotal() and result.GetIncompleteResults(). The `if result.Total != nil` and `if result.IncompleteResults != nil` blocks then assign the same values again.",
+      "fix": "Delete both if-blocks (lines 243–248)."
+    },
+    {
+      "file": "pkg/search_utils.go",
+      "line": 55,
+      "problem": "The comment says the sort defaults to \"created\", but the code passes the caller's `sort` unchanged, which can be empty. The comment is wrong.",
+      "fix": "Delete the comment."
+    },
+    {
+      "file": "pkg/search_utils.go",
+      "line": 70,
+      "problem": "searchHandler returns a Go error when the API call fails. The other search tools in search.go use ghErrors.NewGitHubAPIErrorResponse, which returns a tool error. As a result, search_issues and search_pull_requests report failures differently from search_code and the other search tools.",
+      "fix": "Replace it with `return ghErrors.NewGitHubAPIErrorResponse(ctx, errorPrefix, resp, err), nil` and import ghErrors."
+    },
+    {
+      "file": "pkg/repositories.go",
+      "line": 143,
+      "problem": "OptionalPaginationParams already defaults perPage to 30, so `if perPage == 0 { perPage = 30 }` in ListCommits never runs.",
+      "fix": "Delete the perPage local and its check. Use pagination.PerPage directly in ListOptions."
+    },
+    {
+      "file": "pkg/issues.go",
+      "line": 410,
+      "problem": "ListIssues declares WithPagination() but reads `page` and `perPage` straight from GetArguments() with type assertions. It skips OptionalPaginationParams, so it does not apply the defaults and silently ignores arguments of the wrong type.",
+      "fix": "Call `pagination, err := OptionalPaginationParams(request)` and return a tool error if it fails. Then set `opts.ListOptions = github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`."
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 19,
+      "problem": "DescriptionRepositoryOwner and DescriptionRepositoryName are package-wide constants but are defined in actions.go. The changed files discussions.go, issues.go and sub_issues.go repeat the literals \"Repository owner\" and \"Repository name\" instead.",
+      "fix": "Move the const block to a shared file such as server.go or tools.go. Use the constants in place of the literals in discussions.go and sub_issues.go, the new and changed tools."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/sub_issues.go",
+      "line": 37,
+      "problem": "list_sub_issues declares its own `page` and `per_page` parameters and reads them with OptionalIntParamWithDefault. Every other REST list tool uses WithPagination() and OptionalPaginationParams, whose parameter is named `perPage` and has min/max limits. This new tool therefore exposes a different parameter name (`per_page`), has no 1–100 limit in its schema, and repeats the default of 30.",
+      "fix": "Replace the two mcp.WithNumber options with WithPagination(). In the handler, replace the two OptionalIntParamWithDefault calls with `pagination, err := OptionalPaginationParams(request)` and build `github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`. Update the sub_issues_test.go args from `per_page` to `perPage` and regenerate the toolsnap.",
+      "category": "naming",
+      "why": "Confirmed. sub_issues.go:37-42 declares its own `page` and `per_page` (snake_case) parameters with no min/max. It reads them with OptionalIntParamWithDefault(…, \"per_page\", 30). Every other REST list tool uses WithPagination()/OptionalPaginationParams with `perPage` (min 1, max 100). So the same parameter has two names in the tool API.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 18,
+      "problem": "The REST type PaginationParams has an `After` field and a ToGraphQLParams method. In production code, only GraphQL tools convert to GraphQL params, and they use CursorPaginationParams. The `After` field also makes OptionalPaginationParams read an `after` argument that no WithPagination tool declares. WithUnifiedPagination (line 116) is likewise used only by tests.",
+      "fix": "Remove `After` from PaginationParams. Remove PaginationParams.ToGraphQLParams, the `after` read in OptionalPaginationParams, and WithUnifiedPagination. Add them back when a tool actually needs them. Update TestOptionalPaginationParams, TestToGraphQLParams and TestPaginationToolOptions to match.",
+      "category": "dead",
+      "why": "Confirmed. The only production callers of ToGraphQLParams (discussions.go:73 and :296) call it on CursorPaginationParams, from OptionalCursorPaginationParams. PaginationParams.ToGraphQLParams, the `After` field and WithUnifiedPagination have no production callers. OptionalPaginationParams reads an `after` argument that no WithPagination tool declares.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 135,
+      "problem": "OptionalPaginationParams hard-codes 30 as the default page size, while OptionalCursorPaginationParams uses DefaultGraphQLPageSize, which is also 30. The two defaults can drift apart even though both schemas show the same `perPage` description.",
+      "fix": "Add a `DefaultPageSize = 30` constant and use it in both functions. Keep DefaultGraphQLPageSize only if it is meant to change on its own; otherwise set it equal to DefaultPageSize.",
+      "category": "duplication",
+      "why": "Confirmed. OptionalPaginationParams hard-codes 30 (pagination.go:135), while OptionalCursorPaginationParams uses DefaultGraphQLPageSize = 30. Both are the default for the same `perPage` parameter, declared by the same paginationPerPageParam, so the default is written in two places.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 11,
+      "problem": "Three doc comments end with an empty `//` line: above DefaultGraphQLPageSize (line 11), queryVariables (line 68) and paginationPageInfo (line 84). The same happens in helper_test.go line 14 above `expectations`.",
+      "fix": "Delete the trailing `//` lines.",
+      "category": "other",
+      "why": "Confirmed. Empty trailing `//` lines end the doc comments on DefaultGraphQLPageSize (pagination.go:11), queryVariables (:68), paginationPageInfo (:84) and expectations (helper_test.go:14). It is only a style issue, but deleting them is trivial.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/helper_test.go",
+      "line": 34,
+      "problem": "The new expect(t, expectations{...}) helper makes expectPath, expectQueryParams and expectRequestBody redundant. Each of them builds partialMock again by hand, so a new expectation field has to be added in four places.",
+      "fix": "Make each of these helpers a one-line wrapper. For example: `func expectPath(t *testing.T, p string) *partialMock { return expect(t, expectations{path: p}) }`. Do the same for queryParams and requestBody.",
+      "category": "duplication",
+      "why": "Confirmed. expectPath, expectQueryParams and expectRequestBody each build partialMock by hand, which repeats what expect(t, expectations{...}) already does. Making each one a one-line wrapper around expect removes that.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/search.go",
+      "line": 243,
+      "problem": "userOrOrgHandler sets TotalCount and IncompleteResults through result.GetTotal() and result.GetIncompleteResults(). The `if result.Total != nil` and `if result.IncompleteResults != nil` blocks then assign the same values again.",
+      "fix": "Delete both if-blocks (lines 243–248).",
+      "category": "duplication",
+      "why": "Confirmed. MinimalSearchUsersResult already sets TotalCount from result.GetTotal() and IncompleteResults from result.GetIncompleteResults(). The two if-blocks after it (search.go:243-248) assign the same values again.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/search_utils.go",
+      "line": 55,
+      "problem": "The comment says the sort defaults to \"created\", but the code passes the caller's `sort` unchanged, which can be empty. The comment is wrong.",
+      "fix": "Delete the comment.",
+      "category": "other",
+      "why": "Confirmed. The comment says the sort defaults to \"created\", but `Sort: sort` passes the caller's value through unchanged, which can be empty. The comment is wrong.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/search_utils.go",
+      "line": 70,
+      "problem": "searchHandler returns a Go error when the API call fails. The other search tools in search.go use ghErrors.NewGitHubAPIErrorResponse, which returns a tool error. As a result, search_issues and search_pull_requests report failures differently from search_code and the other search tools.",
+      "fix": "Replace it with `return ghErrors.NewGitHubAPIErrorResponse(ctx, errorPrefix, resp, err), nil` and import ghErrors.",
+      "category": "other",
+      "why": "Confirmed. searchHandler returns `nil, fmt.Errorf(...)` when client.Search.Issues fails (search_utils.go:70). search_repositories, search_code and userOrOrgHandler in search.go return ghErrors.NewGitHubAPIErrorResponse(...), nil. So search_issues and search_pull_requests report API failures in a different way.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/repositories.go",
+      "line": 143,
+      "problem": "OptionalPaginationParams already defaults perPage to 30, so `if perPage == 0 { perPage = 30 }` in ListCommits never runs.",
+      "fix": "Delete the perPage local and its check. Use pagination.PerPage directly in ListOptions.",
+      "category": "dead",
+      "why": "Confirmed. OptionalPaginationParams defaults perPage to 30, so `if perPage == 0` in ListCommits (repositories.go:142-146) only runs if a caller passes perPage=0 explicitly. The local variable and the check add nothing over using pagination.PerPage directly.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/issues.go",
+      "line": 410,
+      "problem": "ListIssues declares WithPagination() but reads `page` and `perPage` straight from GetArguments() with type assertions. It skips OptionalPaginationParams, so it does not apply the defaults and silently ignores arguments of the wrong type.",
+      "fix": "Call `pagination, err := OptionalPaginationParams(request)` and return a tool error if it fails. Then set `opts.ListOptions = github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}`.",
+      "category": "duplication",
+      "why": "Confirmed. ListIssues declares WithPagination() but reads page and perPage from GetArguments() with float64 type assertions (issues.go:410-416). This repeats what OptionalPaginationParams already does, without its defaults or type errors, so arguments of the wrong type are silently ignored.",
+      "on_changed_lines": false
+    }
+  ],
+  "counted": 4,
+  "changed_lines": 1586,
+  "per_kloc": 2.52,
+  "by_category": {
+    "naming": 1,
+    "duplication": 1,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 1,
+    "other": 1
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 4,
+    "tokens": 725196,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 169872,
+      "cache_read_input_tokens": 551263,
+      "output_tokens": 4053,
+      "output_tokens_details": {
+        "thinking_tokens": 1421
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 169872,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2084,
+          "cache_read_input_tokens": 181387,
+          "cache_creation_input_tokens": 242,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 242
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 1.5503206,
+    "duration_s": 47.9
+  }
+}

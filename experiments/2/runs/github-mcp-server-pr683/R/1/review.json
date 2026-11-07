@@ -1,0 +1,248 @@
+{
+  "arm": "R",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/actions.go",
+      "line": 356,
+      "problem": "Nine handlers read run_id or artifact_id with RequiredInt and then convert with int64(runIDInt). params.go now has requiredInt64 for GitHub database IDs, which can be larger than 32 bits. Going through int adds a step that is not needed.",
+      "fix": "Change each `runIDInt, err := RequiredInt(request, \"run_id\")` / `runID := int64(runIDInt)` pair to `runID, err := requiredInt64(request, \"run_id\")`. The lines are 356, 412, 483, 823, 886, 949, 1013, 1147 and 1210. Do the same for artifact_id at line 1081."
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 576,
+      "problem": "GetJobLogs reads job_id and run_id with OptionalIntParam and then casts them with int64(jobID) and int64(runID) when it calls handleFailedJobLogs and handleSingleJobLogs. optionalInt64Param already does this.",
+      "fix": "Use optionalInt64Param for job_id and run_id, and remove the int64(...) casts at the call sites."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 54,
+      "problem": "Only pagination_test.go uses WithUnifiedPagination and PaginationParams.ToGraphQLParams (line 107). All GraphQL tools use WithCursorPagination with CursorPaginationParams. These functions add public API that no code calls.",
+      "fix": "Delete WithUnifiedPagination and PaginationParams.ToGraphQLParams, along with their cases in TestPaginationToolOptions and the \"rest/\" subtests in TestToGraphQLParams. Add them back when a tool needs them."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 93,
+      "problem": "OptionalPaginationParams now also reads \"after\". It is used only by REST tools, and WithPagination does not declare \"after\" for them. So PaginationParams.After is always empty in real calls, and a stray \"after\" argument can still make a REST tool fail with a type error.",
+      "fix": "Remove the After field and the \"after\" lookup from PaginationParams and OptionalPaginationParams. Cursor tools already use OptionalCursorPaginationParams."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 89,
+      "problem": "The REST default page size is the literal 30 here and again in sub_issues.go:57. The GraphQL default has a named constant, DefaultGraphQLPageSize.",
+      "fix": "Add `DefaultRESTPageSize = 30` next to DefaultGraphQLPageSize. Use it in OptionalPaginationParams and in ListSubIssues."
+    },
+    {
+      "file": "pkg/repositories.go",
+      "line": 143,
+      "problem": "ListCommits has a dead fallback, `if perPage == 0 { perPage = 30 }`. OptionalPaginationParams already returns 30 when perPage is 0 or missing.",
+      "fix": "Remove the perPage local and the if block, and pass pagination.PerPage directly."
+    },
+    {
+      "file": "pkg/issues.go",
+      "line": 410,
+      "problem": "ListIssues reads page and perPage with raw type assertions on request.GetArguments(). A wrong type is silently ignored, and the defaults differ from every other WithPagination tool.",
+      "fix": "Call OptionalPaginationParams(request), return a tool error on failure, and set opts.ListOptions = github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}."
+    },
+    {
+      "file": "pkg/discussions_test.go",
+      "line": 64,
+      "problem": "The pageInfoOutput test type copies pageInfoResult from pagination.go field for field, including the JSON tags.",
+      "fix": "Delete pageInfoOutput and use pageInfoResult in the test table and in the unmarshal targets."
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 130,
+      "problem": "discussions.go writes the owner and repo descriptions as \"Repository owner\" and \"Repository name\" string literals. actions.go defines the DescriptionRepositoryOwner and DescriptionRepositoryName constants for these, but no other file uses them.",
+      "fix": "Move the constants to a shared file such as params.go, and use them in discussions.go and sub_issues.go (withSubIssueParentParams). If they will not be shared, remove them."
+    },
+    {
+      "file": "pkg/sub_issues.go",
+      "line": 34,
+      "problem": "ListSubIssues declares owner, repo and issue_number inline, while the other three sub-issue tools use withSubIssueParentParams. The only difference is the issue_number description.",
+      "fix": "Use withSubIssueParentParams() in ListSubIssues as well, and update its toolsnap. If the different description is needed, give the helper a description argument."
+    },
+    {
+      "file": "pkg/search.go",
+      "line": 243,
+      "problem": "userOrOrgHandler sets TotalCount and IncompleteResults from result.GetTotal() and result.GetIncompleteResults(), then sets them again from the pointers in two if blocks. The second assignment changes nothing.",
+      "fix": "Delete the `if result.Total != nil` and `if result.IncompleteResults != nil` blocks."
+    },
+    {
+      "file": "pkg/search_utils.go",
+      "line": 55,
+      "problem": "The comment says the sort defaults to \"created\", but the code passes the user's sort value unchanged, and GitHub's default is best match.",
+      "fix": "Delete the comment."
+    },
+    {
+      "file": "pkg/helper_test.go",
+      "line": 135,
+      "problem": "getErrorResult does not call t.Helper(), unlike the helpers around it. A failed assertion is reported at the helper's line, not at the test that called it.",
+      "fix": "Add t.Helper() as the first statement of getErrorResult."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/actions.go",
+      "line": 356,
+      "problem": "Nine handlers read run_id or artifact_id with RequiredInt and then convert with int64(runIDInt). params.go now has requiredInt64 for GitHub database IDs, which can be larger than 32 bits. Going through int adds a step that is not needed.",
+      "fix": "Change each `runIDInt, err := RequiredInt(request, \"run_id\")` / `runID := int64(runIDInt)` pair to `runID, err := requiredInt64(request, \"run_id\")`. The lines are 356, 412, 483, 823, 886, 949, 1013, 1147 and 1210. Do the same for artifact_id at line 1081.",
+      "category": "duplication",
+      "why": "Confirmed at all ten sites (lines 356, 412, 483, 823, 886, 949, 1013, 1081, 1147, 1210). Each one reads the ID as an int and then converts it to int64 by hand. params.go:150 already has requiredInt64, which does the same checks and returns an int64 directly. The helper exists for GitHub database IDs, and these handlers do the conversion again themselves.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 576,
+      "problem": "GetJobLogs reads job_id and run_id with OptionalIntParam and then casts them with int64(jobID) and int64(runID) when it calls handleFailedJobLogs and handleSingleJobLogs. optionalInt64Param already does this.",
+      "fix": "Use optionalInt64Param for job_id and run_id, and remove the int64(...) casts at the call sites.",
+      "category": "duplication",
+      "why": "Confirmed. GetJobLogs reads job_id and run_id with OptionalIntParam and then casts them with int64(runID) and int64(jobID) when it calls handleFailedJobLogs and handleSingleJobLogs. optionalInt64Param (params.go:160) already does both steps.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 54,
+      "problem": "Only pagination_test.go uses WithUnifiedPagination and PaginationParams.ToGraphQLParams (line 107). All GraphQL tools use WithCursorPagination with CursorPaginationParams. These functions add public API that no code calls.",
+      "fix": "Delete WithUnifiedPagination and PaginationParams.ToGraphQLParams, along with their cases in TestPaginationToolOptions and the \"rest/\" subtests in TestToGraphQLParams. Add them back when a tool needs them.",
+      "category": "dead",
+      "why": "Confirmed. Only pagination_test.go calls WithUnifiedPagination and PaginationParams.ToGraphQLParams. The two GraphQL call sites (discussions.go:177 and :324) use OptionalCursorPaginationParams and CursorPaginationParams.ToGraphQLParams. Deleting these also makes finding 3 simpler, because this ToGraphQLParams is the only code that reads PaginationParams.After.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 93,
+      "problem": "OptionalPaginationParams now also reads \"after\". It is used only by REST tools, and WithPagination does not declare \"after\" for them. So PaginationParams.After is always empty in real calls, and a stray \"after\" argument can still make a REST tool fail with a type error.",
+      "fix": "Remove the After field and the \"after\" lookup from PaginationParams and OptionalPaginationParams. Cursor tools already use OptionalCursorPaginationParams.",
+      "category": "dead",
+      "why": "Confirmed. All callers of OptionalPaginationParams are REST tools declared with WithPagination, which has only page and perPage. No production code reads PaginationParams.After. Because OptionalPaginationParams still parses \"after\", a stray non-string \"after\" argument makes a REST tool return a type error.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 89,
+      "problem": "The REST default page size is the literal 30 here and again in sub_issues.go:57. The GraphQL default has a named constant, DefaultGraphQLPageSize.",
+      "fix": "Add `DefaultRESTPageSize = 30` next to DefaultGraphQLPageSize. Use it in OptionalPaginationParams and in ListSubIssues.",
+      "category": "duplication",
+      "why": "Confirmed. The REST default 30 is written as a literal in OptionalPaginationParams (pagination.go:89) and again in sub_issues.go:57. The GraphQL default of the same value has a named constant, DefaultGraphQLPageSize. A DefaultRESTPageSize constant would give one source for the REST default.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/repositories.go",
+      "line": 143,
+      "problem": "ListCommits has a dead fallback, `if perPage == 0 { perPage = 30 }`. OptionalPaginationParams already returns 30 when perPage is 0 or missing.",
+      "fix": "Remove the perPage local and the if block, and pass pagination.PerPage directly.",
+      "category": "dead",
+      "why": "Confirmed. OptionalIntParamWithDefault returns the default 30 whenever the value is 0 or missing. So the `if perPage == 0 { perPage = 30 }` block in ListCommits never runs.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/issues.go",
+      "line": 410,
+      "problem": "ListIssues reads page and perPage with raw type assertions on request.GetArguments(). A wrong type is silently ignored, and the defaults differ from every other WithPagination tool.",
+      "fix": "Call OptionalPaginationParams(request), return a tool error on failure, and set opts.ListOptions = github.ListOptions{Page: pagination.Page, PerPage: pagination.PerPage}.",
+      "category": "duplication",
+      "why": "Confirmed. ListIssues declares WithPagination but reads page and perPage with raw `.(float64)` assertions. It repeats what OptionalPaginationParams does, but a wrong type is silently dropped instead of returning a tool error. When the values are missing it sends 0 instead of the usual 1/30.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/discussions_test.go",
+      "line": 64,
+      "problem": "The pageInfoOutput test type copies pageInfoResult from pagination.go field for field, including the JSON tags.",
+      "fix": "Delete pageInfoOutput and use pageInfoResult in the test table and in the unmarshal targets.",
+      "category": "duplication",
+      "why": "Confirmed. pageInfoOutput in discussions_test.go:64 has the same fields and JSON tags as pageInfoResult in pagination.go. The test is in the same package, so it can use pageInfoResult directly.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/sub_issues.go",
+      "line": 34,
+      "problem": "ListSubIssues declares owner, repo and issue_number inline, while the other three sub-issue tools use withSubIssueParentParams. The only difference is the issue_number description.",
+      "fix": "Use withSubIssueParentParams() in ListSubIssues as well, and update its toolsnap. If the different description is needed, give the helper a description argument.",
+      "category": "duplication",
+      "why": "Confirmed. ListSubIssues writes owner, repo and issue_number inline, while the other three sub-issue tools use withSubIssueParentParams (sub_issues.go:258). The only difference is the issue_number description (\"Issue number\" vs \"The number of the parent issue\"). Its handler already reads them with subIssueParentParams. Using the helper means updating the toolsnap.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/search.go",
+      "line": 243,
+      "problem": "userOrOrgHandler sets TotalCount and IncompleteResults from result.GetTotal() and result.GetIncompleteResults(), then sets them again from the pointers in two if blocks. The second assignment changes nothing.",
+      "fix": "Delete the `if result.Total != nil` and `if result.IncompleteResults != nil` blocks.",
+      "category": "duplication",
+      "why": "Confirmed. GetTotal() and GetIncompleteResults() already return the dereferenced value, or the zero value when the pointer is nil. So the two `if result.X != nil` blocks after the struct literal assign the same value again.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/search_utils.go",
+      "line": 55,
+      "problem": "The comment says the sort defaults to \"created\", but the code passes the user's sort value unchanged, and GitHub's default is best match.",
+      "fix": "Delete the comment.",
+      "category": "other",
+      "why": "Confirmed. The comment says the sort defaults to \"created\", but the code passes the user's sort value unchanged. An empty sort means GitHub's best-match order, so the comment is wrong.",
+      "on_changed_lines": false
+    },
+    {
+      "file": "pkg/helper_test.go",
+      "line": 135,
+      "problem": "getErrorResult does not call t.Helper(), unlike the helpers around it. A failed assertion is reported at the helper's line, not at the test that called it.",
+      "fix": "Add t.Helper() as the first statement of getErrorResult.",
+      "category": "other",
+      "why": "Confirmed. getErrorResult does not call t.Helper(), while getTextResult, getTextResourceResult and getBlobResourceResult around it all do. So a failed require.True is reported at helper_test.go and not in the calling test.",
+      "on_changed_lines": false
+    }
+  ],
+  "counted": 5,
+  "changed_lines": 2305,
+  "per_kloc": 2.17,
+  "by_category": {
+    "naming": 0,
+    "duplication": 3,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 2,
+    "other": 0
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 4,
+    "tokens": 727456,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 170451,
+      "cache_read_input_tokens": 553260,
+      "output_tokens": 3737,
+      "output_tokens_details": {
+        "thinking_tokens": 1192
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 170451,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1974,
+          "cache_read_input_tokens": 182036,
+          "cache_creation_input_tokens": 172,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 172
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 1.549032,
+    "duration_s": 44.5
+  }
+}

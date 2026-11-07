@@ -1,0 +1,158 @@
+{
+  "arm": "MD",
+  "rep": "1",
+  "findings": [
+    {
+      "file": "pkg/server.go",
+      "line": 206,
+      "problem": "`PaginationParams` gained an `After` field and a `ToGraphQLParams` method that only forwards to `CursorPaginationParams.ToGraphQLParams` and silently drops `Page`. Nothing outside tests calls it, since both GraphQL tools use `OptionalCursorPaginationParams`. As a result, `OptionalPaginationParams` now reads an `after` argument for every REST tool even though none of them declares it. This leaves two overlapping pagination types.",
+      "fix": "Remove `After` and `ToGraphQLParams` from `PaginationParams`, and stop reading `after` in `OptionalPaginationParams`. Leave cursor handling only in `CursorPaginationParams` in `pagination.go`. Delete `TestPaginationParams_ToGraphQLParams` (`server_test.go:585`) and the `after` cases in `TestOptionalPaginationParams`. If a tool later needs page-to-cursor conversion, add it to `pagination.go` along with its caller."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 80,
+      "problem": "`WithUnifiedPagination` is new exported API with no caller in the package. It promises page-to-cursor conversion that nothing implements, because no parser reads `page` and turns it into a cursor.",
+      "fix": "Delete `WithUnifiedPagination` and `TestWithUnifiedPagination`. Add it back together with the first tool and parser that use it."
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 91,
+      "problem": "The `perPage` schema now exists in two places: `withPaginationPerPage` in `pagination.go` and the inline copy in `WithPagination` (`server.go:181`). The default of 30 is also repeated as `DefaultGraphQLPageSize` and as a literal in `OptionalPaginationParams` (`server.go:224`). Pagination code is split between `server.go` and `pagination.go`.",
+      "fix": "Move `WithPagination`, `PaginationParams` and `OptionalPaginationParams` from `server.go` into `pagination.go`. Make `WithPagination` use `withPaginationPerPage()`. Add one `DefaultPageSize = 30` constant and use it for both the REST and GraphQL defaults. Also remove the empty `//` comment line above `DefaultGraphQLPageSize` (line 11)."
+    },
+    {
+      "file": "pkg/sub_issue.go",
+      "line": 116,
+      "problem": "The new `list_sub_issues` tool declares its own `page` and `per_page` parameters, with no min or max limits, and parses them by hand. Every other list tool uses `WithPagination()` / `OptionalPaginationParams` with `perPage`, so this tool has a different parameter name and no validation.",
+      "fix": "Replace the two `mcp.WithNumber` options with `WithPagination()`. Replace the hand-written `page`/`per_page` parsing with `pagination, err := OptionalPaginationParams(request)` and use `pagination.Page` and `pagination.PerPage`. Update `sub_issue_test.go` to send `perPage`, and update the toolsnap."
+    },
+    {
+      "file": "pkg/actions.go",
+      "line": 19,
+      "problem": "`DescriptionRepositoryOwner` and `DescriptionRepositoryName` are package-wide constants but are declared in `actions.go`. Newly written files, such as `sub_issue.go:26` and `discussions.go`, still use the literal strings \"Repository owner\" and \"Repository name\", so the constants are only partly used.",
+      "fix": "Move the constants to a shared file such as `server.go` or `tools.go`. Use them in the new and changed tools (`sub_issue.go`, `discussions.go`), or add `WithOwnerRepo()`-style ToolOptions for the required `owner`/`repo` pair."
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 105,
+      "problem": "The four `switch` cases in `ListDiscussions` repeat the same block: declare the query struct, call `client.Query`, map the error, and copy `query.Repository.Discussions`. Only the struct tag differs between them. Each new filter will double the number of cases.",
+      "fix": "Declare four named query types at package level. Give each a `connection() discussionsConnection` method, matching a small interface. Have the switch only choose which type to use, then make one `client.Query(ctx, q, vars)` call with one error check and one `conn = q.connection()`."
+    },
+    {
+      "file": "pkg/discussions_test.go",
+      "line": 284,
+      "problem": "`Test_ListDiscussions` chooses the mocked query and variables with `switch tc.name` on the test-case name string. If a case is renamed or added without updating the switch, `httpClient` stays nil and the test hits the real client or fails in a confusing way. It also separates each case's inputs from its expectations.",
+      "fix": "Add a `matcher githubv4mock.Matcher` field (or `query`, `vars` and `response` fields) to the test-case struct. Set it in each case and build `httpClient` from `tc.matcher`, using no matcher for the perPage-rejection case. Then remove the switch."
+    }
+  ],
+  "kept": [
+    {
+      "file": "pkg/server.go",
+      "line": 206,
+      "problem": "`PaginationParams` gained an `After` field and a `ToGraphQLParams` method that only forwards to `CursorPaginationParams.ToGraphQLParams` and silently drops `Page`. Nothing outside tests calls it, since both GraphQL tools use `OptionalCursorPaginationParams`. As a result, `OptionalPaginationParams` now reads an `after` argument for every REST tool even though none of them declares it. This leaves two overlapping pagination types.",
+      "fix": "Remove `After` and `ToGraphQLParams` from `PaginationParams`, and stop reading `after` in `OptionalPaginationParams`. Leave cursor handling only in `CursorPaginationParams` in `pagination.go`. Delete `TestPaginationParams_ToGraphQLParams` (`server_test.go:585`) and the `after` cases in `TestOptionalPaginationParams`. If a tool later needs page-to-cursor conversion, add it to `pagination.go` along with its caller.",
+      "category": "dead",
+      "why": "Confirmed. Nothing outside tests calls `PaginationParams.ToGraphQLParams` (server.go:206). Both GraphQL tools in discussions.go (lines 69 and 282) use `OptionalCursorPaginationParams`. The method also drops `Page` without saying so. Because of the `After` field, `OptionalPaginationParams` reads `after` for every REST tool, and none of those tools declares it. Cursor handling belongs only to `CursorPaginationParams`.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 80,
+      "problem": "`WithUnifiedPagination` is new exported API with no caller in the package. It promises page-to-cursor conversion that nothing implements, because no parser reads `page` and turns it into a cursor.",
+      "fix": "Delete `WithUnifiedPagination` and `TestWithUnifiedPagination`. Add it back together with the first tool and parser that use it.",
+      "category": "dead",
+      "why": "Confirmed. `WithUnifiedPagination` (pagination.go:80) is exported but nothing in the package calls it. No parser reads `page` and turns it into a cursor, so the conversion its doc comment promises does not exist. It should be added back together with its first caller.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/pagination.go",
+      "line": 91,
+      "problem": "The `perPage` schema now exists in two places: `withPaginationPerPage` in `pagination.go` and the inline copy in `WithPagination` (`server.go:181`). The default of 30 is also repeated as `DefaultGraphQLPageSize` and as a literal in `OptionalPaginationParams` (`server.go:224`). Pagination code is split between `server.go` and `pagination.go`.",
+      "fix": "Move `WithPagination`, `PaginationParams` and `OptionalPaginationParams` from `server.go` into `pagination.go`. Make `WithPagination` use `withPaginationPerPage()`. Add one `DefaultPageSize = 30` constant and use it for both the REST and GraphQL defaults. Also remove the empty `//` comment line above `DefaultGraphQLPageSize` (line 11).",
+      "category": "duplication",
+      "why": "Confirmed. The `perPage` schema (min 1, max 100) appears in two places: `withPaginationPerPage` in pagination.go and inline in `WithPagination` in server.go. The default of 30 appears twice: as `DefaultGraphQLPageSize` and as a literal in `OptionalPaginationParams`. Pagination code is split across two files. There is also an empty `//` line above `DefaultGraphQLPageSize`. Moving the REST helpers into pagination.go and sharing one constant fixes all of this.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/sub_issue.go",
+      "line": 116,
+      "problem": "The new `list_sub_issues` tool declares its own `page` and `per_page` parameters, with no min or max limits, and parses them by hand. Every other list tool uses `WithPagination()` / `OptionalPaginationParams` with `perPage`, so this tool has a different parameter name and no validation.",
+      "fix": "Replace the two `mcp.WithNumber` options with `WithPagination()`. Replace the hand-written `page`/`per_page` parsing with `pagination, err := OptionalPaginationParams(request)` and use `pagination.Page` and `pagination.PerPage`. Update `sub_issue_test.go` to send `perPage`, and update the toolsnap.",
+      "category": "duplication",
+      "why": "Confirmed. `list_sub_issues` (sub_issue.go:116-140) declares its own `page` and `per_page` without min or max limits and parses them by hand. The shared `WithPagination`/`OptionalPaginationParams` helpers already do this. The tool's parameter is called `per_page` while every other list tool uses `perPage`, and it does not reject a page size above 100.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/discussions.go",
+      "line": 105,
+      "problem": "The four `switch` cases in `ListDiscussions` repeat the same block: declare the query struct, call `client.Query`, map the error, and copy `query.Repository.Discussions`. Only the struct tag differs between them. Each new filter will double the number of cases.",
+      "fix": "Declare four named query types at package level. Give each a `connection() discussionsConnection` method, matching a small interface. Have the switch only choose which type to use, then make one `client.Query(ctx, q, vars)` call with one error check and one `conn = q.connection()`.",
+      "category": "duplication",
+      "why": "Confirmed. The four switch cases in `ListDiscussions` (discussions.go:105-145) repeat the same code: declare the query struct, call `client.Query`, return the error, and copy `query.Repository.Discussions`. Only the graphql struct tag differs. Each new filter doubles the number of cases. Using named query types with a `connection()` method lets the code make one `Query` call.",
+      "on_changed_lines": true
+    },
+    {
+      "file": "pkg/discussions_test.go",
+      "line": 284,
+      "problem": "`Test_ListDiscussions` chooses the mocked query and variables with `switch tc.name` on the test-case name string. If a case is renamed or added without updating the switch, `httpClient` stays nil and the test hits the real client or fails in a confusing way. It also separates each case's inputs from its expectations.",
+      "fix": "Add a `matcher githubv4mock.Matcher` field (or `query`, `vars` and `response` fields) to the test-case struct. Set it in each case and build `httpClient` from `tc.matcher`, using no matcher for the perPage-rejection case. Then remove the switch.",
+      "category": "other",
+      "why": "Confirmed. `Test_ListDiscussions` picks the mock with `switch tc.name` on the case-name string. If a case is renamed or added without updating the switch, `httpClient` stays nil and `githubv4.NewClient(nil)` falls back to the default client, which gives confusing failures. It also keeps each case's mock separate from its inputs and expectations. Putting a matcher field on each test case removes this coupling.",
+      "on_changed_lines": false
+    }
+  ],
+  "counted": 5,
+  "changed_lines": 1653,
+  "per_kloc": 3.02,
+  "by_category": {
+    "naming": 0,
+    "duplication": 3,
+    "over-abstraction": 0,
+    "mixed-job": 0,
+    "dead": 2,
+    "other": 0
+  },
+  "audit_ok": true,
+  "reviewer_agent": {
+    "exit_code": 0,
+    "is_error": false,
+    "num_turns": 3,
+    "tokens": 536776,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 167499,
+      "cache_read_input_tokens": 366016,
+      "output_tokens": 3255,
+      "output_tokens_details": {
+        "thinking_tokens": 1042
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 167499,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1780,
+          "cache_read_input_tokens": 178583,
+          "cache_creation_input_tokens": 673,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 673
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "cost_usd": 1.4783192,
+    "duration_s": 42.7
+  }
+}
