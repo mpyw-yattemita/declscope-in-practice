@@ -341,6 +341,10 @@ def summarize(stream, elapsed, code):
 # ---- audit -------------------------------------------------------------
 
 NET = re.compile(r"(^|[\s;&|(])(gh|curl|wget)\s|git\s+(fetch|clone|pull|ls-remote|remote\s+add)")
+# Quoted text is an argument, not a command: grep "curl " pkg/ searches for
+# the word. A command that runs curl through sh -c "..." still shows the
+# word outside quotes in its own invocation, or is caught by the sandbox.
+QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"")
 ABS = re.compile(r"(?<![\w.-])(/(?:Users|private|tmp|var|opt|etc|home|Volumes)/[^\s'\"`;|&)]*)")
 
 
@@ -426,7 +430,7 @@ def audit(transcript_gz, ws, arm, allowed_extra=(), start=None):
                 if block.get("type") == "tool_use":
                     inp = json.dumps(block.get("input"), ensure_ascii=False)
                     name = block.get("name")
-                    if name == "Bash" and NET.search(strip_heredocs(block["input"].get("command", ""))):
+                    if name == "Bash" and NET.search(QUOTED.sub("\"\"", strip_heredocs(block["input"].get("command", "")))):
                         issues.append({"kind": "network", "tool": name, "input": inp[:300]})
                     for p in ABS.findall(inp):
                         if any(p.startswith(a) for a in allowed) or session_tag in p:
