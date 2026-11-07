@@ -1,0 +1,81 @@
+diff --git a/README.md b/README.md
+index 58f0e89..be9288e 100644
+--- a/README.md
++++ b/README.md
+@@ -838,7 +838,7 @@ The following sets of tools are available (all are on by default):
+   - `order`: Sort order (string, optional)
+   - `page`: Page number for pagination (min 1) (number, optional)
+   - `perPage`: Results per page for pagination (min 1, max 100) (number, optional)
+-  - `q`: Search query using GitHub code search syntax (string, required)
++  - `query`: Search query using GitHub code search syntax (string, required)
+   - `sort`: Sort field ('indexed' only) (string, optional)
+ 
+ - **search_repositories** - Search repositories
+diff --git a/pkg/github/search.go b/pkg/github/search.go
+index b11bb3b..476ac01 100644
+--- a/pkg/github/search.go
++++ b/pkg/github/search.go
+@@ -83,7 +83,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
+ 				Title:        t("TOOL_SEARCH_CODE_USER_TITLE", "Search code"),
+ 				ReadOnlyHint: ToBoolPtr(true),
+ 			}),
+-			mcp.WithString("q",
++			mcp.WithString("query",
+ 				mcp.Required(),
+ 				mcp.Description("Search query using GitHub code search syntax"),
+ 			),
+@@ -97,7 +97,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
+ 			WithPagination(),
+ 		),
+ 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+-			query, err := RequiredParam[string](request, "q")
++			query, err := RequiredParam[string](request, "query")
+ 			if err != nil {
+ 				return mcp.NewToolResultError(err.Error()), nil
+ 			}
+diff --git a/pkg/github/search_test.go b/pkg/github/search_test.go
+index 21f7a0c..9ea8e71 100644
+--- a/pkg/github/search_test.go
++++ b/pkg/github/search_test.go
+@@ -173,12 +173,12 @@ func Test_SearchCode(t *testing.T) {
+ 
+ 	assert.Equal(t, "search_code", tool.Name)
+ 	assert.NotEmpty(t, tool.Description)
+-	assert.Contains(t, tool.InputSchema.Properties, "q")
++	assert.Contains(t, tool.InputSchema.Properties, "query")
+ 	assert.Contains(t, tool.InputSchema.Properties, "sort")
+ 	assert.Contains(t, tool.InputSchema.Properties, "order")
+ 	assert.Contains(t, tool.InputSchema.Properties, "perPage")
+ 	assert.Contains(t, tool.InputSchema.Properties, "page")
+-	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"q"})
++	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"query"})
+ 
+ 	// Setup mock search results
+ 	mockSearchResult := &github.CodeSearchResult{
+@@ -227,7 +227,7 @@ func Test_SearchCode(t *testing.T) {
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+-				"q":       "fmt.Println language:go",
++				"query":   "fmt.Println language:go",
+ 				"sort":    "indexed",
+ 				"order":   "desc",
+ 				"page":    float64(1),
+@@ -251,7 +251,7 @@ func Test_SearchCode(t *testing.T) {
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+-				"q": "fmt.Println language:go",
++				"query": "fmt.Println language:go",
+ 			},
+ 			expectError:    false,
+ 			expectedResult: mockSearchResult,
+@@ -268,7 +268,7 @@ func Test_SearchCode(t *testing.T) {
+ 				),
+ 			),
+ 			requestArgs: map[string]interface{}{
+-				"q": "invalid:query",
++				"query": "invalid:query",
+ 			},
+ 			expectError:    true,
+ 			expectedErrMsg: "failed to search code",
