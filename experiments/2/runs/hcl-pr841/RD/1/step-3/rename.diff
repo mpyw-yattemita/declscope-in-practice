@@ -1,0 +1,216 @@
+Only in /Users/ryosuke.ishibashi/ws/cc87eb8166f7/.claude: skills
+Only in /Users/ryosuke.ishibashi/ws/cc87eb8166f7: .declscope-baseline.yaml
+Only in /Users/ryosuke.ishibashi/ws/cc87eb8166f7: .declscope.yaml
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_expression.go /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/ast_expression.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_expression.go	2026-11-07 10:37:13
++++ /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/ast_expression.go	2026-11-07 10:37:35
+@@ -211,7 +211,6 @@
+ // a function call expression or a tuple-construct expression, these are the
+ // traversals of its items, arguments or elements.
+ //
+-//declscope:shared // ast_object_cons_expr.go, ast_function_call_expr.go and ast_tuple_cons_expr.go collect them from their parts
+ func (e *Expression) traversals(to []*Traversal) []*Traversal {
+ 	for _, node := range e.absTraversals.List() {
+ 		to = append(to, node.content.(*Traversal))
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_function_call_expr.go /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/ast_function_call_expr.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_function_call_expr.go	2026-11-07 10:34:58
++++ /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/ast_function_call_expr.go	2026-11-07 10:37:35
+@@ -1,7 +1,6 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+-//declscope:namespace functionCall
+ 
+ package hclwrite
+ 
+@@ -19,11 +18,9 @@
+ type FunctionCallExpr struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go adds the arguments it parses
+ 	args nodeSet
+ }
+ 
+-//declscope:shared // parser.go builds the calls it parses
+ func newFunctionCallExpr() *FunctionCallExpr {
+ 	return &FunctionCallExpr{
+ 		inTree: newInTree(),
+@@ -56,7 +53,6 @@
+ // traversals appends the absolute traversals in the arguments to to, in
+ // source order, and returns the result.
+ //
+-//declscope:shared // ast_expression.go collects them for Expression.Variables
+ func (call *FunctionCallExpr) traversals(to []*Traversal) []*Traversal {
+ 	for _, n := range call.args.List() {
+ 		to = n.content.(*Expression).traversals(to)
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_object_cons_expr.go /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/ast_object_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_object_cons_expr.go	2026-11-07 10:29:35
++++ /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/ast_object_cons_expr.go	2026-11-07 10:37:35
+@@ -1,7 +1,6 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+-//declscope:namespace objectCons
+ 
+ package hclwrite
+ 
+@@ -23,11 +22,9 @@
+ type ObjectConsExpr struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go adds the items it parses
+ 	items nodeSet
+ }
+ 
+-//declscope:shared // parser.go builds the objects it parses
+ func newObjectConsExpr() *ObjectConsExpr {
+ 	return &ObjectConsExpr{
+ 		inTree: newInTree(),
+@@ -121,7 +118,6 @@
+ // traversals appends the absolute traversals in the items' keys and values to
+ // to, in source order, and returns the result.
+ //
+-//declscope:shared // ast_expression.go collects them for Expression.Variables
+ func (o *ObjectConsExpr) traversals(to []*Traversal) []*Traversal {
+ 	for _, item := range o.Items() {
+ 		to = item.KeyExpr().traversals(to)
+@@ -214,13 +210,10 @@
+ type ObjectConsItem struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go builds the items it parses
+ 	key *node
+-	//declscope:shared // parser.go builds the items it parses
+ 	value *node
+ }
+ 
+-//declscope:shared // parser.go builds the items it parses
+ func newObjectConsItem() *ObjectConsItem {
+ 	return &ObjectConsItem{
+ 		inTree: newInTree(),
+@@ -269,7 +262,6 @@
+ 	literal bool
+ }
+ 
+-//declscope:shared // parser.go builds the keys it parses
+ func newObjectConsKeyExpr(wrapped *node, name string, literal bool) *ObjectConsKeyExpr {
+ 	expr := &ObjectConsKeyExpr{
+ 		inTree:  newInTree(),
+@@ -316,11 +308,9 @@
+ type ObjectConsValue struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go builds the values it parses
+ 	expr *node
+ }
+ 
+-//declscope:shared // parser.go builds the values it parses
+ func newObjectConsValue() *ObjectConsValue {
+ 	return &ObjectConsValue{
+ 		inTree: newInTree(),
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_tuple_cons_expr.go /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/ast_tuple_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_tuple_cons_expr.go	2026-11-07 10:34:58
++++ /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/ast_tuple_cons_expr.go	2026-11-07 10:37:35
+@@ -1,7 +1,6 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+-//declscope:namespace tupleCons
+ 
+ package hclwrite
+ 
+@@ -14,11 +13,9 @@
+ type TupleConsExpr struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go adds the elements it parses
+ 	elems nodeSet
+ }
+ 
+-//declscope:shared // parser.go builds the tuples it parses
+ func newTupleConsExpr() *TupleConsExpr {
+ 	return &TupleConsExpr{
+ 		inTree: newInTree(),
+@@ -29,7 +26,6 @@
+ // traversals appends the absolute traversals in the elements to to, in
+ // source order, and returns the result.
+ //
+-//declscope:shared // ast_expression.go collects them for Expression.Variables
+ func (tuple *TupleConsExpr) traversals(to []*Traversal) []*Traversal {
+ 	for _, n := range tuple.elems.List() {
+ 		to = n.content.(*Expression).traversals(to)
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/format.go /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/format.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/format.go	2026-11-07 10:27:06
++++ /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/format.go	2026-11-07 10:37:35
+@@ -430,7 +430,6 @@
+ 
+ // tokenIsNewline reports whether tok ends a line.
+ //
+-//declscope:shared // ast_object_cons_expr.go finds the line breaks between items
+ func tokenIsNewline(tok *Token) bool {
+ 	switch tok.Type {
+ 	case hclsyntax.TokenNewline:
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/parser.go /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/parser.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/parser.go	2026-11-07 10:35:20
++++ /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/parser.go	2026-11-07 10:37:35
+@@ -1,7 +1,6 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+-//declscope:namespace parse
+ 
+ package hclwrite
+ 
+@@ -32,7 +31,6 @@
+ // we can't reliably extract tokens from the partial AST produced by an
+ // erroneous parse.
+ //
+-//declscope:shared // public.go parses files with it
+ func parse(src []byte, filename string, start hcl.Pos) (*File, hcl.Diagnostics) {
+ 	file, diags := hclsyntax.ParseConfig(src, filename, start)
+ 	if diags.HasErrors() {
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/partition.go /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/partition.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/partition.go	2026-11-07 10:34:37
++++ /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/partition.go	2026-11-07 10:37:35
+@@ -15,22 +15,18 @@
+ // that the parser partitions by, and the equivalent writer tokens, which end
+ // up in the syntax tree. Both slices have the same length and indices.
+ //
+-//declscope:shared // parser.go partitions its input with it
+ type partitionableTokens struct {
+ 	// nativeTokens carry the source positions to partition by.
+ 	//
+-	//declscope:private
+ 	nativeTokens hclsyntax.Tokens
+ 	// writerTokens are the tokens that each partition yields.
+ 	//
+-	//declscope:private
+ 	writerTokens Tokens
+ }
+ 
+ // newPartitionableTokens pairs the given native tokens with writer tokens
+ // converted from them.
+ //
+-//declscope:shared // parser.go builds its input with it
+ func newPartitionableTokens(nativeTokens hclsyntax.Tokens) partitionableTokens {
+ 	return partitionableTokens{
+ 		nativeTokens: nativeTokens,
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/tokens.go /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/tokens.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/tokens.go	2026-11-07 10:34:29
++++ /Users/ryosuke.ishibashi/ws/e02559e4b1da/hclwrite/tokens.go	2026-11-07 10:37:35
+@@ -136,7 +136,6 @@
+ // indices as the input, allowing the two sets of tokens to be correlated
+ // by index.
+ //
+-//declscope:shared // partition.go pairs them with the native tokens
+ func writerTokens(nativeTokens hclsyntax.Tokens) Tokens {
+ 	// Ultimately we want a slice of token _pointers_, but since we can
+ 	// predict how much memory we're going to devote to tokens we'll allocate
+@@ -177,7 +176,6 @@
+ // Any errors produced during scanning are ignored, so the results of this
+ // function should be used with care.
+ //
+-//declscope:shared // public.go formats the tokens it lexes
+ func lexConfigTokens(src []byte) Tokens {
+ 	mainTokens, _ := hclsyntax.LexConfig(src, "", hcl.Pos{Byte: 0, Line: 1, Column: 1})
+ 	return writerTokens(mainTokens)

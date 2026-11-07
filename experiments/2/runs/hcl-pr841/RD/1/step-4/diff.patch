@@ -1,0 +1,553 @@
+diff --git a/hclwrite/ast_body.go b/hclwrite/ast_body.go
+index fe09292..30906fb 100644
+--- a/hclwrite/ast_body.go
++++ b/hclwrite/ast_body.go
+@@ -201,19 +201,20 @@ func (b *Body) RemoveBlock(block *Block) bool {
+ 	return false
+ }
+ 
+-// SetAttributeRaw either replaces the expression of an existing attribute
++// SetAttribute either replaces the expression of an existing attribute
+ // of the given name or adds a new attribute definition to the end of the block,
+-// using the given tokens verbatim as the expression.
++// using the given expression.
+ //
+-// The same caveats apply to this function as for NewExpressionRaw on which
+-// it is based. If possible, prefer to use SetAttributeValue or
+-// SetAttributeTraversal.
++// The expression becomes part of the body, so Attribute.Expr on the result
++// returns the same expression. It must not already be part of another syntax
++// tree; SetAttribute panics if it is.
+ //
+ // The return value is the attribute that was either modified in-place or
+ // created.
+-func (b *Body) SetAttributeRaw(name string, tokens Tokens) *Attribute {
++func (b *Body) SetAttribute(name string, expr *Expression) *Attribute {
++	expr.assertUnattached()
++
+ 	attr := b.GetAttribute(name)
+-	expr := NewExpressionRaw(tokens)
+ 	if attr != nil {
+ 		attr.expr = attr.expr.ReplaceWith(expr)
+ 	} else {
+@@ -224,6 +225,20 @@ func (b *Body) SetAttributeRaw(name string, tokens Tokens) *Attribute {
+ 	return attr
+ }
+ 
++// SetAttributeRaw either replaces the expression of an existing attribute
++// of the given name or adds a new attribute definition to the end of the block,
++// using the given tokens verbatim as the expression.
++//
++// The same caveats apply to this function as for NewExpressionRaw on which
++// it is based. If possible, prefer to use SetAttributeValue or
++// SetAttributeTraversal.
++//
++// The return value is the attribute that was either modified in-place or
++// created.
++func (b *Body) SetAttributeRaw(name string, tokens Tokens) *Attribute {
++	return b.SetAttribute(name, NewExpressionRaw(tokens))
++}
++
+ // SetAttributeValue either replaces the expression of an existing attribute
+ // of the given name or adds a new attribute definition to the end of the block.
+ //
+@@ -233,16 +248,7 @@ func (b *Body) SetAttributeRaw(name string, tokens Tokens) *Attribute {
+ // The return value is the attribute that was either modified in-place or
+ // created.
+ func (b *Body) SetAttributeValue(name string, val cty.Value) *Attribute {
+-	attr := b.GetAttribute(name)
+-	expr := NewExpressionLiteral(val)
+-	if attr != nil {
+-		attr.expr = attr.expr.ReplaceWith(expr)
+-	} else {
+-		attr = newAttribute()
+-		attr.init(name, expr)
+-		b.appendItem(attr)
+-	}
+-	return attr
++	return b.SetAttribute(name, NewExpressionLiteral(val))
+ }
+ 
+ // SetAttributeTraversal either replaces the expression of an existing attribute
+@@ -254,16 +260,7 @@ func (b *Body) SetAttributeValue(name string, val cty.Value) *Attribute {
+ // The return value is the attribute that was either modified in-place or
+ // created.
+ func (b *Body) SetAttributeTraversal(name string, traversal hcl.Traversal) *Attribute {
+-	attr := b.GetAttribute(name)
+-	expr := NewExpressionAbsTraversal(traversal)
+-	if attr != nil {
+-		attr.expr = attr.expr.ReplaceWith(expr)
+-	} else {
+-		attr = newAttribute()
+-		attr.init(name, expr)
+-		b.appendItem(attr)
+-	}
+-	return attr
++	return b.SetAttribute(name, NewExpressionAbsTraversal(traversal))
+ }
+ 
+ // RemoveAttribute removes the attribute with the given name from the body.
+diff --git a/hclwrite/ast_body_test.go b/hclwrite/ast_body_test.go
+index 7934c34..72fbf02 100644
+--- a/hclwrite/ast_body_test.go
++++ b/hclwrite/ast_body_test.go
+@@ -2193,3 +2193,65 @@ func testFn[E any](t *testing.T) func(value E, diags hcl.Diagnostics) E {
+ 		return value
+ 	}
+ }
++
++func TestBodySetAttribute(t *testing.T) {
++	tests := map[string]struct {
++		config string
++		expr   string
++		want   string // after setting the attribute and adding a "size" item to it
++	}{
++		"new attribute": {
++			config: "b = 1\n",
++			expr:   `{ hat = "derby" }`,
++			want:   "b = 1\na = { hat = \"derby\", size = 7 }\n",
++		},
++		"existing attribute": {
++			config: "a = 1 # keep\nb = 2\n",
++			expr:   `{ hat = "derby" }`,
++			want:   "a = { hat = \"derby\", size = 7 } # keep\nb = 2\n",
++		},
++		"comments around expression": {
++			config: "",
++			expr:   "# foo\n\n{ hat = \"derby\" }\n# bar",
++			want:   "a = { hat = \"derby\", size = 7 }\n",
++		},
++	}
++
++	for name, test := range tests {
++		t.Run(name, func(t *testing.T) {
++			f := testFn[*File](t)(ParseConfig([]byte(test.config), "", hcl.InitialPos))
++			expr := testFn[*Expression](t)(ParseExpression([]byte(test.expr), "", hcl.InitialPos))
++
++			attr := f.Body().SetAttribute("a", expr)
++			if attr != f.Body().GetAttribute("a") {
++				t.Errorf("SetAttribute returned another attribute than GetAttribute")
++			}
++			if attr.Expr() != expr {
++				t.Errorf("Expr returned another expression than was set")
++			}
++			object := f.Body().GetAttribute("a").Expr().AsObjectConsExpr()
++			if object == nil {
++				t.Fatalf("AsObjectConsExpr returned nil")
++			}
++
++			// The structured expression stays editable after it is set.
++			object.SetItemValue("size", cty.NumberIntVal(7))
++
++			if got := string(f.Bytes()); got != test.want {
++				t.Errorf("wrong result\ngot:\n%s\nwant:\n%s", got, test.want)
++			}
++		})
++	}
++}
++
++func TestBodySetAttributeAttached(t *testing.T) {
++	f := testFn[*File](t)(ParseConfig([]byte("a = { hat = \"derby\" }\n"), "", hcl.InitialPos))
++	expr := f.Body().GetAttribute("a").Expr()
++
++	defer func() {
++		if recover() == nil {
++			t.Errorf("SetAttribute did not panic for an attached expression")
++		}
++	}()
++	f.Body().SetAttribute("b", expr)
++}
+diff --git a/hclwrite/parser.go b/hclwrite/parser.go
+index 4365a58..a34ab66 100644
+--- a/hclwrite/parser.go
++++ b/hclwrite/parser.go
+@@ -66,6 +66,30 @@ func parse(src []byte, filename string, start hcl.Pos) (*File, hcl.Diagnostics)
+ 	return ret, diags
+ }
+ 
++// parseExpressionSource parses the given source as a standalone expression.
++// It uses the same strategy as parse, but for hclsyntax.ParseExpression. Any
++// tokens before or after the expression, such as comments and newlines, are
++// not part of the result.
++//
++// If parsing produces any errors, the returned Expression is nil.
++func parseExpressionSource(src []byte, filename string, start hcl.Pos) (*Expression, hcl.Diagnostics) {
++	nativeExpr, diags := hclsyntax.ParseExpression(src, filename, start)
++	if diags.HasErrors() {
++		return nil, diags
++	}
++
++	nativeTokens, lexDiags := hclsyntax.LexExpression(src, filename, start)
++	if lexDiags.HasErrors() {
++		// should never happen, since we would've caught these diags in
++		// the first call above.
++		return nil, lexDiags
++	}
++	from := newPartitionableTokens(nativeTokens)
++
++	_, exprTokens, _ := from.Partition(nativeExpr.Range())
++	return parseExpression(nativeExpr, exprTokens).content.(*Expression), diags
++}
++
+ // parseBody locates the given body within the given input tokens and returns
+ // the resulting *Body object as well as the tokens that appeared before and
+ // after it.
+diff --git a/hclwrite/public.go b/hclwrite/public.go
+index 333508e..df5f7b0 100644
+--- a/hclwrite/public.go
++++ b/hclwrite/public.go
+@@ -30,6 +30,19 @@ func ParseConfig(src []byte, filename string, start hcl.Pos) (*File, hcl.Diagnos
+ 	return parse(src, filename, start)
+ }
+ 
++// ParseExpression attempts to parse the given buffer as a HCL expression,
++// returning the resulting syntax element if successful.
++//
++// The result has the same structure that ParseConfig would produce for the
++// expression as an attribute value. Comments and newlines before or after the
++// expression are not part of the result.
++//
++// If the source is not a valid expression, the returned expression is nil
++// and the diagnostics describe the errors.
++func ParseExpression(src []byte, filename string, start hcl.Pos) (*Expression, hcl.Diagnostics) {
++	return parseExpressionSource(src, filename, start)
++}
++
+ // Format takes source code and performs simple whitespace changes to transform
+ // it to a canonical layout style.
+ //
+diff --git a/hclwrite/public_test.go b/hclwrite/public_test.go
+new file mode 100644
+index 0000000..3811339
+--- /dev/null
++++ b/hclwrite/public_test.go
+@@ -0,0 +1,329 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: MPL-2.0
++
++package hclwrite
++
++import (
++	"testing"
++
++	"github.com/davecgh/go-spew/spew"
++	"github.com/google/go-cmp/cmp"
++
++	"github.com/hashicorp/hcl/v2"
++)
++
++func TestParseExpression(t *testing.T) {
++	tests := []struct {
++		src  string
++		want TestTreeNode
++	}{
++		{
++			`1`,
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{Type: "Tokens", Val: "1"},
++				},
++			},
++		},
++		{
++			`"hello"`,
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{Type: "quoted", Val: `"hello"`},
++				},
++			},
++		},
++		{
++			`"hello ${name}"`,
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{Type: "Tokens", Val: `"hello ${`},
++					{
++						Type: "Traversal",
++						Children: []TestTreeNode{
++							{
++								Type: "TraverseName",
++								Children: []TestTreeNode{
++									{Type: "identifier", Val: "name"},
++								},
++							},
++						},
++					},
++					{Type: "Tokens", Val: `}"`},
++				},
++			},
++		},
++		{
++			`a.b`,
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{
++						Type: "Traversal",
++						Children: []TestTreeNode{
++							{
++								Type: "TraverseName",
++								Children: []TestTreeNode{
++									{Type: "identifier", Val: "a"},
++								},
++							},
++							{
++								Type: "TraverseName",
++								Children: []TestTreeNode{
++									{Type: "Tokens", Val: "."},
++									{Type: "identifier", Val: "b"},
++								},
++							},
++						},
++					},
++				},
++			},
++		},
++		{
++			`{ hat = "derby" }`,
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{
++						Type: "ObjectConsExpr",
++						Children: []TestTreeNode{
++							{Type: "Tokens", Val: "{"},
++							{
++								Type: "ObjectConsItem",
++								Children: []TestTreeNode{
++									{
++										Type: "ObjectConsKeyExpr",
++										Children: []TestTreeNode{
++											{
++												Type: "Expression",
++												Children: []TestTreeNode{
++													{
++														Type: "Traversal",
++														Children: []TestTreeNode{
++															{
++																Type: "TraverseName",
++																Children: []TestTreeNode{
++																	{Type: "identifier", Val: " hat"},
++																},
++															},
++														},
++													},
++												},
++											},
++										},
++									},
++									{Type: "Tokens", Val: " ="},
++									{
++										Type: "ObjectConsValue",
++										Children: []TestTreeNode{
++											{
++												Type: "Expression",
++												Children: []TestTreeNode{
++													{Type: "quoted", Val: ` "derby"`},
++												},
++											},
++										},
++									},
++								},
++							},
++							{Type: "Tokens", Val: " }"},
++						},
++					},
++				},
++			},
++		},
++		{
++			`f(1)`,
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{
++						Type: "FunctionCallExpr",
++						Children: []TestTreeNode{
++							{Type: "Tokens", Val: "f("},
++							{
++								Type: "Expression",
++								Children: []TestTreeNode{
++									{Type: "Tokens", Val: "1"},
++								},
++							},
++							{Type: "Tokens", Val: ")"},
++						},
++					},
++				},
++			},
++		},
++		{
++			`[1, 2]`,
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{
++						Type: "TupleConsExpr",
++						Children: []TestTreeNode{
++							{Type: "Tokens", Val: "["},
++							{
++								Type: "Expression",
++								Children: []TestTreeNode{
++									{Type: "Tokens", Val: "1"},
++								},
++							},
++							{Type: "Tokens", Val: ","},
++							{
++								Type: "Expression",
++								Children: []TestTreeNode{
++									{Type: "Tokens", Val: " 2"},
++								},
++							},
++							{Type: "Tokens", Val: "]"},
++						},
++					},
++				},
++			},
++		},
++		{
++			"# foo\n\n1\n# bar",
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{Type: "Tokens", Val: "1"},
++				},
++			},
++		},
++		{
++			"/* foo */ 1 // bar\n",
++			TestTreeNode{
++				Type: "Expression",
++				Children: []TestTreeNode{
++					{Type: "Tokens", Val: " 1"},
++				},
++			},
++		},
++	}
++
++	for _, test := range tests {
++		t.Run(test.src, func(t *testing.T) {
++			expr, diags := ParseExpression([]byte(test.src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected diagnostics: %s", diags.Error())
++			}
++
++			got := makeTestTree(newNode(expr))
++			if !cmp.Equal(got, test.want) {
++				t.Errorf(
++					"wrong result\ninput:\n%s\n\ngot:\n%s\nwant:%s\n\ndiff:\n%s",
++					test.src,
++					spew.Sdump(got),
++					spew.Sdump(test.want),
++					cmp.Diff(test.want, got),
++				)
++			}
++		})
++	}
++}
++
++// TestParseExpressionMatchesParseConfig checks that ParseExpression builds
++// the same tree that ParseConfig builds for the expression as an attribute
++// value.
++func TestParseExpressionMatchesParseConfig(t *testing.T) {
++	tests := []string{
++		// literals
++		`1`,
++		`1.5`,
++		`true`,
++		`null`,
++		`"hello"`,
++		`"a\nb"`,
++		// templates
++		`"hello ${name}"`,
++		`"%{ if a }b%{ endif }"`,
++		"<<EOT\nhello ${name}\nEOT\n",
++		// traversals
++		`a`,
++		`a.b.c`,
++		`a[0].b["c"]`,
++		`a.0`,
++		// other expressions kept as tokens
++		`a + b * 2`,
++		`!a`,
++		`a ? b : c`,
++		`(a)`,
++		`[for x in xs : x.y]`,
++		`{ for k, v in m : k => v }`,
++		`a[*].b`,
++		// object-construct expressions with different kinds of keys
++		`{}`,
++		`{ hat = "derby" }`,
++		`{ "hat" = "derby" }`,
++		`{ hat: "derby" }`,
++		`{ (hat) = "derby" }`,
++		`{ hat.band = "derby" }`,
++		`{ "${hat}" = "derby" }`,
++		`{ null = 1 }`,
++		`{ a = 1, "b" = 2, (c) = 3, d: 4 }`,
++		"{\n  a = 1\n  b = 2\n}",
++		"{\n  # lead\n  a = 1 # line\n  b = 2,\n}",
++		// nested objects
++		`{ a = { b = { c = x.y } } }`,
++		`{ a = [{ b = 1 }] }`,
++		// function calls
++		`f()`,
++		`f(1, a.b, "c")`,
++		`f(xs...)`,
++		`provider::p::f(1)`,
++		`f(g(1), { a = 1 }, [2])`,
++		"f(\n  1, # one\n  2,\n)",
++		// tuples
++		`[]`,
++		`[1, a.b, "c"]`,
++		`[[1], [2, 3]]`,
++		`[{ a = 1 }, f(x)]`,
++		"[\n  1,\n  2,\n]",
++	}
++
++	for _, src := range tests {
++		t.Run(src, func(t *testing.T) {
++			// The leading space matches the space after "=" in the config.
++			expr, diags := ParseExpression([]byte(" "+src), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected diagnostics from ParseExpression: %s", diags.Error())
++			}
++			f, diags := ParseConfig([]byte("a = "+src+"\n"), "", hcl.InitialPos)
++			if diags.HasErrors() {
++				t.Fatalf("unexpected diagnostics from ParseConfig: %s", diags.Error())
++			}
++
++			got := makeTestTree(newNode(expr))
++			want := makeTestTree(f.Body().GetAttribute("a").expr)
++			if !cmp.Equal(got, want) {
++				t.Errorf("wrong result\ndiff:\n%s", cmp.Diff(want, got))
++			}
++		})
++	}
++}
++
++func TestParseExpressionInvalid(t *testing.T) {
++	tests := []string{
++		``,
++		`1 +`,
++		`{ a = }`,
++		`1 2`,
++		`a = 1`,
++		`"unterminated`,
++	}
++
++	for _, src := range tests {
++		t.Run(src, func(t *testing.T) {
++			expr, diags := ParseExpression([]byte(src), "", hcl.InitialPos)
++			if !diags.HasErrors() {
++				t.Errorf("expected errors, got none")
++			}
++			if expr != nil {
++				t.Errorf("expected nil expression, got %q", expr.BuildTokens(nil).Bytes())
++			}
++		})
++	}
++}

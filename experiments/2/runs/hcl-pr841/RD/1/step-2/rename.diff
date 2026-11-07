@@ -1,0 +1,90 @@
+Only in /Users/ryosuke.ishibashi/ws/cc87eb8166f7/.claude: skills
+Only in /Users/ryosuke.ishibashi/ws/cc87eb8166f7: .declscope-baseline.yaml
+Only in /Users/ryosuke.ishibashi/ws/cc87eb8166f7: .declscope.yaml
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_expression.go /Users/ryosuke.ishibashi/ws/df24391bb1af/hclwrite/ast_expression.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_expression.go	2026-11-07 10:19:58
++++ /Users/ryosuke.ishibashi/ws/df24391bb1af/hclwrite/ast_expression.go	2026-11-07 10:30:03
+@@ -181,7 +181,6 @@
+ // source order, and returns the result. For an object-construct expression,
+ // these are the traversals of its items.
+ //
+-//declscope:shared // ast_object_cons_expr.go collects them from item keys and values
+ func (e *Expression) traversals(to []*Traversal) []*Traversal {
+ 	for _, node := range e.absTraversals.List() {
+ 		to = append(to, node.content.(*Traversal))
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_object_cons_expr.go /Users/ryosuke.ishibashi/ws/df24391bb1af/hclwrite/ast_object_cons_expr.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/ast_object_cons_expr.go	2026-11-07 10:29:35
++++ /Users/ryosuke.ishibashi/ws/df24391bb1af/hclwrite/ast_object_cons_expr.go	2026-11-07 10:30:03
+@@ -1,7 +1,6 @@
+ // Copyright IBM Corp. 2014, 2026
+ // SPDX-License-Identifier: MPL-2.0
+ 
+-//declscope:namespace objectCons
+ 
+ package hclwrite
+ 
+@@ -23,11 +22,9 @@
+ type ObjectConsExpr struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go adds the items it parses
+ 	items nodeSet
+ }
+ 
+-//declscope:shared // parser.go builds the objects it parses
+ func newObjectConsExpr() *ObjectConsExpr {
+ 	return &ObjectConsExpr{
+ 		inTree: newInTree(),
+@@ -121,7 +118,6 @@
+ // traversals appends the absolute traversals in the items' keys and values to
+ // to, in source order, and returns the result.
+ //
+-//declscope:shared // ast_expression.go collects them for Expression.Variables
+ func (o *ObjectConsExpr) traversals(to []*Traversal) []*Traversal {
+ 	for _, item := range o.Items() {
+ 		to = item.KeyExpr().traversals(to)
+@@ -214,13 +210,10 @@
+ type ObjectConsItem struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go builds the items it parses
+ 	key *node
+-	//declscope:shared // parser.go builds the items it parses
+ 	value *node
+ }
+ 
+-//declscope:shared // parser.go builds the items it parses
+ func newObjectConsItem() *ObjectConsItem {
+ 	return &ObjectConsItem{
+ 		inTree: newInTree(),
+@@ -269,7 +262,6 @@
+ 	literal bool
+ }
+ 
+-//declscope:shared // parser.go builds the keys it parses
+ func newObjectConsKeyExpr(wrapped *node, name string, literal bool) *ObjectConsKeyExpr {
+ 	expr := &ObjectConsKeyExpr{
+ 		inTree:  newInTree(),
+@@ -316,11 +308,9 @@
+ type ObjectConsValue struct {
+ 	inTree
+ 
+-	//declscope:shared // parser.go builds the values it parses
+ 	expr *node
+ }
+ 
+-//declscope:shared // parser.go builds the values it parses
+ func newObjectConsValue() *ObjectConsValue {
+ 	return &ObjectConsValue{
+ 		inTree: newInTree(),
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/format.go /Users/ryosuke.ishibashi/ws/df24391bb1af/hclwrite/format.go
+--- /Users/ryosuke.ishibashi/ws/cc87eb8166f7/hclwrite/format.go	2026-11-07 10:27:06
++++ /Users/ryosuke.ishibashi/ws/df24391bb1af/hclwrite/format.go	2026-11-07 10:30:03
+@@ -430,7 +430,6 @@
+ 
+ // tokenIsNewline reports whether tok ends a line.
+ //
+-//declscope:shared // ast_object_cons_expr.go finds the line breaks between items
+ func tokenIsNewline(tok *Token) bool {
+ 	switch tok.Type {
+ 	case hclsyntax.TokenNewline:
