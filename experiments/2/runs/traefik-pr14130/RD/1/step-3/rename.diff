@@ -1,0 +1,44 @@
+Only in /Users/ryosuke.ishibashi/ws/bdfa071fc37a/.claude: skills
+Only in /Users/ryosuke.ishibashi/ws/bdfa071fc37a: .declscope-baseline.yaml
+Only in /Users/ryosuke.ishibashi/ws/bdfa071fc37a: .declscope.yaml
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/bdfa071fc37a/pkg/provider/kubernetes/gateway/backendtlspolicy.go /Users/ryosuke.ishibashi/ws/fbad1abdb0d7/pkg/provider/kubernetes/gateway/backendtlspolicy.go
+--- /Users/ryosuke.ishibashi/ws/bdfa071fc37a/pkg/provider/kubernetes/gateway/backendtlspolicy.go	2026-11-07 12:42:40
++++ /Users/ryosuke.ishibashi/ws/fbad1abdb0d7/pkg/provider/kubernetes/gateway/backendtlspolicy.go	2026-11-07 12:56:38
+@@ -19,7 +19,6 @@
+ // It returns nil when no BackendTLSPolicy targets the port, as the backend is then not dialed with TLS,
+ // and the route ResolvedRefs condition to report when the policy cannot be applied.
+ //
+-//declscope:shared // httproute.go, grpcroute.go and tlsroute.go dial their backends with it.
+ func (p *Provider) loadBackendTLSPolicyClientConfig(gatewayName, gatewayNamespace string, listener gatewayListener, namespace string, serviceName gatev1.ObjectName, svcPort corev1.ServicePort, routeGeneration int64, statusReport *statusReport) (*dynamic.TLSClientConfig, *metav1.Condition) {
+ 	backendTLSPolicies, err := p.client.ListBackendTLSPoliciesForService(namespace, string(serviceName))
+ 	if err != nil {
+@@ -139,7 +138,6 @@
+ 
+ // serversTransportForBackendTLSPolicy returns the HTTP ServersTransport dialing with the TLS configuration of a BackendTLSPolicy.
+ //
+-//declscope:shared // httproute.go and grpcroute.go dial their backends with it.
+ func serversTransportForBackendTLSPolicy(clientConfig *dynamic.TLSClientConfig) *dynamic.ServersTransport {
+ 	if clientConfig == nil {
+ 		return nil
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/bdfa071fc37a/pkg/provider/kubernetes/gateway/gatewaybackendtls.go /Users/ryosuke.ishibashi/ws/fbad1abdb0d7/pkg/provider/kubernetes/gateway/gatewaybackendtls.go
+--- /Users/ryosuke.ishibashi/ws/bdfa071fc37a/pkg/provider/kubernetes/gateway/gatewaybackendtls.go	2026-11-07 12:42:40
++++ /Users/ryosuke.ishibashi/ws/fbad1abdb0d7/pkg/provider/kubernetes/gateway/gatewaybackendtls.go	2026-11-07 12:56:38
+@@ -12,7 +12,6 @@
+ // loadGatewayBackendTLSClientCertificates returns the client certificate the Gateway presents to the backends
+ // a BackendTLSPolicy dials with TLS (GEP-3155), or the Gateway ResolvedRefs condition explaining why it cannot be resolved.
+ //
+-//declscope:shared // kubernetes.go loads it with the listeners of each Gateway.
+ func (p *Provider) loadGatewayBackendTLSClientCertificates(gateway *gatev1.Gateway) (tls.Certificates, *metav1.Condition) {
+ 	if gateway.Spec.TLS == nil || gateway.Spec.TLS.Backend == nil || gateway.Spec.TLS.Backend.ClientCertificateRef == nil {
+ 		return nil, nil
+diff -ru --exclude=.git /Users/ryosuke.ishibashi/ws/bdfa071fc37a/pkg/provider/kubernetes/gateway/kubernetes.go /Users/ryosuke.ishibashi/ws/fbad1abdb0d7/pkg/provider/kubernetes/gateway/kubernetes.go
+--- /Users/ryosuke.ishibashi/ws/bdfa071fc37a/pkg/provider/kubernetes/gateway/kubernetes.go	2026-11-07 12:53:53
++++ /Users/ryosuke.ishibashi/ws/fbad1abdb0d7/pkg/provider/kubernetes/gateway/kubernetes.go	2026-11-07 12:56:38
+@@ -1439,7 +1439,6 @@
+ 	return nil
+ }
+ 
+-//declscope:shared // gatewaybackendtls.go loads the Gateway backend client certificate with it, as the listener certificates.
+ func (p *Provider) getTLSCert(secretName gatev1.ObjectName, namespace string) (*tls.CertAndStores, error) {
+ 	secret, err := p.client.GetSecret(namespace, string(secretName))
+ 	if err != nil {
