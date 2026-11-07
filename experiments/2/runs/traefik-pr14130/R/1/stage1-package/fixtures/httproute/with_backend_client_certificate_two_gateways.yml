@@ -1,0 +1,114 @@
+---
+kind: GatewayClass
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: my-gateway-class
+spec:
+  controllerName: traefik.io/gateway-controller
+---
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: gateway-a
+  namespace: default
+spec:
+  gatewayClassName: my-gateway-class
+  tls:
+    backend:
+      clientCertificateRef:
+        name: client-cert-a
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: gateway-b
+  namespace: default
+spec:
+  gatewayClassName: my-gateway-class
+  tls:
+    backend:
+      clientCertificateRef:
+        name: client-cert-b
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 8080
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+kind: HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: http-app-1
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway-a
+      kind: Gateway
+      group: gateway.networking.k8s.io
+    - name: gateway-b
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  hostnames:
+    - foo.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /whoami
+      backendRefs:
+        - name: whoami
+          port: 80
+---
+kind: BackendTLSPolicy
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: policy-1
+  namespace: default
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: whoami
+  validation:
+    hostname: whoami
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: ca-file
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ca-file
+  namespace: default
+data:
+  ca.crt: "CA1"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: client-cert-a
+  namespace: default
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJxRENDQVU2Z0F3SUJBZ0lVWU9zcjBRZ0hPQnE0a1lSQ0w1K1REZFZ0NmJRd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVeE1ERXdNRGN4TnpNd1doY05NelV4TURBNApNRGN4TnpNd1dqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJET3JpdzNaUTd3SWhXcmJQUzZKRlFUM2JUb05DRjAwdlNWNWZhYjZUYlh5TDh0bHNHcmUKVFJJRjJFd2dzdGVNT2t4R0tLU2xEdnVhRHdxOHAvcVYrMHVqZWpCNE1CMEdBMVVkRGdRV0JCUk1Fa3VleFhRaApVdERnUmcxS0J2NzJDRHErRXpBZkJnTlZIU01FR0RBV2dCUk1Fa3VleFhRaFV0RGdSZzFLQnY3MkNEcStFekFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUNVR0ExVWRFUVFlTUJ5Q0MyVjRZVzF3YkdVdVkyOXRnZzBxTG1WNFlXMXcKYkdVdVkyOXRNQW9HQ0NxR1NNNDlCQU1DQTBnQU1FVUNJUURzODdWazBzd0E2SGdPSmpST3llMW14RDgzcWNHeQpwZUZnb3hWOTNEeStjd0lnVjBNTUVKSmJWc1R5WkszRVErK1hjNXJFTDc4bnJKK1lJRVYrckNVV2o1VT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ253Z0w1RFk0VUIxNHNNNmYKRGlrUWR0cWgyUVcxQXJmRjRmYzFVRnppZmRHaFJBTkNBQVF6cTRzTjJVTzhDSVZxMnowdWlSVUU5MjA2RFFoZApOTDBsZVgybStrMjE4aS9MWmJCcTNrMFNCZGhNSUxMWGpEcE1SaWlrcFE3N21nOEt2S2Y2bGZ0TAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: client-cert-b
+  namespace: default
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJMVENCMUFJSkFMUk1NZEtrQUJ0Rk1Bb0dDQ3FHU000OUJBTUNNQjh4SFRBYkJnTlZCQU1NRkdOc2FXVnUKZEMxaUxtVjRZVzF3YkdVdVkyOXRNQjRYRFRJMk1URXdOekF6TURNMU5Wb1hEVE0yTVRFd05EQXpNRE0xTlZvdwpIekVkTUJzR0ExVUVBd3dVWTJ4cFpXNTBMV0l1WlhoaGJYQnNaUzVqYjIwd1dUQVRCZ2NxaGtqT1BRSUJCZ2dxCmhrak9QUU1CQndOQ0FBU1Zid2xaUm1aQnQ0MWNJWTJVL0xtQUhHSDZrZnlpU0ZGKzdYWU5seUVONFk1dG13NWUKVnZrUmcxdkZjV3ZqR3l1T1pEU0hWTU85UUpBajhnL1dReGJrTUFvR0NDcUdTTTQ5QkFNQ0EwZ0FNRVVDSUFSVgpEVzJOL0x6MTJ4MnJUVEtFTi83cjNiM0dvWUJZKy9URWtTaWdlU2V0QWlFQW92dWt0R1piK0VRVHpFWDkwZHdICndERkdtVFJyWnJiNU56TFkvNm5hbTVZPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ3hsRXd0V09qaUZiME5SVVMKNGhIMVdaeVhOV0ZjVGczL1FjMFNBN1NyRzl1aFJBTkNBQVNWYndsWlJtWkJ0NDFjSVkyVS9MbUFIR0g2a2Z5aQpTRkYrN1hZTmx5RU40WTV0bXc1ZVZ2a1JnMXZGY1d2akd5dU9aRFNIVk1POVFKQWo4Zy9XUXhiawotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t

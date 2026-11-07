@@ -1,0 +1,775 @@
+diff --git a/pkg/provider/kubernetes/gateway/features.go b/pkg/provider/kubernetes/gateway/features.go
+index b0b392d..e1414db 100644
+--- a/pkg/provider/kubernetes/gateway/features.go
++++ b/pkg/provider/kubernetes/gateway/features.go
+@@ -76,6 +76,9 @@ func extendedHTTPRouteFeatures() sets.Set[features.Feature] {
+ 		features.HTTPRouteBackendURLRewriteFeature,
+ 		features.HTTPRouteRetryCodesFeature,
+ 		features.HTTPRouteRetryConnectionErrorFeature,
++		features.HTTPRouteRequestMirrorFeature,
++		features.HTTPRouteRequestMultipleMirrorsFeature,
++		features.HTTPRouteRequestPercentageMirrorFeature,
+ 	)
+ }
+ 
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/httproute/filter_request_mirror.yml b/pkg/provider/kubernetes/gateway/fixtures/httproute/filter_request_mirror.yml
+new file mode 100644
+index 0000000..087c5c1
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/httproute/filter_request_mirror.yml
+@@ -0,0 +1,77 @@
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  listeners: # Use GatewayClass defaults for listener definition.
++    - name: http
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        kinds:
++          - kind: HTTPRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - "example.org"
++  rules:
++    - matches:
++        - path:
++            type: PathPrefix
++            value: /
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++          kind: Service
++          group: ""
++          filters:
++            - type: RequestMirror
++              requestMirror:
++                backendRef:
++                  name: whoami2
++                  port: 8080
++                fraction:
++                  numerator: 1
++                  denominator: 4
++      filters:
++        - type: RequestMirror
++          requestMirror:
++            backendRef:
++              name: whoami2
++              port: 8080
++        - type: RequestHeaderModifier
++          requestHeaderModifier:
++            set:
++              - name: X-Foo
++                value: Bar
++        - type: RequestMirror
++          requestMirror:
++            backendRef:
++              name: whoami
++              port: 80
++            percent: 50
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/httproute/filter_request_mirror_missing_service.yml b/pkg/provider/kubernetes/gateway/fixtures/httproute/filter_request_mirror_missing_service.yml
+new file mode 100644
+index 0000000..0dbe4c6
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/httproute/filter_request_mirror_missing_service.yml
+@@ -0,0 +1,62 @@
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  listeners: # Use GatewayClass defaults for listener definition.
++    - name: http
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        kinds:
++          - kind: HTTPRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - "example.org"
++  rules:
++    - matches:
++        - path:
++            type: PathPrefix
++            value: /
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++          kind: Service
++          group: ""
++      filters:
++        - type: RequestMirror
++          requestMirror:
++            backendRef:
++              name: missing
++              port: 80
++        - type: RequestHeaderModifier
++          requestHeaderModifier:
++            set:
++              - name: X-Foo
++                value: Bar
+diff --git a/pkg/provider/kubernetes/gateway/httproute.go b/pkg/provider/kubernetes/gateway/httproute.go
+index 10df426..87cea97 100644
+--- a/pkg/provider/kubernetes/gateway/httproute.go
++++ b/pkg/provider/kubernetes/gateway/httproute.go
+@@ -84,7 +84,15 @@ func (p *Provider) loadHTTPRoute(ctx context.Context, gateways []gatewayWithList
+ 
+ 			// The ResolvedRefs condition must be reported for every parentRef,
+ 			// even when the route does not attach to the listener.
+-			routerConfs, condition := p.loadHTTPRouteConfiguration(logger.WithContext(ctx), match.GatewayName, match.GatewayNamespace, listener, route, hostnames, statusReport)
++			loader := httpRouteLoader{
++				p:                p,
++				gatewayName:      match.GatewayName,
++				gatewayNamespace: match.GatewayNamespace,
++				listener:         listener,
++				route:            route,
++				statusReport:     statusReport,
++			}
++			routerConfs, condition := loader.loadHTTPRouteConfiguration(logger.WithContext(ctx), hostnames)
+ 			if resolvedRefCondition == nil || resolvedRefCondition.Status == metav1.ConditionTrue {
+ 				resolvedRefCondition = new(condition)
+ 			}
+@@ -125,7 +133,21 @@ type httpRouteRouter struct {
+ 	Conf *dynamic.Configuration
+ }
+ 
+-func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName, gatewayNamespace string, listener gatewayListener, route *gatev1.HTTPRoute, hostnames []gatev1.Hostname, statusReport *statusReport) ([]httpRouteRouter, metav1.Condition) {
++// httpRouteLoader loads the configuration of an HTTPRoute attached to a Gateway listener.
++// It holds what every backend and filter of the route needs to be loaded,
++// as a RequestMirror filter loads a backend like a rule does.
++type httpRouteLoader struct {
++	p                *Provider
++	gatewayName      string
++	gatewayNamespace string
++	listener         gatewayListener
++	route            *gatev1.HTTPRoute
++	statusReport     *statusReport
++}
++
++func (l *httpRouteLoader) loadHTTPRouteConfiguration(ctx context.Context, hostnames []gatev1.Hostname) ([]httpRouteRouter, metav1.Condition) {
++	route := l.route
++
+ 	var routers []httpRouteRouter
+ 
+ 	condition := metav1.Condition{
+@@ -139,7 +161,7 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 	for ri, routeRule := range route.Spec.Rules {
+ 		respondingTimeouts := routerRespondingTimeouts(ctx, routeRule.Timeouts)
+ 		backendRequestTimeout := parseBackendRequestTimeout(ctx, routeRule.Timeouts)
+-		retry := p.buildRetry(ctx, routeRule.Retry)
++		retry := l.p.buildRetry(ctx, routeRule.Retry)
+ 
+ 		for _, match := range routeRule.Matches {
+ 			rule, priority := buildMatchRule(hostnames, match)
+@@ -148,11 +170,11 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 				RuleSyntax:         "default",
+ 				Rule:               rule,
+ 				Priority:           priority + len(route.Spec.Rules) - ri,
+-				ParentRefs:         listener.RouterNames,
++				ParentRefs:         l.listener.RouterNames,
+ 				RespondingTimeouts: respondingTimeouts,
+ 			}
+ 
+-			routerName := makeRouterName(strings.ToLower(kindHTTPRoute), rule, route.Namespace, route.Name, gatewayNamespace, gatewayName, listener.EPName, ri)
++			routerName := makeRouterName(strings.ToLower(kindHTTPRoute), rule, route.Namespace, route.Name, l.gatewayNamespace, l.gatewayName, l.listener.EPName, ri)
+ 
+ 			routerConf := &dynamic.Configuration{
+ 				HTTP: &dynamic.HTTPConfiguration{
+@@ -164,7 +186,7 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 			}
+ 
+ 			// TODO loadMiddlewares errors could change the condition.
+-			middlewares, err := p.loadMiddlewares(routerConf, route.Namespace, routerName, routeRule.Filters, match.Path)
++			middlewares, err := l.loadMiddlewares(ctx, routerConf, routerName, routeRule.Filters, match.Path)
+ 			if err != nil {
+ 				log.Ctx(ctx).Error().Err(err).Msg("Unable to load HTTPRoute filters")
+ 
+@@ -192,13 +214,13 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 				}
+ 
+ 				var serviceCondition *metav1.Condition
+-				router.Service, serviceCondition = p.loadHTTPRouteRuleService(ctx, gatewayName, gatewayNamespace, listener, routerConf, routerName, routeRule, backendRequestTimeout, route, match.Path, statusReport)
++				router.Service, serviceCondition = l.loadHTTPRouteRuleService(ctx, routerConf, routerName, routeRule, backendRequestTimeout, match.Path)
+ 				if serviceCondition != nil {
+ 					condition = *serviceCondition
+ 				}
+ 			}
+ 
+-			p.applyRouterTransform(ctx, &router, route)
++			l.p.applyRouterTransform(ctx, &router, route)
+ 
+ 			routerConf.HTTP.Routers[routerName] = &router
+ 			routers = append(routers, httpRouteRouter{Name: routerName, Conf: routerConf})
+@@ -280,12 +302,13 @@ func (p *Provider) buildRetry(ctx context.Context, retry *gatev1.HTTPRouteRetry)
+ 
+ // loadHTTPRouteRuleService returns the name of the service the routers of the rule forward to,
+ // and a non-nil condition when a backend reference cannot be resolved.
+-func (p *Provider) loadHTTPRouteRuleService(ctx context.Context, gatewayName, gatewayNamespace string, listener gatewayListener, conf *dynamic.Configuration, routerName string, routeRule gatev1.HTTPRouteRule, backendRequestTimeout time.Duration, route *gatev1.HTTPRoute, pathMatch *gatev1.HTTPPathMatch, statusReport *statusReport) (string, *metav1.Condition) {
++func (l *httpRouteLoader) loadHTTPRouteRuleService(ctx context.Context, conf *dynamic.Configuration, routerName string, routeRule gatev1.HTTPRouteRule, backendRequestTimeout time.Duration, pathMatch *gatev1.HTTPPathMatch) (string, *metav1.Condition) {
+ 	if len(routeRule.BackendRefs) != 1 || !isInternalService(routeRule.BackendRefs[0].BackendRef) {
+-		return p.loadWRRService(ctx, gatewayName, gatewayNamespace, listener, conf, routerName, routeRule, backendRequestTimeout, route, pathMatch, statusReport)
++		return l.loadWRRService(ctx, conf, routerName, routeRule, backendRequestTimeout, pathMatch)
+ 	}
+ 
+-	if !isCrossProviderNamespaceAllowed(p.CrossProviderNamespaces, route.Namespace) {
++	route := l.route
++	if !isCrossProviderNamespaceAllowed(l.p.CrossProviderNamespaces, route.Namespace) {
+ 		return "", &metav1.Condition{
+ 			Type:               string(gatev1.RouteConditionResolvedRefs),
+ 			Status:             metav1.ConditionFalse,
+@@ -299,7 +322,7 @@ func (p *Provider) loadHTTPRouteRuleService(ctx context.Context, gatewayName, ga
+ 	return string(routeRule.BackendRefs[0].Name), nil
+ }
+ 
+-func (p *Provider) loadWRRService(ctx context.Context, gatewayName, gatewayNamespace string, listener gatewayListener, conf *dynamic.Configuration, routerName string, routeRule gatev1.HTTPRouteRule, backendRequestTimeout time.Duration, route *gatev1.HTTPRoute, pathMatch *gatev1.HTTPPathMatch, statusReport *statusReport) (string, *metav1.Condition) {
++func (l *httpRouteLoader) loadWRRService(ctx context.Context, conf *dynamic.Configuration, routerName string, routeRule gatev1.HTTPRouteRule, backendRequestTimeout time.Duration, pathMatch *gatev1.HTTPPathMatch) (string, *metav1.Condition) {
+ 	name := routerName + "-wrr"
+ 	if _, ok := conf.HTTP.Services[name]; ok {
+ 		return name, nil
+@@ -329,7 +352,7 @@ func (p *Provider) loadWRRService(ctx context.Context, gatewayName, gatewayNames
+ 	for bi, backendRef := range routeRule.BackendRefs {
+ 		// TODO in loadService we need to always return a non-nil serviceName even when there is an error which is not the
+ 		// usual defacto.
+-		svcName, errCondition := p.loadService(gatewayName, gatewayNamespace, listener, conf, routerName, route, bi, backendRef, backendRequestTimeout, pathMatch, statusReport)
++		svcName, errCondition := l.loadService(ctx, conf, routerName, bi, backendRef, backendRequestTimeout, pathMatch)
+ 		weight := new(int(ptr.Deref(backendRef.Weight, 1)))
+ 		if errCondition != nil {
+ 			log.Ctx(ctx).Error().
+@@ -357,7 +380,8 @@ func (p *Provider) loadWRRService(ctx context.Context, gatewayName, gatewayNames
+ // loadService returns a dynamic.Service config corresponding to the given gatev1.HTTPBackendRef.
+ // Note that the returned dynamic.Service config can be nil (for cross-provider, internal services, and backendFunc).
+ // A non-zero backendRequestTimeout bounds the wait for the response headers of a Kubernetes Service backend.
+-func (p *Provider) loadService(gatewayName, gatewayNamespace string, listener gatewayListener, conf *dynamic.Configuration, routerName string, route *gatev1.HTTPRoute, backendIndex int, backendRef gatev1.HTTPBackendRef, backendRequestTimeout time.Duration, pathMatch *gatev1.HTTPPathMatch, statusReport *statusReport) (string, *metav1.Condition) {
++func (l *httpRouteLoader) loadService(ctx context.Context, conf *dynamic.Configuration, routerName string, backendIndex int, backendRef gatev1.HTTPBackendRef, backendRequestTimeout time.Duration, pathMatch *gatev1.HTTPPathMatch) (string, *metav1.Condition) {
++	route := l.route
+ 	kind := ptr.Deref(backendRef.Kind, kindService)
+ 
+ 	group := groupCore
+@@ -383,7 +407,7 @@ func (p *Provider) loadService(gatewayName, gatewayNamespace string, listener ga
+ 
+ 	serviceName := fmt.Sprintf("%s-svc-%s-%s-%d", routerName, namespace, backendRef.Name, backendIndex)
+ 
+-	if err := p.isReferenceGranted(kindHTTPRoute, route.Namespace, group, string(kind), string(backendRef.Name), namespace); err != nil {
++	if err := l.p.isReferenceGranted(kindHTTPRoute, route.Namespace, group, string(kind), string(backendRef.Name), namespace); err != nil {
+ 		return serviceName, &metav1.Condition{
+ 			Type:               string(gatev1.RouteConditionResolvedRefs),
+ 			Status:             metav1.ConditionFalse,
+@@ -394,7 +418,7 @@ func (p *Provider) loadService(gatewayName, gatewayNamespace string, listener ga
+ 		}
+ 	}
+ 
+-	middlewares, err := p.loadMiddlewares(conf, route.Namespace, serviceName, backendRef.Filters, pathMatch)
++	middlewares, err := l.loadMiddlewares(ctx, conf, serviceName, backendRef.Filters, pathMatch)
+ 	if err != nil {
+ 		return serviceName, &metav1.Condition{
+ 			Type:               string(gatev1.RouteConditionResolvedRefs),
+@@ -408,7 +432,7 @@ func (p *Provider) loadService(gatewayName, gatewayNamespace string, listener ga
+ 
+ 	// TODO may be we could incorporate this "ignored" case into the loadHTTPBackendRef.
+ 	if group != groupCore || kind != kindService {
+-		name, service, err := p.loadHTTPBackendRef(namespace, backendRef)
++		name, service, err := l.p.loadHTTPBackendRef(namespace, backendRef)
+ 		if err != nil {
+ 			return serviceName, &metav1.Condition{
+ 				Type:               string(gatev1.RouteConditionResolvedRefs),
+@@ -440,7 +464,7 @@ func (p *Provider) loadService(gatewayName, gatewayNamespace string, listener ga
+ 		}
+ 	}
+ 
+-	lb, st, errCondition := p.loadHTTPServers(gatewayName, gatewayNamespace, namespace, route, backendRef, listener, statusReport)
++	lb, st, errCondition := l.loadHTTPServers(namespace, backendRef)
+ 	if errCondition != nil {
+ 		return serviceName, errCondition
+ 	}
+@@ -490,7 +514,7 @@ func (p *Provider) loadHTTPBackendRef(namespace string, backendRef gatev1.HTTPBa
+ 	return backendFunc(string(backendRef.Name), namespace)
+ }
+ 
+-func (p *Provider) loadMiddlewares(conf *dynamic.Configuration, namespace, parentName string, filters []gatev1.HTTPRouteFilter, pathMatch *gatev1.HTTPPathMatch) ([]string, error) {
++func (l *httpRouteLoader) loadMiddlewares(ctx context.Context, conf *dynamic.Configuration, parentName string, filters []gatev1.HTTPRouteFilter, pathMatch *gatev1.HTTPPathMatch) ([]string, error) {
+ 	type namedMiddleware struct {
+ 		Name   string
+ 		Config *dynamic.Middleware
+@@ -525,7 +549,7 @@ func (p *Provider) loadMiddlewares(conf *dynamic.Configuration, namespace, paren
+ 			})
+ 
+ 		case gatev1.HTTPRouteFilterExtensionRef:
+-			name, middleware, err := p.loadHTTPRouteFilterExtensionRef(namespace, filter.ExtensionRef)
++			name, middleware, err := l.p.loadHTTPRouteFilterExtensionRef(l.route.Namespace, filter.ExtensionRef)
+ 			if err != nil {
+ 				return nil, fmt.Errorf("loading ExtensionRef filter %s: %w", filter.Type, err)
+ 			}
+@@ -550,6 +574,18 @@ func (p *Provider) loadMiddlewares(conf *dynamic.Configuration, namespace, paren
+ 				createCORS(filter.CORS),
+ 			})
+ 
++		case gatev1.HTTPRouteFilterRequestMirror:
++			middleware, err := l.loadRequestMirror(ctx, conf, name, filter.RequestMirror)
++			if err != nil {
++				// As per the spec, an invalid mirror must be dropped without failing the request.
++				log.Ctx(ctx).Debug().Err(err).Msgf("Dropping HTTPRoute RequestMirror filter %s", name)
++				continue
++			}
++			middlewares = append(middlewares, namedMiddleware{
++				name,
++				middleware,
++			})
++
+ 		default:
+ 			// As per the spec: https://gateway-api.sigs.k8s.io/api-types/httproute/#filters-optional
+ 			// In all cases where incompatible or unsupported filters are
+@@ -586,8 +622,9 @@ func (p *Provider) loadHTTPRouteFilterExtensionRef(namespace string, extensionRe
+ 	return filterFunc(string(extensionRef.Name), namespace)
+ }
+ 
+-func (p *Provider) loadHTTPServers(gatewayName, gatewayNamespace, namespace string, route *gatev1.HTTPRoute, backendRef gatev1.HTTPBackendRef, listener gatewayListener, statusReport *statusReport) (*dynamic.ServersLoadBalancer, *dynamic.ServersTransport, *metav1.Condition) {
+-	backendAddresses, svcPort, err := p.getBackendAddresses(namespace, backendRef.BackendRef)
++func (l *httpRouteLoader) loadHTTPServers(namespace string, backendRef gatev1.HTTPBackendRef) (*dynamic.ServersLoadBalancer, *dynamic.ServersTransport, *metav1.Condition) {
++	route := l.route
++	backendAddresses, svcPort, err := l.p.getBackendAddresses(namespace, backendRef.BackendRef)
+ 	if err != nil {
+ 		return nil, nil, &metav1.Condition{
+ 			Type:               string(gatev1.RouteConditionResolvedRefs),
+@@ -599,7 +636,7 @@ func (p *Provider) loadHTTPServers(gatewayName, gatewayNamespace, namespace stri
+ 		}
+ 	}
+ 
+-	backendTLS, errCondition := p.loadBackendTLS(gatewayName, gatewayNamespace, listener, route.Generation, namespace, backendRef.Name, svcPort, statusReport)
++	backendTLS, errCondition := l.p.loadBackendTLS(l.gatewayName, l.gatewayNamespace, l.listener, route.Generation, namespace, backendRef.Name, svcPort, l.statusReport)
+ 	if errCondition != nil {
+ 		return nil, nil, errCondition
+ 	}
+@@ -633,6 +670,54 @@ func (p *Provider) loadHTTPServers(gatewayName, gatewayNamespace, namespace stri
+ 	return lb, serversTransport, nil
+ }
+ 
++// loadRequestMirror loads the backend of a RequestMirror filter as a rule backend, and returns the middleware mirroring to it.
++// The loaded service is named after the middleware, so that each mirror of a rule has its own.
++func (l *httpRouteLoader) loadRequestMirror(ctx context.Context, conf *dynamic.Configuration, name string, filter *gatev1.HTTPRequestMirrorFilter) (*dynamic.Middleware, error) {
++	if filter == nil {
++		return nil, errors.New("filter request mirror undefined")
++	}
++
++	backendRef := gatev1.HTTPBackendRef{
++		BackendRef: gatev1.BackendRef{BackendObjectReference: filter.BackendRef},
++	}
++
++	// The rule backendRequest timeout bounds the round trip whose response is sent to the client,
++	// it does not apply to the mirrored requests, whose responses are ignored.
++	serviceName, errCondition := l.loadService(ctx, conf, name, 0, backendRef, 0, nil)
++	if errCondition != nil {
++		return nil, errors.New(errCondition.Message)
++	}
++
++	numerator, denominator := requestMirrorFraction(filter)
++
++	return &dynamic.Middleware{
++		RequestMirror: &dynamic.RequestMirror{
++			Service:     serviceName,
++			Numerator:   numerator,
++			Denominator: denominator,
++		},
++	}, nil
++}
++
++// requestMirrorFraction returns the fraction of requests to mirror, out of range values being clamped,
++// as the CRD validation is not enforced on every cluster.
++func requestMirrorFraction(filter *gatev1.HTTPRequestMirrorFilter) (int64, int64) {
++	switch {
++	case filter.Percent != nil:
++		return int64(min(max(*filter.Percent, 0), 100)), 100
++
++	case filter.Fraction != nil:
++		denominator := int64(ptr.Deref(filter.Fraction.Denominator, 100))
++		if denominator <= 0 {
++			return 0, 1
++		}
++		return min(max(int64(filter.Fraction.Numerator), 0), denominator), denominator
++
++	default:
++		return 1, 1
++	}
++}
++
+ func buildHostRule(hostnames []gatev1.Hostname) (string, int) {
+ 	var rules []string
+ 	var priority int
+diff --git a/pkg/provider/kubernetes/gateway/httproute_test.go b/pkg/provider/kubernetes/gateway/httproute_test.go
+index b740286..33d87d2 100644
+--- a/pkg/provider/kubernetes/gateway/httproute_test.go
++++ b/pkg/provider/kubernetes/gateway/httproute_test.go
+@@ -323,3 +323,83 @@ func Test_createCORS(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func Test_requestMirrorFraction(t *testing.T) {
++	testCases := []struct {
++		desc                string
++		filter              *gatev1.HTTPRequestMirrorFilter
++		expectedNumerator   int64
++		expectedDenominator int64
++	}{
++		{
++			desc:                "neither percent nor fraction",
++			filter:              &gatev1.HTTPRequestMirrorFilter{},
++			expectedNumerator:   1,
++			expectedDenominator: 1,
++		},
++		{
++			desc:                "percent",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Percent: new(int32(42))},
++			expectedNumerator:   42,
++			expectedDenominator: 100,
++		},
++		{
++			desc:                "percent above 100",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Percent: new(int32(150))},
++			expectedNumerator:   100,
++			expectedDenominator: 100,
++		},
++		{
++			desc:                "negative percent",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Percent: new(int32(-5))},
++			expectedNumerator:   0,
++			expectedDenominator: 100,
++		},
++		{
++			desc:                "fraction",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Fraction: &gatev1.Fraction{Numerator: 1, Denominator: new(int32(4))}},
++			expectedNumerator:   1,
++			expectedDenominator: 4,
++		},
++		{
++			desc:                "fraction without denominator",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Fraction: &gatev1.Fraction{Numerator: 25}},
++			expectedNumerator:   25,
++			expectedDenominator: 100,
++		},
++		{
++			desc:                "fraction with zero denominator",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Fraction: &gatev1.Fraction{Numerator: 1, Denominator: new(int32(0))}},
++			expectedNumerator:   0,
++			expectedDenominator: 1,
++		},
++		{
++			desc:                "fraction with negative denominator",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Fraction: &gatev1.Fraction{Numerator: 1, Denominator: new(int32(-2))}},
++			expectedNumerator:   0,
++			expectedDenominator: 1,
++		},
++		{
++			desc:                "fraction with numerator above denominator",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Fraction: &gatev1.Fraction{Numerator: 3, Denominator: new(int32(2))}},
++			expectedNumerator:   2,
++			expectedDenominator: 2,
++		},
++		{
++			desc:                "fraction with negative numerator",
++			filter:              &gatev1.HTTPRequestMirrorFilter{Fraction: &gatev1.Fraction{Numerator: -1, Denominator: new(int32(2))}},
++			expectedNumerator:   0,
++			expectedDenominator: 2,
++		},
++	}
++
++	for _, test := range testCases {
++		t.Run(test.desc, func(t *testing.T) {
++			t.Parallel()
++
++			numerator, denominator := requestMirrorFraction(test.filter)
++			assert.Equal(t, test.expectedNumerator, numerator)
++			assert.Equal(t, test.expectedDenominator, denominator)
++		})
++	}
++}
+diff --git a/pkg/provider/kubernetes/gateway/kubernetes_test.go b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+index 7b1fdd9..03f456d 100644
+--- a/pkg/provider/kubernetes/gateway/kubernetes_test.go
++++ b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+@@ -3268,6 +3268,231 @@ func TestLoadHTTPRoutes(t *testing.T) {
+ 				},
+ 			},
+ 		},
++		{
++			desc:  "Simple HTTPRoute, request mirrors mixed with other filters",
++			paths: []string{"services.yml", "httproute/filter_request_mirror.yml"},
++			entryPoints: map[string]Entrypoint{"web": {
++				Address: ":80",
++			}},
++			expected: &dynamic.Configuration{
++				UDP: &dynamic.UDPConfiguration{
++					Routers:  map[string]*dynamic.UDPRouter{},
++					Services: map[string]*dynamic.UDPService{},
++				},
++				TCP: &dynamic.TCPConfiguration{
++					Routers:           map[string]*dynamic.TCPRouter{},
++					Middlewares:       map[string]*dynamic.TCPMiddleware{},
++					Services:          map[string]*dynamic.TCPService{},
++					ServersTransports: map[string]*dynamic.TCPServersTransport{},
++				},
++				HTTP: &dynamic.HTTPConfiguration{
++					Routers: map[string]*dynamic.Router{
++						"listener-web-http-5b3226d4ebd42b7200f1": {
++							EntryPoints: []string{"web"},
++							Rule:        `Host("*")`,
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664": {
++							ParentRefs:  []string{"listener-web-http-5b3226d4ebd42b7200f1"},
++							Service:     "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-wrr",
++							Rule:        `Host("example.org") && PathPrefix("/")`,
++							Priority:    13,
++							RuleSyntax:  "default",
++							Middlewares: []string{"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestmirror-0", "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestheadermodifier-1", "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestmirror-2"},
++						},
++					},
++					Middlewares: map[string]*dynamic.Middleware{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestmirror-0": {
++							RequestMirror: &dynamic.RequestMirror{
++								Service:     "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestmirror-0-svc-default-whoami2-0",
++								Numerator:   1,
++								Denominator: 1,
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestheadermodifier-1": {
++							RequestHeaderModifier: &dynamic.HeaderModifier{
++								Set: map[string]string{"X-Foo": "Bar"},
++								Add: map[string]string{},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestmirror-2": {
++							RequestMirror: &dynamic.RequestMirror{
++								Service:     "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestmirror-2-svc-default-whoami-0",
++								Numerator:   50,
++								Denominator: 100,
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-svc-default-whoami-0-requestmirror-0": {
++							RequestMirror: &dynamic.RequestMirror{
++								Service:     "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-svc-default-whoami-0-requestmirror-0-svc-default-whoami2-0",
++								Numerator:   1,
++								Denominator: 4,
++							},
++						},
++					},
++					Services: map[string]*dynamic.Service{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-wrr": {
++							Weighted: &dynamic.WeightedRoundRobin{
++								Services: []dynamic.WRRService{
++									{
++										Name:   "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-svc-default-whoami-0",
++										Weight: new(1),
++									},
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-svc-default-whoami-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.1:80",
++									},
++									{
++										URL: "http://10.10.0.2:80",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++							Middlewares: []string{"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-svc-default-whoami-0-requestmirror-0"},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestmirror-0-svc-default-whoami2-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.3:8080",
++									},
++									{
++										URL: "http://10.10.0.4:8080",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestmirror-2-svc-default-whoami-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.1:80",
++									},
++									{
++										URL: "http://10.10.0.2:80",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-svc-default-whoami-0-requestmirror-0-svc-default-whoami2-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.3:8080",
++									},
++									{
++										URL: "http://10.10.0.4:8080",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++						},
++					},
++					ServersTransports: map[string]*dynamic.ServersTransport{},
++				},
++				TLS: &dynamic.TLSConfiguration{
++					Options: map[string]tls.Options{},
++				},
++			},
++		},
++		{
++			desc:  "Simple HTTPRoute, request mirror to a missing service is dropped",
++			paths: []string{"services.yml", "httproute/filter_request_mirror_missing_service.yml"},
++			entryPoints: map[string]Entrypoint{"web": {
++				Address: ":80",
++			}},
++			expected: &dynamic.Configuration{
++				UDP: &dynamic.UDPConfiguration{
++					Routers:  map[string]*dynamic.UDPRouter{},
++					Services: map[string]*dynamic.UDPService{},
++				},
++				TCP: &dynamic.TCPConfiguration{
++					Routers:           map[string]*dynamic.TCPRouter{},
++					Middlewares:       map[string]*dynamic.TCPMiddleware{},
++					Services:          map[string]*dynamic.TCPService{},
++					ServersTransports: map[string]*dynamic.TCPServersTransport{},
++				},
++				HTTP: &dynamic.HTTPConfiguration{
++					Routers: map[string]*dynamic.Router{
++						"listener-web-http-5b3226d4ebd42b7200f1": {
++							EntryPoints: []string{"web"},
++							Rule:        `Host("*")`,
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664": {
++							ParentRefs:  []string{"listener-web-http-5b3226d4ebd42b7200f1"},
++							Service:     "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-wrr",
++							Rule:        `Host("example.org") && PathPrefix("/")`,
++							Priority:    13,
++							RuleSyntax:  "default",
++							Middlewares: []string{"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestheadermodifier-1"},
++						},
++					},
++					Middlewares: map[string]*dynamic.Middleware{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-requestheadermodifier-1": {
++							RequestHeaderModifier: &dynamic.HeaderModifier{
++								Set: map[string]string{"X-Foo": "Bar"},
++								Add: map[string]string{},
++							},
++						},
++					},
++					Services: map[string]*dynamic.Service{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-wrr": {
++							Weighted: &dynamic.WeightedRoundRobin{
++								Services: []dynamic.WRRService{
++									{
++										Name:   "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-svc-default-whoami-0",
++										Weight: new(1),
++									},
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-c683caccb22c43e5e664-svc-default-whoami-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.1:80",
++									},
++									{
++										URL: "http://10.10.0.2:80",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++						},
++					},
++					ServersTransports: map[string]*dynamic.ServersTransport{},
++				},
++				TLS: &dynamic.TLSConfiguration{
++					Options: map[string]tls.Options{},
++				},
++			},
++		},
+ 		{
+ 			desc:  "Simple HTTPRoute, response header modifier",
+ 			paths: []string{"services.yml", "httproute/filter_response_header_modifier.yml"},

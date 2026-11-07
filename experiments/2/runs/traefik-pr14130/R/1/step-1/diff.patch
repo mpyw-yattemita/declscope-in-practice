@@ -1,0 +1,514 @@
+diff --git a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+index 2ce9432..40778bb 100644
+--- a/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
++++ b/docs/content/reference/routing-configuration/kubernetes/gateway-api.md
+@@ -628,6 +628,47 @@ For more information on service-level middlewares, see [service middlewares](../
+         prefix: /api
+     ```
+ 
++#### Timeouts
++
++An HTTPRoute rule can set timeouts with the `timeouts` field ([GEP-1742](https://gateway-api.sigs.k8s.io/geps/gep-1742/)):
++
++| Field | Traefik behavior |
++|-------|------------------|
++| `request` | Sets the read and write timeouts of the routers created for the rule. The timeout covers the whole request, from the client to the backend and back. |
++| `backendRequest` | Sets `forwardingTimeouts.responseHeaderTimeout` on a ServersTransport for each Kubernetes `Service` backend of the rule. The other forwarding timeouts keep their default values. |
++
++A duration of `0s` disables the timeout.
++
++!!! note "Reading the response body"
++
++    The `backendRequest` timeout stops when the backend sends its response headers. It does not limit how long reading the response body takes.
++
++```yaml
++---
++apiVersion: gateway.networking.k8s.io/v1
++kind: HTTPRoute
++metadata:
++  name: whoami
++  namespace: default
++spec:
++  parentRefs:
++    - name: traefik
++      sectionName: http
++      kind: Gateway
++
++  hostnames:
++    - whoami.localhost
++
++  rules:
++    - timeouts:
++        request: 10s
++        backendRequest: 5s
++      backendRefs:
++        - name: whoami
++          namespace: default
++          port: 80
++```
++
+ ### GRPC
+ 
+ The `GRPCRoute` is an extended resource in the Gateway API specification, designed to define how GRPC traffic should be routed within a Kubernetes cluster. 
+diff --git a/pkg/provider/kubernetes/gateway/features.go b/pkg/provider/kubernetes/gateway/features.go
+index 3c2ea4b..30d26d2 100644
+--- a/pkg/provider/kubernetes/gateway/features.go
++++ b/pkg/provider/kubernetes/gateway/features.go
+@@ -71,6 +71,7 @@ func extendedHTTPRouteFeatures() sets.Set[features.Feature] {
+ 		features.HTTPRouteParentRefPortFeature,
+ 		features.HTTPRouteCORS,
+ 		features.HTTPRouteRequestTimeoutFeature,
++		features.HTTPRouteBackendTimeoutFeature,
+ 	)
+ }
+ 
+diff --git a/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_request_timeout.yml b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_request_timeout.yml
+new file mode 100644
+index 0000000..8130d7e
+--- /dev/null
++++ b/pkg/provider/kubernetes/gateway/fixtures/httproute/with_backend_request_timeout.yml
+@@ -0,0 +1,99 @@
++---
++kind: GatewayClass
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway-class
++spec:
++  controllerName: traefik.io/gateway-controller
++
++---
++kind: Gateway
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: my-gateway
++  namespace: default
++spec:
++  gatewayClassName: my-gateway-class
++  listeners: # Use GatewayClass defaults for listener definition.
++    - name: http
++      protocol: HTTP
++      port: 80
++      allowedRoutes:
++        kinds:
++          - kind: HTTPRoute
++            group: gateway.networking.k8s.io
++        namespaces:
++          from: Same
++
++---
++kind: HTTPRoute
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: http-app-1
++  namespace: default
++spec:
++  parentRefs:
++    - name: my-gateway
++      kind: Gateway
++      group: gateway.networking.k8s.io
++  hostnames:
++    - "foo.com"
++  rules:
++    - matches:
++        - path:
++            type: Exact
++            value: /bar
++      timeouts:
++        request: 10s
++        backendRequest: 5s
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++          kind: Service
++          group: ""
++        - name: whoami2
++          port: 8080
++          weight: 1
++          kind: Service
++          group: ""
++    - matches:
++        - path:
++            type: Exact
++            value: /baz
++      timeouts:
++        request: 10s
++        backendRequest: 0s
++      backendRefs:
++        - name: whoami
++          port: 80
++          weight: 1
++          kind: Service
++          group: ""
++
++---
++kind: BackendTLSPolicy
++apiVersion: gateway.networking.k8s.io/v1
++metadata:
++  name: policy-1
++  namespace: default
++spec:
++  targetRefs:
++    - group: ""
++      kind: Service
++      name: whoami2
++  validation:
++    hostname: whoami2
++    caCertificateRefs:
++      - group: ""
++        kind: ConfigMap
++        name: ca-file
++
++---
++apiVersion: v1
++kind: ConfigMap
++metadata:
++  name: ca-file
++  namespace: default
++data:
++  ca.crt: "CA1"
+diff --git a/pkg/provider/kubernetes/gateway/grpcroute.go b/pkg/provider/kubernetes/gateway/grpcroute.go
+index 34699cf..c2198d5 100644
+--- a/pkg/provider/kubernetes/gateway/grpcroute.go
++++ b/pkg/provider/kubernetes/gateway/grpcroute.go
+@@ -428,7 +428,7 @@ func (p *Provider) loadGRPCServers(gatewayName, gatewayNamespace, namespace stri
+ 			}
+ 
+ 			var resolvedRefCondition metav1.Condition
+-			serversTransport, resolvedRefCondition = p.loadServersTransport(namespace, policy)
++			serversTransport, resolvedRefCondition = p.loadBackendTLSPolicyServersTransport(namespace, policy)
+ 
+ 			policyAncestorStatus.Conditions = append(policyAncestorStatus.Conditions, resolvedRefCondition)
+ 			if resolvedRefCondition.Status == metav1.ConditionFalse {
+diff --git a/pkg/provider/kubernetes/gateway/httproute.go b/pkg/provider/kubernetes/gateway/httproute.go
+index e3efdc4..5c74ea2 100644
+--- a/pkg/provider/kubernetes/gateway/httproute.go
++++ b/pkg/provider/kubernetes/gateway/httproute.go
+@@ -140,23 +140,8 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 	}
+ 
+ 	for ri, routeRule := range route.Spec.Rules {
+-		var respondingTimeouts *dynamic.RouterRespondingTimeouts
+-		if routeRule.Timeouts != nil {
+-			if routeRule.Timeouts.Request != nil {
+-				// The CRD CEL validation guarantees a valid GEP-2257 duration string.
+-				// Both timeouts count from the same instant, so they share a single deadline bounding the whole request.
+-				// A zero duration disables the timeout, lifting the entrypoint read and write deadlines, as GEP-1742 requires.
+-				if d, err := time.ParseDuration(string(*routeRule.Timeouts.Request)); err != nil {
+-					// TODO: Maybe it would be better to handle the error and put the routers in error.
+-					log.Ctx(ctx).Error().Err(err).Msg("Ignoring HTTPRoute timeouts.request: invalid duration")
+-				} else {
+-					respondingTimeouts = &dynamic.RouterRespondingTimeouts{
+-						ReadTimeout:  new(ptypes.Duration(d)),
+-						WriteTimeout: new(ptypes.Duration(d)),
+-					}
+-				}
+-			}
+-		}
++		respondingTimeouts := routerRespondingTimeouts(ctx, routeRule.Timeouts)
++		backendRequestTimeout := parseBackendRequestTimeout(ctx, routeRule.Timeouts)
+ 
+ 		for _, match := range routeRule.Matches {
+ 			rule, priority := buildMatchRule(hostnames, match)
+@@ -217,7 +202,7 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 
+ 			default:
+ 				var serviceCondition *metav1.Condition
+-				router.Service, serviceCondition = p.loadWRRService(ctx, gatewayName, gatewayNamespace, listener, routerConf, routerName, routeRule, route, match.Path, statusReport)
++				router.Service, serviceCondition = p.loadWRRService(ctx, gatewayName, gatewayNamespace, listener, routerConf, routerName, routeRule, backendRequestTimeout, route, match.Path, statusReport)
+ 				if serviceCondition != nil {
+ 					condition = *serviceCondition
+ 				}
+@@ -233,7 +218,46 @@ func (p *Provider) loadHTTPRouteConfiguration(ctx context.Context, gatewayName,
+ 	return routers, condition
+ }
+ 
+-func (p *Provider) loadWRRService(ctx context.Context, gatewayName, gatewayNamespace string, listener gatewayListener, conf *dynamic.Configuration, routerName string, routeRule gatev1.HTTPRouteRule, route *gatev1.HTTPRoute, pathMatch *gatev1.HTTPPathMatch, statusReport *statusReport) (string, *metav1.Condition) {
++// routerRespondingTimeouts returns the router responding timeouts for the request timeout of an HTTPRoute rule,
++// or nil when it has none.
++func routerRespondingTimeouts(ctx context.Context, timeouts *gatev1.HTTPRouteTimeouts) *dynamic.RouterRespondingTimeouts {
++	if timeouts == nil || timeouts.Request == nil {
++		return nil
++	}
++
++	// The CRD CEL validation guarantees a valid GEP-2257 duration string.
++	// Both timeouts count from the same instant, so they share a single deadline bounding the whole request.
++	// A zero duration disables the timeout, lifting the entrypoint read and write deadlines, as GEP-1742 requires.
++	d, err := time.ParseDuration(string(*timeouts.Request))
++	if err != nil {
++		// TODO: Maybe it would be better to handle the error and put the routers in error.
++		log.Ctx(ctx).Error().Err(err).Msg("Ignoring HTTPRoute timeouts.request: invalid duration")
++		return nil
++	}
++
++	return &dynamic.RouterRespondingTimeouts{
++		ReadTimeout:  new(ptypes.Duration(d)),
++		WriteTimeout: new(ptypes.Duration(d)),
++	}
++}
++
++// parseBackendRequestTimeout returns the backend request timeout of an HTTPRoute rule, or zero when it has none.
++func parseBackendRequestTimeout(ctx context.Context, timeouts *gatev1.HTTPRouteTimeouts) time.Duration {
++	if timeouts == nil || timeouts.BackendRequest == nil {
++		return 0
++	}
++
++	// The CRD CEL validation guarantees a valid GEP-2257 duration string.
++	d, err := time.ParseDuration(string(*timeouts.BackendRequest))
++	if err != nil {
++		log.Ctx(ctx).Error().Err(err).Msg("Ignoring HTTPRoute timeouts.backendRequest: invalid duration")
++		return 0
++	}
++
++	return d
++}
++
++func (p *Provider) loadWRRService(ctx context.Context, gatewayName, gatewayNamespace string, listener gatewayListener, conf *dynamic.Configuration, routerName string, routeRule gatev1.HTTPRouteRule, backendRequestTimeout time.Duration, route *gatev1.HTTPRoute, pathMatch *gatev1.HTTPPathMatch, statusReport *statusReport) (string, *metav1.Condition) {
+ 	name := routerName + "-wrr"
+ 	if _, ok := conf.HTTP.Services[name]; ok {
+ 		return name, nil
+@@ -263,7 +287,7 @@ func (p *Provider) loadWRRService(ctx context.Context, gatewayName, gatewayNames
+ 	for bi, backendRef := range routeRule.BackendRefs {
+ 		// TODO in loadService we need to always return a non-nil serviceName even when there is an error which is not the
+ 		// usual defacto.
+-		svcName, errCondition := p.loadService(gatewayName, gatewayNamespace, listener, conf, routerName, route, bi, backendRef, pathMatch, statusReport)
++		svcName, errCondition := p.loadService(gatewayName, gatewayNamespace, listener, conf, routerName, route, bi, backendRef, backendRequestTimeout, pathMatch, statusReport)
+ 		weight := new(int(ptr.Deref(backendRef.Weight, 1)))
+ 		if errCondition != nil {
+ 			log.Ctx(ctx).Error().
+@@ -290,7 +314,8 @@ func (p *Provider) loadWRRService(ctx context.Context, gatewayName, gatewayNames
+ 
+ // loadService returns a dynamic.Service config corresponding to the given gatev1.HTTPBackendRef.
+ // Note that the returned dynamic.Service config can be nil (for cross-provider, internal services, and backendFunc).
+-func (p *Provider) loadService(gatewayName, gatewayNamespace string, listener gatewayListener, conf *dynamic.Configuration, routerName string, route *gatev1.HTTPRoute, backendIndex int, backendRef gatev1.HTTPBackendRef, pathMatch *gatev1.HTTPPathMatch, statusReport *statusReport) (string, *metav1.Condition) {
++// A non-zero backendRequestTimeout bounds the wait for the response headers of a Kubernetes Service backend.
++func (p *Provider) loadService(gatewayName, gatewayNamespace string, listener gatewayListener, conf *dynamic.Configuration, routerName string, route *gatev1.HTTPRoute, backendIndex int, backendRef gatev1.HTTPBackendRef, backendRequestTimeout time.Duration, pathMatch *gatev1.HTTPPathMatch, statusReport *statusReport) (string, *metav1.Condition) {
+ 	kind := ptr.Deref(backendRef.Kind, kindService)
+ 
+ 	group := groupCore
+@@ -378,6 +403,19 @@ func (p *Provider) loadService(gatewayName, gatewayNamespace string, listener ga
+ 		return serviceName, errCondition
+ 	}
+ 
++	// GEP-1742 backendRequest bounds a single backend round trip. Waiting for the response headers is the part of
++	// it a ServersTransport can bound without also cutting long-lived response bodies (e.g. streaming).
++	// A zero duration means no timeout, which needs no dedicated ServersTransport.
++	if backendRequestTimeout > 0 {
++		if st == nil {
++			st = &dynamic.ServersTransport{}
++		}
++
++		st.ForwardingTimeouts = &dynamic.ForwardingTimeouts{}
++		st.ForwardingTimeouts.SetDefaults()
++		st.ForwardingTimeouts.ResponseHeaderTimeout = ptypes.Duration(backendRequestTimeout)
++	}
++
+ 	if st != nil {
+ 		lb.ServersTransport = serviceName
+ 		conf.HTTP.ServersTransports[serviceName] = st
+@@ -589,7 +627,7 @@ func (p *Provider) loadHTTPServers(gatewayName, gatewayNamespace, namespace stri
+ 			}
+ 
+ 			var resolvedRefCondition metav1.Condition
+-			serversTransport, resolvedRefCondition = p.loadServersTransport(namespace, policy)
++			serversTransport, resolvedRefCondition = p.loadBackendTLSPolicyServersTransport(namespace, policy)
+ 
+ 			policyAncestorStatus.Conditions = append(policyAncestorStatus.Conditions, resolvedRefCondition)
+ 			if resolvedRefCondition.Status == metav1.ConditionFalse {
+@@ -655,7 +693,7 @@ func (p *Provider) loadHTTPServers(gatewayName, gatewayNamespace, namespace stri
+ 	return lb, serversTransport, nil
+ }
+ 
+-func (p *Provider) loadServersTransport(namespace string, policy *gatev1.BackendTLSPolicy) (*dynamic.ServersTransport, metav1.Condition) {
++func (p *Provider) loadBackendTLSPolicyServersTransport(namespace string, policy *gatev1.BackendTLSPolicy) (*dynamic.ServersTransport, metav1.Condition) {
+ 	st := &dynamic.ServersTransport{
+ 		ServerName: string(policy.Spec.Validation.Hostname),
+ 	}
+diff --git a/pkg/provider/kubernetes/gateway/kubernetes_test.go b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+index 58b9cd3..3fe0be6 100644
+--- a/pkg/provider/kubernetes/gateway/kubernetes_test.go
++++ b/pkg/provider/kubernetes/gateway/kubernetes_test.go
+@@ -1343,6 +1343,7 @@ func TestLoadHTTPRoutes(t *testing.T) {
+ 								ResponseForwarding: &dynamic.ResponseForwarding{
+ 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+ 								},
++								ServersTransport: "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0",
+ 							},
+ 						},
+ 						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74-svc-default-whoami-0": {
+@@ -1377,10 +1378,174 @@ func TestLoadHTTPRoutes(t *testing.T) {
+ 								ResponseForwarding: &dynamic.ResponseForwarding{
+ 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+ 								},
++								ServersTransport: "httproute-default-http-app-1-gw-default-my-gateway-ep-web-2-c465583028340322911a-svc-default-whoami-0",
++							},
++						},
++					},
++					ServersTransports: map[string]*dynamic.ServersTransport{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0": {
++							ForwardingTimeouts: &dynamic.ForwardingTimeouts{
++								DialTimeout:           ptypes.Duration(30 * time.Second),
++								ResponseHeaderTimeout: ptypes.Duration(5 * time.Second),
++								IdleConnTimeout:       ptypes.Duration(90 * time.Second),
++								PingTimeout:           ptypes.Duration(15 * time.Second),
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-2-c465583028340322911a-svc-default-whoami-0": {
++							ForwardingTimeouts: &dynamic.ForwardingTimeouts{
++								DialTimeout:           ptypes.Duration(30 * time.Second),
++								ResponseHeaderTimeout: ptypes.Duration(5 * time.Second),
++								IdleConnTimeout:       ptypes.Duration(90 * time.Second),
++								PingTimeout:           ptypes.Duration(15 * time.Second),
++							},
++						},
++					},
++				},
++				TLS: &dynamic.TLSConfiguration{
++					Options: map[string]tls.Options{},
++				},
++			},
++		},
++		{
++			desc:  "HTTPRoute with request and backendRequest timeouts",
++			paths: []string{"services.yml", "httproute/with_backend_request_timeout.yml"},
++			entryPoints: map[string]Entrypoint{"web": {
++				Address: ":80",
++			}},
++			expected: &dynamic.Configuration{
++				UDP: &dynamic.UDPConfiguration{
++					Routers:  map[string]*dynamic.UDPRouter{},
++					Services: map[string]*dynamic.UDPService{},
++				},
++				TCP: &dynamic.TCPConfiguration{
++					Routers:           map[string]*dynamic.TCPRouter{},
++					Middlewares:       map[string]*dynamic.TCPMiddleware{},
++					Services:          map[string]*dynamic.TCPService{},
++					ServersTransports: map[string]*dynamic.TCPServersTransport{},
++				},
++				HTTP: &dynamic.HTTPConfiguration{
++					Routers: map[string]*dynamic.Router{
++						"listener-web-http-5b3226d4ebd42b7200f1": {
++							EntryPoints: []string{"web"},
++							Rule:        `Host("*")`,
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93": {
++							ParentRefs:         []string{"listener-web-http-5b3226d4ebd42b7200f1"},
++							Service:            "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-wrr",
++							Rule:               `Host("foo.com") && Path("/bar")`,
++							Priority:           100009,
++							RuleSyntax:         "default",
++							RespondingTimeouts: &dynamic.RouterRespondingTimeouts{ReadTimeout: new(ptypes.Duration(10 * time.Second)), WriteTimeout: new(ptypes.Duration(10 * time.Second))},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74": {
++							ParentRefs:         []string{"listener-web-http-5b3226d4ebd42b7200f1"},
++							Service:            "httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74-wrr",
++							Rule:               `Host("foo.com") && Path("/baz")`,
++							Priority:           100008,
++							RuleSyntax:         "default",
++							RespondingTimeouts: &dynamic.RouterRespondingTimeouts{ReadTimeout: new(ptypes.Duration(10 * time.Second)), WriteTimeout: new(ptypes.Duration(10 * time.Second))},
++						},
++					},
++					Middlewares: map[string]*dynamic.Middleware{},
++					Services: map[string]*dynamic.Service{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-wrr": {
++							Weighted: &dynamic.WeightedRoundRobin{
++								Services: []dynamic.WRRService{
++									{
++										Name:   "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0",
++										Weight: new(1),
++									},
++									{
++										Name:   "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami2-1",
++										Weight: new(1),
++									},
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74-wrr": {
++							Weighted: &dynamic.WeightedRoundRobin{
++								Services: []dynamic.WRRService{
++									{
++										Name:   "httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74-svc-default-whoami-0",
++										Weight: new(1),
++									},
++								},
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.1:80",
++									},
++									{
++										URL: "http://10.10.0.2:80",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++								ServersTransport: "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0",
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami2-1": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "https://10.10.0.3:8080",
++									},
++									{
++										URL: "https://10.10.0.4:8080",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++								ServersTransport: "httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami2-1",
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-1-6bebfd4e0e692b59df74-svc-default-whoami-0": {
++							LoadBalancer: &dynamic.ServersLoadBalancer{
++								Strategy: dynamic.BalancerStrategyWRR,
++								Servers: []dynamic.Server{
++									{
++										URL: "http://10.10.0.1:80",
++									},
++									{
++										URL: "http://10.10.0.2:80",
++									},
++								},
++								PassHostHeader: new(true),
++								ResponseForwarding: &dynamic.ResponseForwarding{
++									FlushInterval: ptypes.Duration(100 * time.Millisecond),
++								},
++							},
++						},
++					},
++					ServersTransports: map[string]*dynamic.ServersTransport{
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami-0": {
++							ForwardingTimeouts: &dynamic.ForwardingTimeouts{
++								DialTimeout:           ptypes.Duration(30 * time.Second),
++								ResponseHeaderTimeout: ptypes.Duration(5 * time.Second),
++								IdleConnTimeout:       ptypes.Duration(90 * time.Second),
++								PingTimeout:           ptypes.Duration(15 * time.Second),
++							},
++						},
++						"httproute-default-http-app-1-gw-default-my-gateway-ep-web-0-799bcbf0c2317c5d1c93-svc-default-whoami2-1": {
++							ServerName: "whoami2",
++							RootCAs:    []types.FileOrContent{"CA1"},
++							ForwardingTimeouts: &dynamic.ForwardingTimeouts{
++								DialTimeout:           ptypes.Duration(30 * time.Second),
++								ResponseHeaderTimeout: ptypes.Duration(5 * time.Second),
++								IdleConnTimeout:       ptypes.Duration(90 * time.Second),
++								PingTimeout:           ptypes.Duration(15 * time.Second),
+ 							},
+ 						},
+ 					},
+-					ServersTransports: map[string]*dynamic.ServersTransport{},
+ 				},
+ 				TLS: &dynamic.TLSConfiguration{
+ 					Options: map[string]tls.Options{},
